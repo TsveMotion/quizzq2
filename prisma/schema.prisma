@@ -1,0 +1,20 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String
+  name       String?
+  role       String   @default("member") // member, student, teacher, schooladmin, superadmin
+  powerLevel Int      @default(1) // 1-5 power level
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
