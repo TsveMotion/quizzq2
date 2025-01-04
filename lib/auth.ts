@@ -1,12 +1,14 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-123';
 
 interface JWTPayload {
   userId: string;
   email: string;
-  iat: number;
-  exp: number;
+  role: string;
+  powerLevel: number;
+  iat?: number;
+  exp?: number;
 }
 
 export async function verifyAuth(token: string): Promise<JWTPayload> {
@@ -18,5 +20,17 @@ export async function verifyAuth(token: string): Promise<JWTPayload> {
   } catch (error) {
     console.error('Token verification failed:', error);
     throw new Error('Invalid token');
+  }
+}
+
+export function createToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+}
+
+export function decodeToken(token: string): JWTPayload | null {
+  try {
+    return jwt.decode(token) as JWTPayload;
+  } catch {
+    return null;
   }
 }

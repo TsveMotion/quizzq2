@@ -9,6 +9,9 @@ export async function GET() {
     const users = await prisma.user.findMany({
       orderBy: {
         createdAt: 'desc'
+      },
+      include: {
+        school: true
       }
     });
 
@@ -25,7 +28,7 @@ export async function GET() {
 // POST /api/admin/users - Create a new user
 export async function POST(req: Request) {
   try {
-    const { name, email, password, role } = await req.json();
+    const { name, email, password, role, schoolId } = await req.json();
 
     // Validate role
     if (!Object.values(ROLES).includes(role)) {
@@ -47,6 +50,14 @@ export async function POST(req: Request) {
       [ROLES.SUPERADMIN]: 5,
     }[role] || 1;
 
+    // If role is school-related, validate schoolId
+    if ((role === ROLES.STUDENT || role === ROLES.TEACHER || role === ROLES.SCHOOLADMIN) && !schoolId) {
+      return NextResponse.json(
+        { error: 'School ID is required for school roles' },
+        { status: 400 }
+      );
+    }
+
     const user = await prisma.user.create({
       data: {
         name,
@@ -54,12 +65,22 @@ export async function POST(req: Request) {
         password: hashedPassword,
         role,
         powerLevel,
+        schoolId: schoolId || null,
       },
+      include: {
+        school: true
+      }
     });
 
     return NextResponse.json({ user }, { status: 201 });
   } catch (error) {
     console.error('Failed to create user:', error);
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Email already exists' },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
       { error: 'Failed to create user' },
       { status: 500 }
