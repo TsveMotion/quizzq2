@@ -332,7 +332,7 @@ export default function StudentDashboard({ user }: { user: any }) {
                   </div>
                   
                   <div className="space-y-6">
-                    {assignment.questions.map((question, index) => 
+                    {assignment.questions?.map((question, index) => 
                       renderQuestion(question, index, assignment)
                     )}
                   </div>

@@ -36,6 +36,7 @@ export async function GET() {
         },
         assignments: {
           include: {
+            questions: true,
             submissions: {
               where: {
                 studentId: session.userId
