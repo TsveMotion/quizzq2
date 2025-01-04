@@ -1,6 +1,10 @@
 import jwt from 'jsonwebtoken';
 import * as jose from 'jose';
 import { cookies } from 'next/headers';
+import { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import prisma from '@/lib/prisma';
+import { compare } from 'bcrypt';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-123';
 const EDGE_JWT_SECRET = new TextEncoder().encode(JWT_SECRET);
@@ -14,6 +18,77 @@ interface JWTPayload {
   iat?: number;
   exp?: number;
 }
+
+export const authOptions: NextAuthOptions = {
+  pages: {
+    signIn: '/login',
+  },
+  session: {
+    strategy: 'jwt',
+  },
+  providers: [
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Invalid credentials');
+        }
+
+        const user = await prisma.user.findUnique({
+          where: {
+            email: credentials.email
+          }
+        });
+
+        if (!user) {
+          throw new Error('No user found');
+        }
+
+        const isPasswordValid = await compare(credentials.password, user.password);
+
+        if (!isPasswordValid) {
+          throw new Error('Invalid password');
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          schoolId: user.schoolId,
+        };
+      }
+    })
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        return {
+          ...token,
+          id: user.id,
+          role: user.role,
+          schoolId: user.schoolId,
+        };
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.id,
+          role: token.role,
+          schoolId: token.schoolId,
+        }
+      };
+    }
+  }
+};
 
 export async function verifyAuth(token: string): Promise<JWTPayload> {
   try {

@@ -1,31 +1,22 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyAuthEdge } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 
 export async function middleware(request: NextRequest) {
   console.log('\n--- Middleware Start ---');
   console.log('Path:', request.nextUrl.pathname);
-  
-  const token = request.cookies.get('token')?.value;
-  console.log('Token present:', !!token);
-  
-  if (token) {
-    console.log('Token preview:', token.substring(0, 20) + '...');
-  }
+
+  const session = await getToken({ req: request });
+  console.log('Session present:', !!session);
 
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || 
                     request.nextUrl.pathname.startsWith('/signup');
 
   // Handle auth pages (login/signup)
   if (isAuthPage) {
-    if (token) {
-      try {
-        await verifyAuthEdge(token);
-        console.log('Valid token on auth page, redirecting to dashboard');
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-      } catch (error) {
-        console.log('Invalid token on auth page:', error.message);
-      }
+    if (session) {
+      console.log('User already logged in, redirecting to dashboard');
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
     console.log('Allowing access to auth page');
     return NextResponse.next();
@@ -33,24 +24,21 @@ export async function middleware(request: NextRequest) {
 
   // Handle protected routes
   if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    if (!token) {
-      console.log('No token found, redirecting to login');
+    if (!session) {
+      console.log('No session found, redirecting to login');
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    try {
-      const payload = await verifyAuthEdge(token);
-      console.log('Token verified for dashboard access:', payload);
-      return NextResponse.next();
-    } catch (error) {
-      console.log('Token verification failed:', error.message);
-      const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.delete('token');
-      return response;
+    // Redirect /dashboard/superadmin to /dashboard
+    if (request.nextUrl.pathname === '/dashboard/superadmin') {
+      console.log('Redirecting superadmin to main dashboard');
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
+
+    console.log('Access granted to dashboard');
+    return NextResponse.next();
   }
 
-  console.log('--- Middleware End ---\n');
   return NextResponse.next();
 }
 

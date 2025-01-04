@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Brain, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Link } from "next/link";
 
 const sampleResponses = [
   {
@@ -181,7 +182,7 @@ export function DemoAIHelper() {
             </AlertDescription>
           </Alert>
           <Button asChild className="w-full mt-4">
-            <a href="/signup">Sign Up Now</a>
+            <Link href="/signup">Sign Up Now</Link>
           </Button>
         </div>
       ) : (

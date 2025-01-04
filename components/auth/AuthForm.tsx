@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
+import { BookOpen, Brain, GraduationCap, Lock, Mail, Target, User } from "lucide-react";
+import Link from "next/link";
 
 const authSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -53,45 +55,53 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
     setIsLoading(true);
     
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup';
-      const payload = isLogin 
-        ? { email, password }
-        : { email, password, name };
-
-      console.log('Submitting to:', endpoint);
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        credentials: 'include',
-      });
-
-      const data = await response.json();
-      console.log('Response:', data);
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Something went wrong');
-      }
-
-      toast({
-        title: isLogin ? "Success" : "Account created!",
-        description: isLogin ? "Welcome back!" : "Please login with your new account.",
-      });
-
       if (isLogin) {
-        console.log('Login successful, redirecting...');
-        // Use window.location for a full page reload
-        window.location.href = '/dashboard';
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+          credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Login failed');
+        }
+
+        toast({
+          title: "Success",
+          description: "Welcome back!",
+        });
+
+        router.refresh();
+        router.push('/dashboard');
       } else {
+        const response = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name }),
+          credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Something went wrong');
+        }
+
+        toast({
+          title: "Account created!",
+          description: "Please login with your new account.",
+        });
+
         setIsLogin(true);
         setEmail('');
         setPassword('');
         setName('');
       }
-
     } catch (error) {
-      console.error('Form submission error:', error);
+      console.error('Auth error:', error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -103,93 +113,144 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
   };
 
   return (
-    <div className="w-full">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold">{isLogin ? 'Welcome Back' : 'Create Account'}</h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          {isLogin ? 'Enter your credentials to access your account' : 'Sign up for a new account to get started'}
-        </p>
+    <div className="min-h-screen w-full bg-background flex">
+      {/* Left side - Form */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 py-12">
+        <div className="w-full max-w-md mx-auto space-y-8">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold">
+              {isLogin ? 'Welcome Back!' : 'Create Account'}
+            </h1>
+            <p className="text-muted-foreground">
+              {isLogin 
+                ? 'Enter your credentials to access your account' 
+                : 'Join QUIZZQ and start your learning journey'}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {!isLogin && (
+              <div className="space-y-2">
+                <label htmlFor="name" className="block text-sm font-medium">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    placeholder="John Doe"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="pl-10 h-11"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-sm font-medium">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 h-11"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="password" className="block text-sm font-medium">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder={isLogin ? "Enter your password" : "Create a password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 h-11"
+                />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full h-11" variant="default">
+              {isLogin ? 'Sign In' : 'Create Account'}
+            </Button>
+          </form>
+
+          <div className="text-center space-y-1">
+            <p className="text-sm text-muted-foreground">
+              {isLogin ? "Don't have an account?" : "Already have an account?"}
+            </p>
+            <Button
+              variant="link"
+              className="text-primary font-semibold p-0 h-auto"
+              onClick={() => router.push(isLogin ? '/signup' : '/login')}
+            >
+              {isLogin ? 'Create Account' : 'Sign In'}
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <div className="bg-card rounded-lg border p-6 shadow-sm">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
-            <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">
-                Name
-              </label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={isLoading}
-                className="w-full"
-              />
+      {/* Right side - Features */}
+      <div className="hidden lg:block w-1/2 bg-muted/30 px-12 py-16">
+        <div className="max-w-lg mx-auto space-y-6">
+          <div className="flex items-start space-x-4">
+            <div className="mt-1 p-2 bg-primary/10 rounded-lg">
+              <BookOpen className="h-5 w-5 text-primary" />
             </div>
-          )}
-          
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="john@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={isLoading}
-              className="w-full"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium">
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={isLoading}
-              className="w-full"
-            />
+            <div>
+              <h3 className="font-semibold text-base">Smart Learning</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Personalized study paths tailored to your needs
+              </p>
+            </div>
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <span>Loading...</span>
-            ) : (
-              isLogin ? 'Login' : 'Sign Up'
-            )}
-          </Button>
-        </form>
+          <div className="flex items-start space-x-4">
+            <div className="mt-1 p-2 bg-primary/10 rounded-lg">
+              <Brain className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-base">AI-Powered</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Advanced AI technology for better learning outcomes
+              </p>
+            </div>
+          </div>
 
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setEmail('');
-              setPassword('');
-              setName('');
-            }}
-            className="text-sm text-blue-600 hover:underline"
-            disabled={isLoading}
-          >
-            {isLogin
-              ? "Don't have an account? Sign up"
-              : 'Already have an account? Login'}
-          </button>
+          <div className="flex items-start space-x-4">
+            <div className="mt-1 p-2 bg-primary/10 rounded-lg">
+              <Target className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-base">Track Progress</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Monitor your improvement with detailed analytics
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-4">
+            <div className="mt-1 p-2 bg-primary/10 rounded-lg">
+              <GraduationCap className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-base">Expert Content</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                High-quality questions from education experts
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

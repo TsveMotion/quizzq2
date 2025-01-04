@@ -1,107 +1,148 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Brain } from "lucide-react";
+import { 
+  Brain, 
+  Home,
+  Info,
+  Mail,
+  BookOpen,
+  LayoutDashboard,
+  LogOut,
+  LogIn,
+  UserPlus
+} from "lucide-react";
 import Link from "next/link";
-import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { useSession, signOut } from "next-auth/react";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export function Navbar() {
-  const router = useRouter();
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Make a request to check auth status
-        const response = await fetch('/api/auth/check', {
-          credentials: 'include'
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setIsAuthenticated(data.authenticated);
-        } else {
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        setIsAuthenticated(false);
-      }
-    };
-
-    checkAuth();
-  }, [pathname]);
+  const { data: session, status } = useSession();
 
   const handleLogout = async () => {
-    try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        setIsAuthenticated(false);
-        router.push('/login');
-        router.refresh();
-      }
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
+    await signOut({ 
+      redirect: false,
+      callbackUrl: '/'
+    });
   };
 
   return (
-    <nav className="border-b">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center space-x-2">
-            <Brain className="w-8 h-8 text-primary" />
-            <span className="font-bold text-xl">QUIZZQ</span>
-          </Link>
-
-          <div className="hidden md:flex items-center space-x-6">
-            <Link href="/courses" className="text-muted-foreground hover:text-foreground">
-              Courses
-            </Link>
-            <Link href="/assignments" className="text-muted-foreground hover:text-foreground">
-              Assignments
-            </Link>
-            <Link href="/ai-chat" className="text-muted-foreground hover:text-foreground">
-              AI Chat
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-center space-x-2">
+              <Brain className="h-8 w-8 text-primary" />
+              <span className="hidden font-bold sm:inline-block">
+                QUIZZQ
+              </span>
             </Link>
           </div>
 
+          {/* Navigation Links - Center */}
+          <nav className="mx-6 flex items-center space-x-4 lg:space-x-6">
+            <Link
+              href="/"
+              className={cn(
+                "transition-colors hover:text-foreground/80 text-sm font-medium flex items-center space-x-2",
+                pathname === "/" ? "text-foreground" : "text-foreground/60"
+              )}
+            >
+              <Home className="h-4 w-4" />
+              <span>Home</span>
+            </Link>
+            <Link
+              href="/about"
+              className={cn(
+                "transition-colors hover:text-foreground/80 text-sm font-medium flex items-center space-x-2",
+                pathname === "/about" ? "text-foreground" : "text-foreground/60"
+              )}
+            >
+              <Info className="h-4 w-4" />
+              <span>About</span>
+            </Link>
+            <Link
+              href="/contact"
+              className={cn(
+                "transition-colors hover:text-foreground/80 text-sm font-medium flex items-center space-x-2",
+                pathname === "/contact" ? "text-foreground" : "text-foreground/60"
+              )}
+            >
+              <Mail className="h-4 w-4" />
+              <span>Contact</span>
+            </Link>
+          </nav>
+
+          {/* Right Side - Auth Buttons */}
           <div className="flex items-center space-x-4">
-            {isAuthenticated ? (
+            <ModeToggle />
+            {status === 'loading' ? (
+              <div className="h-9 w-9 animate-pulse rounded-md bg-muted" />
+            ) : session?.user ? (
               <>
-                <Button variant="ghost" asChild>
-                  <Link href="/dashboard">View Dashboard</Link>
-                </Button>
-                <Button 
-                  onClick={handleLogout}
-                  variant="default"
-                  className="bg-primary hover:bg-primary/90"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className={cn(
+                    "transition-colors hover:text-foreground/80",
+                    pathname.startsWith("/dashboard") ? "text-foreground" : "text-foreground/60"
+                  )}
                 >
-                  Log Out
+                  <Link href="/dashboard">
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="text-foreground/60 hover:text-foreground/80"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="ghost" asChild>
-                  <Link href="/login">Login</Link>
-                </Button>
-                <Button 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   asChild
-                  className="bg-primary hover:bg-primary/90"
+                  className={cn(
+                    "transition-colors hover:text-foreground/80",
+                    pathname === "/login" ? "text-foreground" : "text-foreground/60"
+                  )}
                 >
-                  <Link href="/signup">Sign Up</Link>
+                  <Link href="/login">
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Login
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className={cn(
+                    "transition-colors hover:text-foreground/80",
+                    pathname === "/signup" ? "text-foreground" : "text-foreground/60"
+                  )}
+                >
+                  <Link href="/signup">
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Sign Up
+                  </Link>
                 </Button>
               </>
             )}
           </div>
         </div>
       </div>
-    </nav>
+    </header>
   );
 }
