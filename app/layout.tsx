@@ -5,13 +5,12 @@ import { Providers } from './providers';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
-import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'QuizzQ',
-  description: 'Your quiz application',
+  description: 'A modern quiz platform for education',
 };
 
 export default function RootLayout({
@@ -34,7 +33,6 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
-            <Toaster />
           </ThemeProvider>
         </Providers>
       </body>
