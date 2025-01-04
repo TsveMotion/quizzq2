@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { format } from 'date-fns';
+import ReactMarkdown from 'react-markdown';
 
 interface QuizQuestion {
   id: string;
@@ -64,6 +67,70 @@ export default function StudentDashboard({ user }: { user: any }) {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [showExplanation, setShowExplanation] = useState<Record<string, boolean>>({});
   const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle');
+  const [showAiHelper, setShowAiHelper] = useState(false);
+  const [messages, setMessages] = useState<Array<{
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+  }>>([
+    {
+      role: 'system',
+      content: "I'm your study helper! I can help you understand concepts and guide you to find answers, but I won't give direct answers to quiz questions."
+    }
+  ]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentMessage.trim() || isTyping) return;
+
+    const userMessage = currentMessage.trim();
+    setCurrentMessage('');
+    
+    // Add user message to chat
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    
+    setIsTyping(true);
+
+    try {
+      const response = await fetch('/api/student/ai-helper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: userMessage,
+          context: selectedAssignment ? {
+            subject: selectedAssignment.subject,
+            topic: selectedAssignment.topic,
+          } : undefined
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to get AI response');
+      
+      const data = await response.json();
+      
+      setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to get AI response. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'classes' || activeTab === 'assignments') {
@@ -419,6 +486,110 @@ export default function StudentDashboard({ user }: { user: any }) {
           )}
         </div>
       )}
+
+      <Dialog open={showAiHelper} onOpenChange={setShowAiHelper}>
+        <DialogContent className="max-w-2xl h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>AI Study Helper</span>
+              {isTyping && (
+                <span className="text-sm text-muted-foreground animate-pulse">
+                  typing...
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Ask for help understanding concepts. I won't give direct answers, but I'll guide you to find them yourself.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div 
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto p-4 space-y-4 mb-4 h-[calc(80vh-12rem)]"
+          >
+            {messages.map((message, index) => (
+              message.role !== 'system' && (
+                <div
+                  key={index}
+                  className={`flex ${
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-lg p-3 ${
+                      message.role === 'user'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-100 text-gray-900'
+                    }`}
+                  >
+                    {message.role === 'user' ? (
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    ) : (
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            strong: ({ children }) => <span className="font-bold text-blue-700">{children}</span>,
+                            em: ({ children }) => <span className="italic text-gray-600">{children}</span>,
+                            ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
+                            li: ({ children }) => <li className="mb-1">{children}</li>,
+                            code: ({ children }) => (
+                              <code className="bg-gray-200 rounded px-1 py-0.5 text-sm font-mono">
+                                {children}
+                              </code>
+                            ),
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            ))}
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-lg p-3 max-w-[80%]">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={sendMessage} className="mt-auto">
+            <div className="flex gap-2">
+              <Input
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                placeholder="Ask for help understanding a concept..."
+                disabled={isTyping}
+              />
+              <Button type="submit" disabled={isTyping || !currentMessage.trim()}>
+                Send
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Button
+        variant="outline"
+        className="fixed bottom-4 right-4 shadow-lg"
+        onClick={() => setShowAiHelper(true)}
+      >
+        <div className="flex items-center gap-2">
+          <span>AI Study Helper</span>
+          {isTyping && (
+            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+          )}
+        </div>
+      </Button>
 
       <Toaster />
     </div>
