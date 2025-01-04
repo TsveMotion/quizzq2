@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import * as jose from 'jose';
-
-const JWT_SECRET = new TextEncoder().encode('your-super-secret-key-123');
+import { verifyAuthEdge } from '@/lib/auth';
 
 export async function middleware(request: NextRequest) {
   console.log('\n--- Middleware Start ---');
@@ -22,7 +20,7 @@ export async function middleware(request: NextRequest) {
   if (isAuthPage) {
     if (token) {
       try {
-        await jose.jwtVerify(token, JWT_SECRET);
+        await verifyAuthEdge(token);
         console.log('Valid token on auth page, redirecting to dashboard');
         return NextResponse.redirect(new URL('/dashboard', request.url));
       } catch (error) {
@@ -41,7 +39,7 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      const { payload } = await jose.jwtVerify(token, JWT_SECRET);
+      const payload = await verifyAuthEdge(token);
       console.log('Token verified for dashboard access:', payload);
       return NextResponse.next();
     } catch (error) {

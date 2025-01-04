@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import * as jose from 'jose';
-
-const JWT_SECRET = new TextEncoder().encode('your-super-secret-key-123');
+import { verifyAuthEdge } from '@/lib/auth';
 
 export async function GET() {
   try {
@@ -13,9 +11,17 @@ export async function GET() {
     }
 
     // Verify the token
-    await jose.jwtVerify(token, JWT_SECRET);
+    const user = await verifyAuthEdge(token);
 
-    return NextResponse.json({ authenticated: true });
+    return NextResponse.json({ 
+      authenticated: true,
+      user: {
+        id: user.userId,
+        email: user.email,
+        role: user.role,
+        powerLevel: user.powerLevel
+      }
+    });
   } catch (error) {
     console.error('Auth check error:', error);
     return NextResponse.json({ authenticated: false });
