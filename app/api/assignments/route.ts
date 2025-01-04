@@ -28,6 +28,7 @@ export async function GET() {
       },
       include: {
         class: true,
+        questions: true,
         submissions: {
           include: {
             student: {
@@ -37,6 +38,7 @@ export async function GET() {
                 email: true,
               },
             },
+            answers: true,
           },
         },
       },

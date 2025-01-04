@@ -15,6 +15,7 @@ interface QuizQuestion {
   optionB: string;
   optionC: string;
   optionD: string;
+  correctOption: string;
   explanation: string;
   submissions: Array<{
     id: string;
@@ -96,6 +97,43 @@ export default function StudentDashboard({ user }: { user: any }) {
         return;
       }
 
+      // Find the assignment
+      const assignment = classes
+        .flatMap(cls => cls.assignments)
+        .find(a => a.id === assignmentId);
+
+      if (!assignment) {
+        toast({
+          title: 'Error',
+          description: 'Assignment not found',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Check if all questions are answered
+      if (!assignment.questions || assignment.questions.length === 0) {
+        toast({
+          title: 'Error',
+          description: 'No questions found in this assignment',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const unansweredQuestions = assignment.questions.filter(
+        q => !selectedAnswers[q.id]
+      );
+
+      if (unansweredQuestions.length > 0) {
+        toast({
+          title: 'Warning',
+          description: `You have ${unansweredQuestions.length} unanswered questions. Please answer all questions before submitting.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
       setSubmissionStatus('submitting');
 
       const response = await fetch(`/api/student/assignments/${assignmentId}/submit`, {
@@ -109,30 +147,36 @@ export default function StudentDashboard({ user }: { user: any }) {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to submit assignment');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to submit assignment');
+      }
 
       const result = await response.json();
 
       setSubmissionStatus('submitted');
       toast({
         title: 'Success',
-        description: 'Assignment submitted successfully',
+        description: `Assignment submitted successfully! Your grade: ${result.grade}%`,
       });
 
       // Show explanations for all questions
-      const newExplanations = Object.keys(selectedAnswers).reduce((acc, questionId) => {
-        acc[questionId] = true;
+      const newExplanations = assignment.questions.reduce((acc, question) => {
+        acc[question.id] = true;
         return acc;
       }, {} as Record<string, boolean>);
       setShowExplanation(newExplanations);
 
+      // Reset selected answers
+      setSelectedAnswers({});
+
       // Refresh classes to update submission status
-      fetchClasses();
+      await fetchClasses();
     } catch (error) {
       setSubmissionStatus('idle');
       toast({
         title: 'Error',
-        description: 'Failed to submit assignment',
+        description: error instanceof Error ? error.message : 'Failed to submit assignment',
         variant: 'destructive',
       });
     }
@@ -147,12 +191,15 @@ export default function StudentDashboard({ user }: { user: any }) {
     return (
       <Card key={question.id} className="mb-4">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Question {index + 1}</span>
+          <CardTitle className="flex justify-between items-start">
+            <h4 className="font-medium">Question {index + 1}</h4>
             {isSubmitted && (
-              <span className={isCorrect ? "text-green-500" : "text-red-500"}>
-                {isCorrect ? "Correct" : "Incorrect"}
-              </span>
+              <div className="text-sm text-muted-foreground">
+                Your answer: {answer?.answer}
+                <span className={answer?.isCorrect ? "text-green-600 ml-2" : "text-red-600 ml-2"}>
+                  ({answer?.isCorrect ? "Correct" : "Incorrect"})
+                </span>
+              </div>
             )}
           </CardTitle>
         </CardHeader>
@@ -324,26 +371,47 @@ export default function StudentDashboard({ user }: { user: any }) {
             getPendingAssignments().map((assignment) => (
               <Card key={assignment.id}>
                 <CardHeader>
-                  <CardTitle>{assignment.title}</CardTitle>
+                  <CardTitle className="flex justify-between items-center">
+                    <span>{assignment.title}</span>
+                    <span className="text-sm font-normal text-muted-foreground">
+                      Due: {format(new Date(assignment.dueDate), 'PPP p')}
+                    </span>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-sm text-gray-500 mb-4">
-                    Due: {format(new Date(assignment.dueDate), 'PPP p')}
-                  </div>
-                  
                   <div className="space-y-6">
                     {assignment.questions?.map((question, index) => 
                       renderQuestion(question, index, assignment)
                     )}
                   </div>
 
-                  <div className="mt-6 flex justify-end">
-                    <Button 
-                      onClick={() => submitAssignment(assignment.id)}
-                      disabled={submissionStatus !== 'idle'}
-                    >
-                      {submissionStatus === 'submitting' ? 'Submitting...' : 'Submit Assignment'}
-                    </Button>
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        {Object.keys(selectedAnswers).length} of {assignment.questions?.length || 0} questions answered
+                      </div>
+                      <Button 
+                        onClick={() => submitAssignment(assignment.id)}
+                        disabled={
+                          submissionStatus === 'submitting' || 
+                          !assignment.questions?.length ||
+                          Object.keys(selectedAnswers).length !== assignment.questions?.length
+                        }
+                      >
+                        {submissionStatus === 'submitting' 
+                          ? 'Submitting...' 
+                          : submissionStatus === 'submitted'
+                            ? 'Submitted!'
+                            : 'Submit Assignment'
+                        }
+                      </Button>
+                    </div>
+                    {assignment.questions?.length > 0 && 
+                     Object.keys(selectedAnswers).length !== assignment.questions?.length && (
+                      <p className="text-sm text-yellow-600 mt-2">
+                        Please answer all {assignment.questions.length} questions before submitting.
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

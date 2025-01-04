@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -32,17 +32,36 @@ interface Class {
   students: Student[];
 }
 
+interface QuizQuestion {
+  id: string;
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctOption: string;
+  explanation: string;
+}
+
 interface Assignment {
   id: string;
   title: string;
   content: string;
   dueDate: string;
   class: Class;
+  subject: string;
+  topic: string;
+  questions: QuizQuestion[];
   submissions: Array<{
     id: string;
     content: string;
     grade?: number;
     student: Student;
+    answers?: Array<{
+      questionId: string;
+      answer: string;
+      isCorrect: boolean;
+    }>;
   }>;
 }
 
@@ -50,6 +69,10 @@ export default function TeacherDashboard({ user }: { user: any }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [selectedAssignmentForPerformance, setSelectedAssignmentForPerformance] = useState<Assignment | null>(null);
+  const [showQuestionDialog, setShowQuestionDialog] = useState(false);
+  const [showStudentPerformance, setShowStudentPerformance] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: '', email: '', password: '' });
   const [newClass, setNewClass] = useState({ name: '', description: '' });
   const [newAssignment, setNewAssignment] = useState({
@@ -129,7 +152,8 @@ export default function TeacherDashboard({ user }: { user: any }) {
     e.preventDefault();
     try {
       if (!newAssignment.title || !newAssignment.classId || !newAssignment.dueDate || 
-          !newAssignment.subject || !newAssignment.topic || !newAssignment.yearGroup || !newAssignment.complexity || !newAssignment.questionCount) {
+          !newAssignment.subject || !newAssignment.topic || !newAssignment.yearGroup || 
+          !newAssignment.complexity || !newAssignment.questionCount) {
         toast({
           title: 'Error',
           description: 'Please fill in all fields',
@@ -144,13 +168,14 @@ export default function TeacherDashboard({ user }: { user: any }) {
         body: JSON.stringify(newAssignment),
       });
 
-      if (!response.ok) throw new Error('Failed to create assignment');
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
 
-      toast({
-        title: 'Success',
-        description: 'Assignment created successfully',
-      });
-
+      const data = await response.json();
+      
+      setAssignments(prev => [...prev, data]);
       setIsNewAssignmentDialogOpen(false);
       setNewAssignment({
         title: '',
@@ -162,11 +187,15 @@ export default function TeacherDashboard({ user }: { user: any }) {
         complexity: 'medium',
         questionCount: 5
       });
-      fetchAssignments();
+
+      toast({
+        title: 'Success',
+        description: 'Assignment created successfully',
+      });
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to create assignment',
+        description: error.message || 'Failed to create assignment',
         variant: 'destructive',
       });
     }
@@ -180,12 +209,13 @@ export default function TeacherDashboard({ user }: { user: any }) {
 
       if (!response.ok) throw new Error('Failed to delete assignment');
 
+      // Remove the assignment from state
+      setAssignments(prev => prev.filter(a => a.id !== assignmentId));
+      
       toast({
         title: 'Success',
         description: 'Assignment deleted successfully',
       });
-
-      fetchAssignments();
     } catch (error) {
       toast({
         title: 'Error',
@@ -193,6 +223,11 @@ export default function TeacherDashboard({ user }: { user: any }) {
         variant: 'destructive',
       });
     }
+  };
+
+  const viewAssignmentQuestions = (assignment: Assignment) => {
+    setSelectedAssignment(assignment);
+    setShowQuestionDialog(true);
   };
 
   const createStudent = async (e: React.FormEvent) => {
@@ -344,6 +379,348 @@ export default function TeacherDashboard({ user }: { user: any }) {
         : [...prev, studentId]
     );
   };
+
+  const calculateStudentStats = (assignment: Assignment) => {
+    const stats = {
+      averageGrade: 0,
+      questionStats: {} as Record<string, { correct: number; total: number; questionText: string }>,
+      studentPerformance: [] as Array<{
+        student: Student;
+        grade: number;
+        struggledQuestions: Array<{ questionId: string; questionText: string }>;
+      }>,
+    };
+
+    if (!assignment.submissions || assignment.submissions.length === 0) {
+      return stats;
+    }
+
+    // Calculate average grade
+    const totalGrade = assignment.submissions.reduce((sum, sub) => sum + (sub.grade || 0), 0);
+    stats.averageGrade = totalGrade / assignment.submissions.length;
+
+    // Initialize question stats
+    if (assignment.questions && Array.isArray(assignment.questions)) {
+      assignment.questions.forEach(q => {
+        if (q && q.id) {
+          stats.questionStats[q.id] = {
+            correct: 0,
+            total: 0,
+            questionText: q.questionText || 'Question text not available'
+          };
+        }
+      });
+    }
+
+    // Calculate per-student performance and question statistics
+    assignment.submissions.forEach(submission => {
+      if (!submission || !submission.student) return;
+
+      const struggledQuestions: Array<{ questionId: string; questionText: string }> = [];
+      
+      if (submission.answers && Array.isArray(submission.answers)) {
+        submission.answers.forEach(answer => {
+          if (!answer || !answer.questionId) return;
+
+          const questionStat = stats.questionStats[answer.questionId];
+          if (questionStat) {
+            questionStat.total++;
+            if (answer.isCorrect) {
+              questionStat.correct++;
+            } else {
+              const question = assignment.questions?.find(q => q?.id === answer.questionId);
+              if (question) {
+                struggledQuestions.push({
+                  questionId: answer.questionId,
+                  questionText: question.questionText || 'Question text not available'
+                });
+              }
+            }
+          }
+        });
+      }
+
+      stats.studentPerformance.push({
+        student: submission.student,
+        grade: submission.grade || 0,
+        struggledQuestions
+      });
+    });
+
+    return stats;
+  };
+
+  const renderAssignments = () => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Assignments</h2>
+        <Button onClick={() => setIsNewAssignmentDialogOpen(true)}>
+          Create Assignment
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {assignments.map((assignment) => (
+          <Card key={assignment.id} className="flex flex-col">
+            <CardHeader>
+              <CardTitle>{assignment.title}</CardTitle>
+              <CardDescription>
+                Due: {new Date(assignment.dueDate).toLocaleDateString()}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>Class: {assignment.class?.name}</p>
+              <p>Subject: {assignment.subject}</p>
+              <p>Topic: {assignment.topic}</p>
+              <p>Questions: {assignment.questions?.length || 0}</p>
+              <p>Submissions: {assignment.submissions?.length || 0}</p>
+              {assignment.submissions?.length > 0 && (
+                <p className="text-green-600 font-medium">
+                  Average Grade: {
+                    Math.round(
+                      assignment.submissions.reduce((sum, sub) => sum + (sub.grade || 0), 0) / 
+                      assignment.submissions.length
+                    )
+                  }%
+                </p>
+              )}
+            </CardContent>
+            <CardFooter className="flex flex-col gap-2 mt-auto">
+              <div className="flex justify-between w-full">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setSelectedAssignment(assignment);
+                    setShowQuestionDialog(true);
+                  }}
+                >
+                  View Questions
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => deleteAssignment(assignment.id)}
+                >
+                  Delete
+                </Button>
+              </div>
+              {assignment.submissions?.length > 0 && (
+                <Button 
+                  className="w-full"
+                  variant="secondary"
+                  onClick={() => {
+                    setSelectedAssignmentForPerformance(assignment);
+                    setShowStudentPerformance(true);
+                  }}
+                >
+                  View Student Performance
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+
+      {/* Questions Dialog */}
+      <Dialog open={showQuestionDialog} onOpenChange={setShowQuestionDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedAssignment?.title} - Questions
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {!selectedAssignment?.questions || selectedAssignment.questions.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No questions available for this assignment.</p>
+              </div>
+            ) : (
+              selectedAssignment.questions.map((question, index) => (
+                <Card key={question.id} className="p-4">
+                  <h3 className="font-semibold mb-2">Question {index + 1}</h3>
+                  <p className="mb-4 text-lg">{question.questionText}</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <p className={`p-2 rounded ${
+                        question.correctOption === 'A' 
+                          ? 'bg-green-100 text-green-700 font-medium' 
+                          : 'hover:bg-gray-50'
+                      }`}>
+                        A: {question.optionA}
+                      </p>
+                      <p className={`p-2 rounded ${
+                        question.correctOption === 'B' 
+                          ? 'bg-green-100 text-green-700 font-medium' 
+                          : 'hover:bg-gray-50'
+                      }`}>
+                        B: {question.optionB}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className={`p-2 rounded ${
+                        question.correctOption === 'C' 
+                          ? 'bg-green-100 text-green-700 font-medium' 
+                          : 'hover:bg-gray-50'
+                      }`}>
+                        C: {question.optionC}
+                      </p>
+                      <p className={`p-2 rounded ${
+                        question.correctOption === 'D' 
+                          ? 'bg-green-100 text-green-700 font-medium' 
+                          : 'hover:bg-gray-50'
+                      }`}>
+                        D: {question.optionD}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-green-600 font-medium">
+                      Correct Answer: {question.correctOption}
+                    </p>
+                    {question.explanation && (
+                      <div className="mt-2 p-3 bg-gray-50 rounded">
+                        <p className="font-medium text-sm text-gray-600">Explanation:</p>
+                        <p className="text-muted-foreground mt-1">
+                          {question.explanation}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Student Performance Dialog */}
+      <Dialog 
+        open={showStudentPerformance} 
+        onOpenChange={setShowStudentPerformance}
+      >
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Student Performance - {selectedAssignmentForPerformance?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedAssignmentForPerformance && (
+            <div className="space-y-6">
+              {/* Overall Statistics */}
+              <Card className="p-4">
+                <h3 className="font-semibold mb-4">Overall Statistics</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Average Grade</p>
+                    <p className="text-2xl font-bold">
+                      {Math.round(calculateStudentStats(selectedAssignmentForPerformance).averageGrade)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Submissions</p>
+                    <p className="text-2xl font-bold">
+                      {selectedAssignmentForPerformance.submissions?.length || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Questions</p>
+                    <p className="text-2xl font-bold">
+                      {selectedAssignmentForPerformance.questions?.length || 0}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Question Statistics */}
+              <Card className="p-4">
+                <h3 className="font-semibold mb-4">Question Analysis</h3>
+                {selectedAssignmentForPerformance.questions && 
+                selectedAssignmentForPerformance.questions.length > 0 ? (
+                  <div className="space-y-4">
+                    {Object.entries(calculateStudentStats(selectedAssignmentForPerformance).questionStats)
+                      .map(([questionId, stats]) => (
+                        <div key={questionId} className="border-b pb-2">
+                          <p className="font-medium">{stats.questionText}</p>
+                          <div className="flex justify-between items-center mt-1">
+                            <p className="text-sm text-muted-foreground">
+                              Correct Answers: {stats.correct}/{stats.total}
+                            </p>
+                            <p className={`text-sm font-medium ${
+                              (stats.correct / stats.total) * 100 >= 70 
+                                ? 'text-green-600' 
+                                : (stats.correct / stats.total) * 100 >= 50 
+                                  ? 'text-yellow-600' 
+                                  : 'text-red-600'
+                            }`}>
+                              {Math.round((stats.correct / stats.total) * 100)}% Success Rate
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">
+                    No questions available for analysis
+                  </p>
+                )}
+              </Card>
+
+              {/* Individual Student Performance */}
+              <Card className="p-4">
+                <h3 className="font-semibold mb-4">Individual Performance</h3>
+                {selectedAssignmentForPerformance.submissions && 
+                selectedAssignmentForPerformance.submissions.length > 0 ? (
+                  <div className="space-y-4">
+                    {calculateStudentStats(selectedAssignmentForPerformance)
+                      .studentPerformance
+                      .sort((a, b) => b.grade - a.grade)
+                      .map((student) => (
+                        <Card key={student.student.id} className="p-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">{student.student.name}</p>
+                              <p className="text-sm text-gray-500">{student.student.email}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-lg font-bold ${
+                                student.grade >= 70 
+                                  ? 'text-green-600' 
+                                  : student.grade >= 50 
+                                    ? 'text-yellow-600' 
+                                    : 'text-red-600'
+                              }`}>
+                                {student.grade}%
+                              </p>
+                            </div>
+                          </div>
+                          {student.struggledQuestions.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-sm font-medium text-red-600">
+                                Struggled with {student.struggledQuestions.length} questions:
+                              </p>
+                              <ul className="mt-1 space-y-1">
+                                {student.struggledQuestions.map((q) => (
+                                  <li key={q.questionId} className="text-sm text-muted-foreground">
+                                    • {q.questionText}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </Card>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">
+                    No student submissions available
+                  </p>
+                )}
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 
   return (
     <div className="p-6">
@@ -581,184 +958,125 @@ export default function TeacherDashboard({ user }: { user: any }) {
         </Card>
       )}
 
-      {activeTab === 'assignments' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Assignment Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Dialog open={isNewAssignmentDialogOpen} onOpenChange={setIsNewAssignmentDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="mb-4">Create New Assignment</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Create New Assignment</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={createAssignment} className="space-y-4">
-                  <div>
-                    <Label htmlFor="title">Assignment Title</Label>
-                    <Input
-                      id="title"
-                      value={newAssignment.title}
-                      onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
-                      placeholder="Enter assignment title"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="class">Class</Label>
-                    <Select
-                      value={newAssignment.classId}
-                      onValueChange={(value) => setNewAssignment({ ...newAssignment, classId: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a class" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {classes.map((cls) => (
-                          <SelectItem key={cls.id} value={cls.id}>
-                            {cls.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="dueDate">Due Date</Label>
-                    <Input
-                      id="dueDate"
-                      type="datetime-local"
-                      value={newAssignment.dueDate}
-                      onChange={(e) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="subject">Subject</Label>
-                    <Input
-                      id="subject"
-                      value={newAssignment.subject}
-                      onChange={(e) => setNewAssignment({ ...newAssignment, subject: e.target.value })}
-                      placeholder="e.g., Mathematics, Physics, History"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="topic">Topic</Label>
-                    <Input
-                      id="topic"
-                      value={newAssignment.topic}
-                      onChange={(e) => setNewAssignment({ ...newAssignment, topic: e.target.value })}
-                      placeholder="e.g., Quadratic Equations, Newton's Laws"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="yearGroup">Year Group</Label>
-                    <Select
-                      value={newAssignment.yearGroup}
-                      onValueChange={(value) => setNewAssignment({ ...newAssignment, yearGroup: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="7">Year 7</SelectItem>
-                        <SelectItem value="8">Year 8</SelectItem>
-                        <SelectItem value="9">Year 9</SelectItem>
-                        <SelectItem value="10">Year 10 (GCSE)</SelectItem>
-                        <SelectItem value="11">Year 11 (GCSE)</SelectItem>
-                        <SelectItem value="12">Year 12 (A-Level)</SelectItem>
-                        <SelectItem value="13">Year 13 (A-Level)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="complexity">Complexity Level</Label>
-                    <Select
-                      value={newAssignment.complexity}
-                      onValueChange={(value) => setNewAssignment({ ...newAssignment, complexity: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="easy">Easy - Basic Understanding</SelectItem>
-                        <SelectItem value="medium">Medium - Applied Knowledge</SelectItem>
-                        <SelectItem value="hard">Hard - Deep Understanding</SelectItem>
-                        <SelectItem value="challenging">Challenging - Complex Problem Solving</SelectItem>
-                        <SelectItem value="complicated">Complicated - Advanced Analysis</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="questionCount">Number of Questions</Label>
-                    <Select
-                      value={newAssignment.questionCount.toString()}
-                      onValueChange={(value) => setNewAssignment({ ...newAssignment, questionCount: parseInt(value) })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3">3 Questions</SelectItem>
-                        <SelectItem value="5">5 Questions</SelectItem>
-                        <SelectItem value="8">8 Questions</SelectItem>
-                        <SelectItem value="10">10 Questions</SelectItem>
-                        <SelectItem value="15">15 Questions</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button type="submit">Create Assignment</Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+      {activeTab === 'assignments' && renderAssignments()}
 
-            <div className="space-y-4">
-              {assignments.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No assignments found. Create one to get started!</p>
-              ) : (
-                assignments.map((assignment) => (
-                  <div key={assignment.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-lg font-medium">{assignment.title}</h3>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deleteAssignment(assignment.id)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                    <div className="text-sm text-gray-500 mb-2">
-                      Class: {assignment.class.name}
-                    </div>
-                    <div className="text-sm text-gray-500 mb-4">
-                      Due: {format(new Date(assignment.dueDate), 'PPP p')}
-                    </div>
-                    <div className="prose max-w-none">
-                      <div dangerouslySetInnerHTML={{ __html: assignment.content }} />
-                    </div>
-                    <div className="mt-4">
-                      <h4 className="font-medium mb-2">Submissions ({assignment.submissions.length})</h4>
-                      <div className="space-y-2">
-                        {assignment.submissions.map((submission) => (
-                          <div key={submission.id} className="text-sm">
-                            <span className="font-medium">{submission.student.name}</span>
-                            {submission.grade !== null && (
-                              <span className="ml-2 text-gray-500">
-                                Grade: {submission.grade}/100
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+      <Dialog open={isNewAssignmentDialogOpen} onOpenChange={setIsNewAssignmentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Assignment</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={createAssignment} className="space-y-4">
+            <div>
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={newAssignment.title}
+                onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
+                placeholder="Enter assignment title"
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
-      
+            <div>
+              <Label htmlFor="class">Class</Label>
+              <Select
+                value={newAssignment.classId}
+                onValueChange={(value) => setNewAssignment({ ...newAssignment, classId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a class" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="dueDate">Due Date</Label>
+              <Input
+                id="dueDate"
+                type="datetime-local"
+                value={newAssignment.dueDate}
+                onChange={(e) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                value={newAssignment.subject}
+                onChange={(e) => setNewAssignment({ ...newAssignment, subject: e.target.value })}
+                placeholder="Enter subject (e.g., Mathematics)"
+              />
+            </div>
+            <div>
+              <Label htmlFor="topic">Topic</Label>
+              <Input
+                id="topic"
+                value={newAssignment.topic}
+                onChange={(e) => setNewAssignment({ ...newAssignment, topic: e.target.value })}
+                placeholder="Enter topic (e.g., Quadratic Equations)"
+              />
+            </div>
+            <div>
+              <Label htmlFor="yearGroup">Year Group</Label>
+              <Select
+                value={newAssignment.yearGroup}
+                onValueChange={(value) => setNewAssignment({ ...newAssignment, yearGroup: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select year group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 7 }, (_, i) => i + 7).map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      Year {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="complexity">Complexity</Label>
+              <Select
+                value={newAssignment.complexity}
+                onValueChange={(value) => setNewAssignment({ ...newAssignment, complexity: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select complexity" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">Easy</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="hard">Hard</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="questionCount">Number of Questions</Label>
+              <Select
+                value={newAssignment.questionCount.toString()}
+                onValueChange={(value) => setNewAssignment({ ...newAssignment, questionCount: parseInt(value) })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select number of questions" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[5, 10, 15, 20].map((count) => (
+                    <SelectItem key={count} value={count.toString()}>
+                      {count} Questions
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit">Create Assignment</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Toaster />
     </div>
   );
