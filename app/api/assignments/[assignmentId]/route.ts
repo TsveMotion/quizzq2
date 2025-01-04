@@ -78,17 +78,41 @@ export async function DELETE(
     });
 
     if (!assignment) {
-      return new NextResponse('Assignment not found', { status: 404 });
+      return new NextResponse('Assignment not found or unauthorized', { status: 404 });
     }
 
-    // Delete the assignment and all related submissions
-    await prisma.assignment.delete({
+    // Delete in this order to respect foreign key constraints:
+    // 1. Delete all question submissions
+    await prisma.questionSubmission.deleteMany({
       where: {
-        id: params.assignmentId,
-      },
+        question: {
+          assignmentId: params.assignmentId
+        }
+      }
     });
 
-    return new NextResponse(null, { status: 204 });
+    // 2. Delete all homework submissions
+    await prisma.homeworkSubmission.deleteMany({
+      where: {
+        assignmentId: params.assignmentId
+      }
+    });
+
+    // 3. Delete all questions
+    await prisma.quizQuestion.deleteMany({
+      where: {
+        assignmentId: params.assignmentId
+      }
+    });
+
+    // 4. Finally, delete the assignment
+    await prisma.assignment.delete({
+      where: {
+        id: params.assignmentId
+      }
+    });
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting assignment:', error);
     return new NextResponse('Internal Server Error', { status: 500 });

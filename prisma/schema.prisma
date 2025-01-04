@@ -110,4 +110,6 @@ model HomeworkSubmission {
   answers      QuestionSubmission[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+
+  @@unique([studentId, assignmentId])
 }
