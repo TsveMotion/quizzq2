@@ -103,96 +103,94 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold">
-          {isLogin ? 'Welcome Back' : 'Create Account'}
-        </h1>
-        <p className="text-gray-500">
-          {isLogin
-            ? 'Enter your credentials to login'
-            : 'Sign up for a new account'}
+    <div className="w-full">
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-bold">{isLogin ? 'Welcome Back' : 'Create Account'}</h1>
+        <p className="text-sm text-muted-foreground mt-2">
+          {isLogin ? 'Enter your credentials to access your account' : 'Sign up for a new account to get started'}
         </p>
       </div>
-      
-      <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-        {!isLogin && (
+
+      <div className="bg-card rounded-lg border p-6 shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <div className="space-y-2">
+              <label htmlFor="name" className="text-sm font-medium">
+                Name
+              </label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="John Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={isLoading}
+                className="w-full"
+              />
+            </div>
+          )}
+          
           <div className="space-y-2">
-            <label htmlFor="name" className="text-sm font-medium">
-              Name
+            <label htmlFor="email" className="text-sm font-medium">
+              Email
             </label>
             <Input
-              id="name"
-              type="text"
-              placeholder="John Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              id="email"
+              type="email"
+              placeholder="john@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
               disabled={isLoading}
               className="w-full"
             />
           </div>
-        )}
-        
-        <div className="space-y-2">
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="john@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            disabled={isLoading}
-            className="w-full"
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={isLoading}
-            className="w-full"
-          />
-        </div>
+          
+          <div className="space-y-2">
+            <label htmlFor="password" className="text-sm font-medium">
+              Password
+            </label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isLoading}
+              className="w-full"
+            />
+          </div>
 
-        <Button 
-          type="submit" 
-          className="w-full"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <span>Loading...</span>
-          ) : (
-            isLogin ? 'Login' : 'Sign Up'
-          )}
-        </Button>
-      </form>
+          <Button 
+            type="submit" 
+            className="w-full"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <span>Loading...</span>
+            ) : (
+              isLogin ? 'Login' : 'Sign Up'
+            )}
+          </Button>
+        </form>
 
-      <div className="mt-6 text-center">
-        <button
-          type="button"
-          onClick={() => {
-            setIsLogin(!isLogin);
-            setEmail('');
-            setPassword('');
-            setName('');
-          }}
-          className="text-sm text-blue-600 hover:underline"
-          disabled={isLoading}
-        >
-          {isLogin
-            ? "Don't have an account? Sign up"
-            : 'Already have an account? Login'}
-        </button>
+        <div className="mt-6 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setEmail('');
+              setPassword('');
+              setName('');
+            }}
+            className="text-sm text-blue-600 hover:underline"
+            disabled={isLoading}
+          >
+            {isLogin
+              ? "Don't have an account? Sign up"
+              : 'Already have an account? Login'}
+          </button>
+        </div>
       </div>
     </div>
   );

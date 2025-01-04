@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brain } from "lucide-react";
+import { ModeToggle } from "@/components/mode-toggle";
 
 const footerLinks = {
   product: [
@@ -86,8 +87,9 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} QUIZZQ. All rights reserved.
+        <div className="mt-8 pt-8 border-t flex justify-between items-center text-sm text-muted-foreground">
+          <div> {new Date().getFullYear()} QUIZZQ. All rights reserved.</div>
+          <ModeToggle />
         </div>
       </div>
     </footer>

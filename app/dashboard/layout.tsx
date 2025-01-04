@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyAuthEdge } from '@/lib/auth';
-import { Footer } from '@/components/footer';
 
 export default async function DashboardLayout({
   children,
@@ -18,12 +17,9 @@ export default async function DashboardLayout({
     // Verify token at the layout level
     await verifyAuthEdge(token);
     return (
-      <div className="min-h-screen flex flex-col">
-        <main className="flex-1">
-          {children}
-        </main>
-        <Footer />
-      </div>
+      <main className="flex-1">
+        {children}
+      </main>
     );
   } catch (error) {
     console.error('Token verification failed in layout:', error);

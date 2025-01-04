@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ModeToggle } from "@/components/mode-toggle";
 import { Brain } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname } from 'next/navigation';
@@ -74,7 +73,6 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center space-x-4">
-            <ModeToggle />
             {isAuthenticated ? (
               <>
                 <Button variant="ghost" asChild>

@@ -346,7 +346,7 @@ export default function StudentDashboard({ user }: { user: any }) {
   const [showPracticeResults, setShowPracticeResults] = useState(false);
 
   return (
-    <div className="p-6 pb-16">
+    <div className="p-6 pb-8">
       <h1 className="text-2xl font-bold mb-4">Student Dashboard</h1>
       
       <div className="flex space-x-2 mb-6">
