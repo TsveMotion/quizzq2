@@ -1,16 +1,14 @@
 import './globals.css';
-import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { Toaster } from '@/components/ui/toaster';
 import { Providers } from './providers';
-import { ThemeProvider } from '@/components/theme-provider';
 import { Navbar } from '@/components/navbar';
-import { Footer } from '@/components/footer';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'QuizzQ',
-  description: 'A modern quiz platform for education',
+  description: 'A modern quiz platform for schools',
 };
 
 export default function RootLayout({
@@ -22,18 +20,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <Providers>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
+          <main className="min-h-screen">
             <Navbar />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer />
-          </ThemeProvider>
+            {children}
+          </main>
+          <Toaster />
         </Providers>
       </body>
     </html>

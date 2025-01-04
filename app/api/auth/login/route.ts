@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import * as jose from 'jose';
 import { prisma } from '@/lib/prisma';
-
-const JWT_SECRET = new TextEncoder().encode('your-super-secret-key-123');
+import { createTokenEdge } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
@@ -21,17 +19,9 @@ export async function POST(req: Request) {
     console.log('Finding user...');
     const user = await prisma.user.findUnique({
       where: { email },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        password: true,
-        role: true,
-        powerLevel: true,
+      include: {
+        school: true,
       },
-    }).catch((error) => {
-      console.error('Database error:', error);
-      throw error;
     });
 
     if (!user) {
@@ -54,17 +44,23 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate token
+    // Generate token using the Edge-compatible auth library
     console.log('Generating token...');
-    const token = await new jose.SignJWT({ 
-      userId: user.id, 
+    console.log('User data for token:', {
+      id: user.id,
       email: user.email,
       role: user.role,
-      powerLevel: user.powerLevel
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setExpirationTime('24h')
-      .sign(JWT_SECRET);
+      powerLevel: user.powerLevel,
+      schoolId: user.schoolId,
+    });
+
+    const token = await createTokenEdge({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      powerLevel: user.powerLevel,
+      schoolId: user.schoolId,
+    });
 
     console.log('Generated token:', token.substring(0, 20) + '...');
 
@@ -77,7 +73,9 @@ export async function POST(req: Request) {
         email: user.email,
         name: user.name,
         role: user.role,
-        powerLevel: user.powerLevel
+        powerLevel: user.powerLevel,
+        schoolId: user.schoolId,
+        school: user.school,
       }
     });
 
@@ -87,7 +85,9 @@ export async function POST(req: Request) {
       value: token,
       httpOnly: true,
       path: '/',
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
     });
 
     console.log('Login successful for:', email);
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(
-      { error: 'Something went wrong during login' },
+      { error: 'An error occurred during login' },
       { status: 500 }
     );
   }

@@ -10,18 +10,20 @@ export async function GET(
   { params }: { params: { schoolId: string } }
 ) {
   try {
+    if (!params.schoolId) {
+      return NextResponse.json({ error: 'School ID is required' }, { status: 400 });
+    }
+
     // Get token from cookie
     const cookieStore = cookies();
     const token = cookieStore.get('token')?.value;
 
     if (!token) {
-      console.log('No token found in cookies');
       return NextResponse.json({ error: 'Unauthorized - No token' }, { status: 401 });
     }
 
     const userData = await verifyAuth(token);
     if (!userData) {
-      console.log('Invalid token');
       return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
     }
 
@@ -32,7 +34,6 @@ export async function GET(
     });
 
     if (!user || user.schoolId !== params.schoolId) {
-      console.log('School ID mismatch', { userId: userData.userId, schoolId: params.schoolId });
       return NextResponse.json({ error: 'Unauthorized - Wrong school' }, { status: 401 });
     }
 
@@ -63,6 +64,7 @@ export async function POST(
 ) {
   try {
     console.log('Received request to create user'); // Debug log
+    console.log('School ID from params:', params.schoolId);
 
     // Get token from cookie
     const cookieStore = cookies();
@@ -92,6 +94,11 @@ export async function POST(
     if (!admin) {
       console.log('Admin not found');
       return NextResponse.json({ error: 'Unauthorized - Admin not found' }, { status: 401 });
+    }
+
+    if (!params.schoolId) {
+      console.log('School ID is missing from params');
+      return NextResponse.json({ error: 'School ID is required' }, { status: 400 });
     }
 
     if (admin.schoolId !== params.schoolId) {
@@ -179,18 +186,20 @@ export async function DELETE(
   { params }: { params: { schoolId: string; userId: string } }
 ) {
   try {
+    if (!params.schoolId || !params.userId) {
+      return NextResponse.json({ error: 'School ID and User ID are required' }, { status: 400 });
+    }
+
     // Get token from cookie
     const cookieStore = cookies();
     const token = cookieStore.get('token')?.value;
 
     if (!token) {
-      console.log('No token found in cookies');
       return NextResponse.json({ error: 'Unauthorized - No token' }, { status: 401 });
     }
 
     const userData = await verifyAuth(token);
     if (!userData) {
-      console.log('Invalid token');
       return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
     }
 
@@ -201,7 +210,6 @@ export async function DELETE(
     });
 
     if (!admin || admin.schoolId !== params.schoolId || admin.role !== 'schooladmin') {
-      console.log('Not authorized', { userId: userData.userId, schoolId: params.schoolId, role: admin?.role });
       return NextResponse.json({ error: 'Unauthorized - Not authorized' }, { status: 401 });
     }
 

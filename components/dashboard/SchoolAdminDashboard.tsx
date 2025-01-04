@@ -68,6 +68,8 @@ export default function SchoolAdminDashboard({ user }) {
   const [isAddingUser, setIsAddingUser] = useState(false);
   const { toast } = useToast();
 
+  console.log('SchoolAdminDashboard user data:', user);
+
   const form = useForm({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
@@ -78,33 +80,51 @@ export default function SchoolAdminDashboard({ user }) {
     },
   });
 
-  // Fetch users and stats when component mounts
   useEffect(() => {
-    if (user?.schoolId) {
-      fetchUsers();
-      fetchStats();
+    if (!user) {
+      console.error('No user data provided');
+      return;
     }
+
+    if (!user.schoolId) {
+      console.error('No school ID found in user data:', user);
+      toast({
+        title: 'Error',
+        description: 'School ID not found. Please try logging in again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    console.log('Fetching users for school:', user.schoolId);
+    fetchUsers();
+    fetchStats();
   }, [user?.schoolId]);
 
   const fetchUsers = async () => {
     try {
+      if (!user?.schoolId) {
+        throw new Error('School ID not found');
+      }
+
+      console.log('Fetching users for school ID:', user.schoolId);
       const response = await fetch(`/api/schools/${user.schoolId}/users`, {
         credentials: 'include',
       });
       
-      const data = await response.json();
-      console.log('Fetched users:', data);
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch users');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch users');
       }
 
-      setUsers(data.users);
+      const data = await response.json();
+      console.log('Fetched users:', data);
+      setUsers(data.users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
         title: 'Error',
-        description: 'Failed to fetch users',
+        description: error.message || 'Failed to fetch users',
         variant: 'destructive',
       });
     }
@@ -142,7 +162,14 @@ export default function SchoolAdminDashboard({ user }) {
 
   const onSubmit = async (data) => {
     try {
-      console.log('Submitting form with data:', data);
+      if (!user?.schoolId) {
+        throw new Error('School ID not found');
+      }
+
+      console.log('Creating user with data:', {
+        ...data,
+        schoolId: user.schoolId
+      });
 
       const response = await fetch(`/api/schools/${user.schoolId}/users`, {
         method: 'POST',
@@ -159,12 +186,13 @@ export default function SchoolAdminDashboard({ user }) {
         }),
       });
 
-      const responseData = await response.json();
-      console.log('Server response:', response.status, responseData);
-
       if (!response.ok) {
-        throw new Error(responseData.error || 'Failed to create user');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create user');
       }
+
+      const responseData = await response.json();
+      console.log('User created successfully:', responseData);
 
       toast({
         title: 'Success',
@@ -173,7 +201,7 @@ export default function SchoolAdminDashboard({ user }) {
 
       setIsAddingUser(false);
       form.reset();
-      fetchUsers(); // Refresh user list
+      fetchUsers();
     } catch (error) {
       console.error('Error creating user:', error);
       toast({
@@ -184,29 +212,24 @@ export default function SchoolAdminDashboard({ user }) {
     }
   };
 
-  const deleteUser = async (userId) => {
+  const deleteUser = async (userId: string) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast({
-          title: 'Error',
-          description: 'Authentication token not found',
-          variant: 'destructive',
-        });
-        return;
+      if (!user?.schoolId) {
+        throw new Error('School ID not found');
       }
 
       const response = await fetch(
         `/api/schools/${user.schoolId}/users/${userId}`,
         {
           method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+          credentials: 'include',
         }
       );
 
-      if (!response.ok) throw new Error('Failed to delete user');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete user');
+      }
 
       toast({
         title: 'Success',
@@ -218,7 +241,7 @@ export default function SchoolAdminDashboard({ user }) {
       console.error('Error deleting user:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete user',
+        description: error.message || 'Failed to delete user',
         variant: 'destructive',
       });
     }
