@@ -19,6 +19,11 @@ export default async function DashboardPage() {
     const tokenData = await verifyAuthEdge(token);
     console.log('Token data in dashboard:', tokenData);
 
+    if (!prisma?.user) {
+      console.error('Prisma client not initialized properly');
+      redirect('/login');
+    }
+
     // Get full user data from database
     const user = await prisma.user.findUnique({
       where: { id: tokenData.userId },
@@ -47,7 +52,7 @@ export default async function DashboardPage() {
 
     return <DashboardComponent user={user} />;
   } catch (error) {
-    console.error('Token verification failed:', error);
+    console.error('Dashboard error:', error);
     redirect('/login');
   }
 }

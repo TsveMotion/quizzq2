@@ -9,16 +9,20 @@ generator client {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id           String       @id @default(cuid())
+  email        String       @unique
   password     String
   name         String?
-  role         String    @default("member") // member, student, teacher, schooladmin, superadmin
-  powerLevel   Int       @default(1) // 1-5 power level
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  school       School?   @relation(fields: [schoolId], references: [id])
+  role         String       @default("member") // member, student, teacher, schooladmin, superadmin
+  powerLevel   Int          @default(1) // 1-5 power level
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  school       School?      @relation(fields: [schoolId], references: [id])
   schoolId     String?
+  teacherOf    Class[]      @relation("TeacherClasses")
+  enrolledIn   Class[]      @relation("StudentClasses")
+  assignments  Assignment[] @relation("AssignmentCreator")
+  submissions  Submission[] @relation("StudentSubmissions")
 }
 
 model School {
@@ -29,4 +33,49 @@ model School {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   users        User[]    // All users associated with this school
+  classes      Class[]   // All classes in this school
+}
+
+model Class {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  school      School       @relation(fields: [schoolId], references: [id])
+  schoolId    String
+  teacher     User         @relation("TeacherClasses", fields: [teacherId], references: [id])
+  teacherId   String
+  students    User[]       @relation("StudentClasses")
+  assignments Assignment[]
+  archived    Boolean      @default(false)
+}
+
+model Assignment {
+  id          String       @id @default(cuid())
+  title       String
+  description String
+  questions   String      // Stores the AI-generated questions as JSON string
+  dueDate     DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  class       Class        @relation(fields: [classId], references: [id])
+  classId     String
+  creator     User         @relation("AssignmentCreator", fields: [creatorId], references: [id])
+  creatorId   String
+  submissions Submission[]
+  published   Boolean      @default(false)
+}
+
+model Submission {
+  id           String     @id @default(cuid())
+  answers      String    // Stores the student's answers as JSON string
+  score        Float?    // Score out of 100
+  feedback     String?   // AI-generated feedback
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  assignmentId String
+  student      User       @relation("StudentSubmissions", fields: [studentId], references: [id])
+  studentId    String
 }

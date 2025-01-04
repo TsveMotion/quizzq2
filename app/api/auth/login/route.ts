@@ -15,10 +15,18 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!prisma?.user) {
+      console.error('Prisma client not initialized properly');
+      return NextResponse.json(
+        { error: 'Database connection error' },
+        { status: 500 }
+      );
+    }
+
     // Find user
     console.log('Finding user...');
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email.toLowerCase() },
       include: {
         school: true,
       },
@@ -62,12 +70,8 @@ export async function POST(req: Request) {
       schoolId: user.schoolId,
     });
 
-    console.log('Generated token:', token.substring(0, 20) + '...');
-
-    // Create the response
+    // Create the response with the token
     const response = NextResponse.json({
-      success: true,
-      message: 'Login successful',
       user: {
         id: user.id,
         email: user.email,
@@ -76,29 +80,23 @@ export async function POST(req: Request) {
         powerLevel: user.powerLevel,
         schoolId: user.schoolId,
         school: user.school,
-      }
+      },
     });
 
-    // Set cookie
-    response.cookies.set({
-      name: 'token',
-      value: token,
+    // Set the token as an HTTP-only cookie
+    response.cookies.set('token', token, {
       httpOnly: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60, // 30 days
     });
 
     console.log('Login successful for:', email);
-    console.log('Cookie set with token');
-    
     return response;
-
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(
-      { error: 'An error occurred during login' },
+      { error: 'An error occurred during login: ' + (error instanceof Error ? error.message : String(error)) },
       { status: 500 }
     );
   }
