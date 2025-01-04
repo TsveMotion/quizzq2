@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main>
+    <>
       {/* Hero Section */}
       <section className="hero-gradient text-white py-20">
         <div className="container mx-auto px-4">
@@ -71,7 +71,7 @@ export default function Home() {
           </Button>
         </div>
       </section>
-    </main>
+    </>
   );
 }
 
