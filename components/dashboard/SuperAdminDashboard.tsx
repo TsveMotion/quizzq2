@@ -7,10 +7,10 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -79,11 +79,16 @@ interface School {
   createdAt: string;
 }
 
+interface UserWithSchool extends User {
+  school: School;
+}
+
 export default function SuperAdminDashboard({ user }: { user: any }) {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserWithSchool[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showCreateSchoolDialog, setShowCreateSchoolDialog] = useState(false);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
@@ -101,15 +106,28 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
   });
   const { toast } = useToast();
 
+  useEffect(() => {
+    fetchUsers();
+    fetchSchools();
+  }, []);
+
   const fetchUsers = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/admin/users');
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.users);
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
       }
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
+      const data = await response.json();
+      setUsers(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch users');
+      toast({
+        title: "Error",
+        description: "Failed to fetch users. Please try again later.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -117,23 +135,25 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
 
   const fetchSchools = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/admin/schools');
-      if (response.ok) {
-        const data = await response.json();
-        setSchools(data.schools);
+      if (!response.ok) {
+        throw new Error('Failed to fetch schools');
       }
-    } catch (error) {
-      console.error('Failed to fetch schools:', error);
+      const { schools: schoolsData } = await response.json();
+      setSchools(schoolsData || []);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch schools');
+      toast({
+        title: "Error",
+        description: "Failed to fetch schools. Please try again later.",
+        variant: "destructive",
+      });
+      setSchools([]);
+    } finally {
+      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-    fetchSchools();
-  }, []);
-
-  const getSchoolUsers = (schoolId: string) => {
-    return users.filter(user => user.schoolId === schoolId);
   };
 
   const handleCreateUser = async () => {
@@ -155,44 +175,31 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
         body: JSON.stringify(newUser),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "User created successfully",
-        });
-
-        // Close create dialog
-        setShowCreateDialog(false);
-
-        // Reset form
-        setNewUser({
-          name: '',
-          email: '',
-          role: 'member',
-          password: '',
-          schoolId: ''
-        });
-
-        // Refresh users
-        await fetchUsers();
-
-        // If we were creating a user for a specific school, reopen the school details dialog
-        if (selectedSchool) {
-          setTimeout(() => {
-            setActiveView('school-details');
-          }, 100);
-        }
-      } else {
-        throw new Error(data.error || 'Failed to create user');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create user');
       }
-    } catch (error) {
-      console.error('Failed to create user:', error);
+
+      const createdUser = await response.json();
+      setUsers(prevUsers => [...prevUsers, createdUser]);
+      setShowCreateDialog(false);
+      setNewUser({
+        name: '',
+        email: '',
+        role: 'member',
+        password: '',
+        schoolId: ''
+      });
+
+      toast({
+        title: "Success",
+        description: "User created successfully",
+      });
+    } catch (err) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create user. Please try again.",
-        variant: "destructive"
+        description: err instanceof Error ? err.message : "Failed to create user",
+        variant: "destructive",
       });
     }
   };
@@ -217,32 +224,28 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
         credentials: 'include'
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "School created successfully",
-        });
-        setShowCreateSchoolDialog(false);
-        
-        // Reset form
-        setNewSchool({
-          name: '',
-          description: ''
-        });
-        
-        // Refresh schools list
-        await fetchSchools();
-      } else {
-        throw new Error(data.error || 'Failed to create school');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create school');
       }
-    } catch (error) {
-      console.error('Failed to create school:', error);
+
+      const createdSchool = await response.json();
+      setSchools(prevSchools => [...prevSchools, createdSchool]);
+      setShowCreateSchoolDialog(false);
+      setNewSchool({
+        name: '',
+        description: ''
+      });
+
+      toast({
+        title: "Success",
+        description: "School created successfully",
+      });
+    } catch (err) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create school. Please try again.",
-        variant: "destructive"
+        description: err instanceof Error ? err.message : "Failed to create school",
+        variant: "destructive",
       });
     }
   };
@@ -285,20 +288,21 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
         credentials: 'include'
       });
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "User deleted successfully",
-        });
-        fetchUsers();
-      } else {
+      if (!response.ok) {
         throw new Error('Failed to delete user');
       }
-    } catch (error) {
+
+      setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+    } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to delete user. Please try again.",
-        variant: "destructive"
+        description: err instanceof Error ? err.message : "Failed to delete user",
+        variant: "destructive",
       });
     }
   };
@@ -310,20 +314,21 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
         credentials: 'include'
       });
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "School deleted successfully",
-        });
-        fetchSchools();
-      } else {
+      if (!response.ok) {
         throw new Error('Failed to delete school');
       }
-    } catch (error) {
+
+      setSchools(prevSchools => prevSchools.filter(school => school.id !== schoolId));
+
+      toast({
+        title: "Success",
+        description: "School deleted successfully",
+      });
+    } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to delete school. Please try again.",
-        variant: "destructive"
+        description: err instanceof Error ? err.message : "Failed to delete school",
+        variant: "destructive",
       });
     }
   };
@@ -351,16 +356,24 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
     }
   };
 
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users?.filter(user => 
     user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) || [];
 
-  const filteredSchools = schools.filter(school =>
-    school.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    school.roleNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  if (loading) {
+    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-red-500 mb-4">{error}</p>
+        <Button onClick={fetchUsers}>Retry</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -525,63 +538,47 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-10">
-                          Loading users...
+                    {filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                            {user.role}
+                          </span>
+                        </TableCell>
+                        <TableCell>{user.school?.name || '-'}</TableCell>
+                        <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit User
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <UserCog className="mr-2 h-4 w-4" />
+                                Change Role
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => handleDeleteUser(user.id)}
+                              >
+                                <Trash className="mr-2 h-4 w-4" />
+                                Delete User
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                    ) : filteredUsers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-10">
-                          No users found
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredUsers.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>{user.name}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                              {user.role}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            {schools.find(s => s.id === user.schoolId)?.name || '-'}
-                          </TableCell>
-                          <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit User
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <UserCog className="mr-2 h-4 w-4" />
-                                  Change Role
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-red-600"
-                                  onClick={() => handleDeleteUser(user.id)}
-                                >
-                                  <Trash className="mr-2 h-4 w-4" />
-                                  Delete User
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -622,7 +619,10 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSchools.map((school) => (
+                    {(schools || []).filter(school =>
+                      school.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      school.roleNumber.toLowerCase().includes(searchTerm.toLowerCase())
+                    ).map((school) => (
                       <TableRow 
                         key={school.id}
                         className="cursor-pointer hover:bg-muted/50"
@@ -733,59 +733,51 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {loading ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-10">
-                                  Loading users...
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              getSchoolUsers(selectedSchool.id)
-                                .filter(user => {
-                                  if (tab === 'all') return true;
-                                  if (tab === 'admin') return user.role === 'schooladmin';
-                                  if (tab === 'teachers') return user.role === 'teacher';
-                                  if (tab === 'students') return user.role === 'student';
-                                  return true;
-                                })
-                                .map((user) => (
-                                  <TableRow key={user.id}>
-                                    <TableCell>{user.name}</TableCell>
-                                    <TableCell>{user.email}</TableCell>
-                                    <TableCell>
-                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                                        {user.role}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
-                                    <TableCell className="text-right">
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" className="h-8 w-8 p-0">
-                                            <MoreVertical className="h-4 w-4" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                          <DropdownMenuSeparator />
-                                          <DropdownMenuItem>
-                                            <Edit className="mr-2 h-4 w-4" />
-                                            Edit User
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            className="text-red-600"
-                                            onClick={() => handleDeleteUser(user.id)}
-                                          >
-                                            <Trash className="mr-2 h-4 w-4" />
-                                            Delete User
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </TableCell>
-                                  </TableRow>
-                                ))
-                            )}
-                            {!loading && getSchoolUsers(selectedSchool.id).length === 0 && (
+                            {users.filter(user => user.schoolId === selectedSchool.id)
+                              .filter(user => {
+                                if (tab === 'all') return true;
+                                if (tab === 'admin') return user.role === 'schooladmin';
+                                if (tab === 'teachers') return user.role === 'teacher';
+                                if (tab === 'students') return user.role === 'student';
+                                return true;
+                              })
+                              .map((user) => (
+                                <TableRow key={user.id}>
+                                  <TableCell>{user.name}</TableCell>
+                                  <TableCell>{user.email}</TableCell>
+                                  <TableCell>
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                                      {user.role}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                                  <TableCell className="text-right">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem>
+                                          <Edit className="mr-2 h-4 w-4" />
+                                          Edit User
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-red-600"
+                                          onClick={() => handleDeleteUser(user.id)}
+                                        >
+                                          <Trash className="mr-2 h-4 w-4" />
+                                          Delete User
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            {users.filter(user => user.schoolId === selectedSchool.id).length === 0 && (
                               <TableRow>
                                 <TableCell colSpan={5} className="text-center py-10">
                                   No users found in this school
@@ -841,6 +833,25 @@ export default function SuperAdminDashboard({ user }: { user: any }) {
                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
               />
             </div>
+            {!selectedSchool && (
+              <div className="space-y-2">
+                <label>Role</label>
+                <Select
+                  value={newUser.role}
+                  onValueChange={(value) => setNewUser({ ...newUser, role: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="teacher">Teacher</SelectItem>
+                    <SelectItem value="schooladmin">School Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {selectedSchool && (
               <div className="rounded-md bg-muted p-4">
                 <div className="flex items-center space-x-2">

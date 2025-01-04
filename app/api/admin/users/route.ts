@@ -1,26 +1,60 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import { ROLES } from '@/lib/roles';
+import { hash } from 'bcrypt';
+import prisma from '@/lib/prisma';
+import { verifyToken } from '@/lib/auth';
 
 // GET /api/admin/users - Get all users
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    // Verify admin token
+    const session = await verifyToken();
+    if (!session || (session.role !== 'superadmin' && session.role !== 'schooladmin')) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    // Get query parameters
+    const { searchParams } = new URL(req.url);
+    const schoolId = searchParams.get('schoolId');
+    const role = searchParams.get('role');
+
+    // Build where clause
+    const where: any = {};
+    if (schoolId) where.schoolId = schoolId;
+    if (role) where.role = role;
+
+    // If school admin, only show users from their school
+    if (session.role === 'schooladmin') {
+      where.schoolId = session.schoolId;
+    }
+
     const users = await prisma.user.findMany({
-      orderBy: {
-        createdAt: 'desc'
-      },
+      where,
       include: {
-        school: true
-      }
+        school: true,
+      },
     });
 
-    return NextResponse.json({ users });
+    // Remove passwords from response
+    const usersWithoutPasswords = users.map(user => {
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    });
+
+    return new NextResponse(JSON.stringify(usersWithoutPasswords), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
   } catch (error) {
-    console.error('Failed to fetch users:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
+    console.error('Failed to get users:', error);
+    return new NextResponse(
+      JSON.stringify({ error: 'Failed to get users' }), 
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
   }
 }
@@ -28,62 +62,114 @@ export async function GET() {
 // POST /api/admin/users - Create a new user
 export async function POST(req: Request) {
   try {
-    const { name, email, password, role, schoolId } = await req.json();
+    // Verify admin token
+    const session = await verifyToken();
+    if (!session || (session.role !== 'superadmin' && session.role !== 'schooladmin')) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
 
-    // Validate role
-    if (!Object.values(ROLES).includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role' },
-        { status: 400 }
+    const { email, password, name, role, schoolId } = await req.json();
+
+    if (!email || !password || !role || !schoolId) {
+      return new NextResponse('Missing required fields', { status: 400 });
+    }
+
+    // Check if user with this email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'User with this email already exists',
+          code: 'EMAIL_EXISTS'
+        }), 
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Verify school exists
+    const school = await prisma.school.findUnique({
+      where: { id: schoolId }
+    });
+
+    if (!school) {
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'School not found',
+          code: 'SCHOOL_NOT_FOUND'
+        }), 
+        { 
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hash(password, 10);
 
-    // Get power level based on role
-    const powerLevel = {
-      [ROLES.MEMBER]: 1,
-      [ROLES.STUDENT]: 2,
-      [ROLES.TEACHER]: 3,
-      [ROLES.SCHOOLADMIN]: 4,
-      [ROLES.SUPERADMIN]: 5,
-    }[role] || 1;
-
-    // If role is school-related, validate schoolId
-    if ((role === ROLES.STUDENT || role === ROLES.TEACHER || role === ROLES.SCHOOLADMIN) && !schoolId) {
-      return NextResponse.json(
-        { error: 'School ID is required for school roles' },
-        { status: 400 }
-      );
+    // Set power level based on role
+    let powerLevel = 1;
+    switch (role) {
+      case 'superadmin':
+        powerLevel = 5;
+        break;
+      case 'schooladmin':
+        powerLevel = 4;
+        break;
+      case 'teacher':
+        powerLevel = 3;
+        break;
+      case 'student':
+        powerLevel = 1;
+        break;
+      default:
+        powerLevel = 1;
     }
 
+    // Create user
     const user = await prisma.user.create({
       data: {
-        name,
         email,
         password: hashedPassword,
+        name: name || email.split('@')[0],
         role,
         powerLevel,
-        schoolId: schoolId || null,
-      },
-      include: {
-        school: true
+        school: {
+          connect: {
+            id: schoolId
+          }
+        }
       }
     });
 
-    return NextResponse.json({ user }, { status: 201 });
-  } catch (error) {
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = user;
+
+    return new NextResponse(JSON.stringify(userWithoutPassword), {
+      status: 201,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+  } catch (error: any) {
     console.error('Failed to create user:', error);
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Email already exists' },
-        { status: 400 }
-      );
-    }
-    return NextResponse.json(
-      { error: 'Failed to create user' },
-      { status: 500 }
+    return new NextResponse(
+      JSON.stringify({ 
+        error: 'Failed to create user',
+        details: error.message,
+        code: error.code
+      }), 
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
   }
 }

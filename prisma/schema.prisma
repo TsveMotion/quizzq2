@@ -19,6 +19,13 @@ model User {
   updatedAt    DateTime  @updatedAt
   school       School?   @relation(fields: [schoolId], references: [id])
   schoolId     String?
+  teacherOf    Class[]   @relation("TeacherClasses")
+  enrolledIn   Class[]   @relation("StudentClasses")
+  createdBy    User?     @relation("TeacherStudents", fields: [teacherId], references: [id])
+  teacherId    String?
+  students     User[]    @relation("TeacherStudents")
+  assignments  Assignment[] @relation("TeacherAssignments")
+  submissions  HomeworkSubmission[] @relation("StudentSubmissions")
 }
 
 model School {
@@ -29,4 +36,78 @@ model School {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   users        User[]    // All users associated with this school
+  classes      Class[]   // All classes in this school
+}
+
+model Class {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  school      School       @relation(fields: [schoolId], references: [id])
+  schoolId    String
+  teacher     User         @relation("TeacherClasses", fields: [teacherId], references: [id])
+  teacherId   String
+  students    User[]       @relation("StudentClasses")
+  assignments Assignment[] @relation("ClassAssignments")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Assignment {
+  id          String       @id @default(cuid())
+  title       String
+  content     String       @default("") // Original AI response if needed
+  dueDate     DateTime
+  class       Class        @relation("ClassAssignments", fields: [classId], references: [id])
+  classId     String
+  teacher     User         @relation("TeacherAssignments", fields: [teacherId], references: [id])
+  teacherId   String
+  submissions HomeworkSubmission[]
+  questions   QuizQuestion[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model QuizQuestion {
+  id           String     @id @default(cuid())
+  questionText String
+  optionA      String
+  optionB      String
+  optionC      String
+  optionD      String
+  correctOption String    // "A", "B", "C", or "D"
+  explanation  String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignmentId String
+  submissions  QuestionSubmission[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model QuestionSubmission {
+  id           String       @id @default(cuid())
+  question     QuizQuestion @relation(fields: [questionId], references: [id])
+  questionId   String
+  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id])
+  submissionId String
+  answer       String       // Student's answer ("A", "B", "C", or "D")
+  isCorrect    Boolean
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([questionId, submissionId])
+}
+
+model HomeworkSubmission {
+  id           String     @id @default(cuid())
+  content      String?    // Optional general comments
+  grade        Int?       // Optional grade (0-100)
+  feedback     String?    // Teacher's feedback
+  student      User       @relation("StudentSubmissions", fields: [studentId], references: [id])
+  studentId    String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  assignmentId String
+  answers      QuestionSubmission[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }

@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import * as jose from 'jose';
+import { cookies } from 'next/headers';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-123';
 const EDGE_JWT_SECRET = new TextEncoder().encode(JWT_SECRET);
@@ -53,6 +54,22 @@ export function decodeToken(token: string): JWTPayload | null {
   try {
     return jwt.decode(token) as JWTPayload;
   } catch {
+    return null;
+  }
+}
+
+export async function verifyToken(): Promise<JWTPayload | null> {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get('token')?.value;
+    
+    if (!token) {
+      return null;
+    }
+
+    return await verifyAuth(token);
+  } catch (error) {
+    console.error('Token verification failed:', error);
     return null;
   }
 }
