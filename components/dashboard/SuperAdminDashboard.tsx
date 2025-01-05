@@ -58,6 +58,11 @@ export default function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [schools, setSchools] = useState<School[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
   const [isAddingSchool, setIsAddingSchool] = useState(false);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newSchool, setNewSchool] = useState({
@@ -79,7 +84,6 @@ export default function SuperAdminDashboard() {
     { value: 'superadmin', label: 'Super Admin' },
   ];
 
-  // Fetch schools and users on component mount
   useEffect(() => {
     fetchSchools();
     fetchUsers();
@@ -92,6 +96,7 @@ export default function SuperAdminDashboard() {
       const data = await response.json();
       setSchools(data);
     } catch (error) {
+      console.error('Error fetching schools:', error);
       toast({
         title: "Error",
         description: "Failed to fetch schools",
@@ -101,16 +106,89 @@ export default function SuperAdminDashboard() {
   };
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/users');
-      if (!response.ok) throw new Error('Failed to fetch users');
+      const response = await fetch('/api/admin/users');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch users');
+      }
       const data = await response.json();
       setUsers(data);
+      setFilteredUsers(data);
     } catch (error) {
+      console.error('Error fetching users:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch users",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to fetch users",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    filterAndSortUsers();
+  }, [users, searchTerm, roleFilter, sortConfig]);
+
+  const filterAndSortUsers = () => {
+    let filtered = [...users];
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(user => 
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply role filter
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter(user => user.role === roleFilter);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+      
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredUsers(filtered);
+  };
+
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user?')) return;
+    
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete user');
+      
+      setUsers(prev => prev.filter(user => user.id !== userId));
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive"
       });
     }
   };
@@ -166,7 +244,7 @@ export default function SuperAdminDashboard() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/users', {
+      const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -202,55 +280,6 @@ export default function SuperAdminDashboard() {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create user",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteSchool = async (schoolId: string) => {
-    if (!confirm('Are you sure you want to delete this school?')) return;
-
-    try {
-      const response = await fetch(`/api/schools?id=${schoolId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) throw new Error('Failed to delete school');
-
-      setSchools(schools.filter(school => school.id !== schoolId));
-      toast({
-        title: "Success",
-        description: "School deleted successfully",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete school",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      const response = await fetch(`/api/users?id=${userId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
-
-      setUsers(users.filter(user => user.id !== userId));
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-      });
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete user",
         variant: "destructive",
       });
     }
@@ -695,142 +724,178 @@ export default function SuperAdminDashboard() {
 
         {/* Users Tab */}
         <TabsContent value="users" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Users</h2>
-            <Dialog open={isAddingUser} onOpenChange={setIsAddingUser}>
-              <DialogTrigger asChild>
-                <Button>
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New User</DialogTitle>
-                  <DialogDescription>
-                    Fill in the details to create a new user.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleCreateUser} className="space-y-4">
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="name">Name</Label>
-                      <Input
-                        id="name"
-                        placeholder="Enter user's name"
-                        value={newUser.name}
-                        onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="Enter user's email"
-                        value={newUser.email}
-                        onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="Enter password"
-                        value={newUser.password}
-                        onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="role">Role</Label>
-                      <select
-                        id="role"
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
-                        value={newUser.role}
-                        onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                        required
-                      >
-                        {roles.map((role) => (
-                          <option key={role.value} value={role.value}>
-                            {role.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="school">School</Label>
-                      <select
-                        id="school"
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
-                        value={newUser.schoolId}
-                        onChange={(e) => setNewUser({ ...newUser, schoolId: e.target.value })}
-                      >
-                        <option value="">No School</option>
-                        {schools.map((school) => (
-                          <option key={school.id} value={school.id}>
-                            {school.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="submit">Create User</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>System Users</CardTitle>
+                  <CardDescription>Manage all users in the system</CardDescription>
+                </div>
+                <Dialog open={isAddingUser} onOpenChange={setIsAddingUser}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Add User
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New User</DialogTitle>
+                      <DialogDescription>
+                        Create a new user account.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateUser} className="space-y-4">
+                      <div className="space-y-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="name">Name</Label>
+                          <Input
+                            id="name"
+                            placeholder="Enter user name"
+                            value={newUser.name}
+                            onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="Enter email address"
+                            value={newUser.email}
+                            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="password">Password</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            placeholder="Enter password"
+                            value={newUser.password}
+                            onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="role">Role</Label>
+                          <Select 
+                            value={newUser.role}
+                            onValueChange={(value) => setNewUser({ ...newUser, role: value })}
+                          >
+                            <option value="">Select a role</option>
+                            <option value="schooladmin">School Admin</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="student">Student</option>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="school">School</Label>
+                          <Select
+                            value={newUser.schoolId}
+                            onValueChange={(value) => setNewUser({ ...newUser, schoolId: value })}
+                          >
+                            <option value="">Select a school</option>
+                            {schools.map((school) => (
+                              <option key={school.id} value={school.id}>
+                                {school.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit">Create User</Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4 mb-4">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search users..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select
+                  value={roleFilter}
+                  onValueChange={setRoleFilter}
+                >
+                  <option value="all">All Roles</option>
+                  <option value="superadmin">Super Admin</option>
+                  <option value="schooladmin">School Admin</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="student">Student</option>
+                </Select>
+              </div>
 
-          <div className="space-y-4">
-            <Card>
-              <CardContent className="p-0">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-4">Name</th>
-                      <th className="text-left p-4">Email</th>
-                      <th className="text-left p-4">Role</th>
-                      <th className="text-left p-4">School</th>
-                      <th className="text-right p-4">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((user) => (
-                      <tr key={user.id} className="border-b">
-                        <td className="p-4">{user.name}</td>
-                        <td className="p-4">{user.email}</td>
-                        <td className="p-4 capitalize">{user.role}</td>
-                        <td className="p-4">{user.school?.name || 'No School'}</td>
-                        <td className="p-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleDeleteUser(user.id)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
+              <div className="rounded-md border">
+                <ScrollArea className="h-[600px]">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="p-2 text-left cursor-pointer" onClick={() => handleSort('name')}>Name</th>
+                        <th className="p-2 text-left cursor-pointer" onClick={() => handleSort('email')}>Email</th>
+                        <th className="p-2 text-left cursor-pointer" onClick={() => handleSort('role')}>Role</th>
+                        <th className="p-2 text-left cursor-pointer" onClick={() => handleSort('school')}>School</th>
+                        <th className="p-2 text-left cursor-pointer" onClick={() => handleSort('createdAt')}>Created</th>
+                        <th className="p-2 text-left">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </div>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr>
+                          <td colSpan={6} className="p-4 text-center">Loading...</td>
+                        </tr>
+                      ) : filteredUsers.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-4 text-center">No users found</td>
+                        </tr>
+                      ) : (
+                        filteredUsers.map((user) => (
+                          <tr key={user.id} className="border-b">
+                            <td className="p-2">{user.name}</td>
+                            <td className="p-2">{user.email}</td>
+                            <td className="p-2 capitalize">{user.role}</td>
+                            <td className="p-2">{user.school?.name || '-'}</td>
+                            <td className="p-2">{new Date(user.createdAt).toLocaleDateString()}</td>
+                            <td className="p-2">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem onClick={() => alert('Edit user - To be implemented')}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteUser(user.id)}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Analytics Tab */}

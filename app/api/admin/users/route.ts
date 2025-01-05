@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
 import { hash } from 'bcrypt';
 import prisma from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // GET /api/admin/users - Get all users
 export async function GET(req: Request) {
   try {
-    // Verify admin token
-    const session = await verifyToken();
-    if (!session || (session.role !== 'superadmin' && session.role !== 'schooladmin')) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Only allow superadmin and schooladmin
+    if (!['superadmin', 'schooladmin'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     // Get query parameters
@@ -23,38 +28,34 @@ export async function GET(req: Request) {
     if (role) where.role = role;
 
     // If school admin, only show users from their school
-    if (session.role === 'schooladmin') {
-      where.schoolId = session.schoolId;
+    if (session.user.role === 'schooladmin') {
+      where.schoolId = session.user.schoolId;
     }
 
     const users = await prisma.user.findMany({
       where,
       include: {
-        school: true,
+        school: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
       },
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
 
-    // Remove passwords from response
-    const usersWithoutPasswords = users.map(user => {
-      const { password, ...userWithoutPassword } = user;
-      return userWithoutPassword;
-    });
+    // Remove sensitive data from response
+    const sanitizedUsers = users.map(({ password, ...user }) => user);
 
-    return new NextResponse(JSON.stringify(usersWithoutPasswords), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
+    return NextResponse.json(sanitizedUsers);
   } catch (error) {
     console.error('Failed to get users:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Failed to get users' }), 
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
+    return NextResponse.json(
+      { error: 'Failed to fetch users' },
+      { status: 500 }
     );
   }
 }
@@ -62,114 +63,96 @@ export async function GET(req: Request) {
 // POST /api/admin/users - Create a new user
 export async function POST(req: Request) {
   try {
-    // Verify admin token
-    const session = await verifyToken();
-    if (!session || (session.role !== 'superadmin' && session.role !== 'schooladmin')) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { email, password, name, role, schoolId } = await req.json();
-
-    if (!email || !password || !role || !schoolId) {
-      return new NextResponse('Missing required fields', { status: 400 });
+    // Only allow superadmin and schooladmin to create users
+    if (!['superadmin', 'schooladmin'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    // Check if user with this email already exists
+    const data = await req.json();
+    const { name, email, password, role, schoolId } = data;
+
+    // Validate required fields
+    if (!name || !email || !password || !role) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Validate role permissions
+    if (session.user.role === 'schooladmin') {
+      // School admins can only create teachers and students
+      if (!['teacher', 'student'].includes(role)) {
+        return NextResponse.json(
+          { error: 'School admins can only create teachers and students' },
+          { status: 403 }
+        );
+      }
+      // School admins can only create users for their school
+      if (schoolId !== session.user.schoolId) {
+        return NextResponse.json(
+          { error: 'Cannot create users for other schools' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email }
     });
 
     if (existingUser) {
-      return new NextResponse(
-        JSON.stringify({ 
-          error: 'User with this email already exists',
-          code: 'EMAIL_EXISTS'
-        }), 
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Verify school exists
-    const school = await prisma.school.findUnique({
-      where: { id: schoolId }
-    });
-
-    if (!school) {
-      return new NextResponse(
-        JSON.stringify({ 
-          error: 'School not found',
-          code: 'SCHOOL_NOT_FOUND'
-        }), 
-        { 
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        }
+      return NextResponse.json(
+        { error: 'User with this email already exists' },
+        { status: 400 }
       );
     }
 
     // Hash password
     const hashedPassword = await hash(password, 10);
 
-    // Set power level based on role
-    let powerLevel = 1;
-    switch (role) {
-      case 'superadmin':
-        powerLevel = 5;
-        break;
-      case 'schooladmin':
-        powerLevel = 4;
-        break;
-      case 'teacher':
-        powerLevel = 3;
-        break;
-      case 'student':
-        powerLevel = 1;
-        break;
-      default:
-        powerLevel = 1;
-    }
-
     // Create user
     const user = await prisma.user.create({
       data: {
+        name,
         email,
         password: hashedPassword,
-        name: name || email.split('@')[0],
         role,
-        powerLevel,
-        school: {
-          connect: {
-            id: schoolId
-          }
-        }
-      }
-    });
-
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
-
-    return new NextResponse(JSON.stringify(userWithoutPassword), {
-      status: 201,
-      headers: {
-        'Content-Type': 'application/json',
+        powerLevel: role === 'student' ? 1 : role === 'teacher' ? 3 : 2,
+        school: schoolId ? {
+          connect: { id: schoolId }
+        } : undefined
       },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        powerLevel: true,
+        schoolId: true,
+        school: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        createdAt: true,
+        updatedAt: true
+      }
     });
 
-  } catch (error: any) {
-    console.error('Failed to create user:', error);
-    return new NextResponse(
-      JSON.stringify({ 
-        error: 'Failed to create user',
-        details: error.message,
-        code: error.code
-      }), 
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
+    return NextResponse.json(user);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return NextResponse.json(
+      { error: 'Failed to create user' },
+      { status: 500 }
     );
   }
 }

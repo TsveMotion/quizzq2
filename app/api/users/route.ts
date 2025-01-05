@@ -50,11 +50,7 @@ export async function POST(req: Request) {
           }
         },
         ...(role === 'student' && currentUser.role === 'teacher' ? {
-          createdBy: {
-            connect: {
-              id: currentUser.id
-            }
-          }
+          teacherId: currentUser.id
         } : {})
       },
       select: {
@@ -62,7 +58,6 @@ export async function POST(req: Request) {
         name: true,
         email: true,
         role: true,
-        createdBy: true,
         school: {
           select: {
             id: true,

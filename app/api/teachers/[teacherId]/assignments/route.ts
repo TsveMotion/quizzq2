@@ -19,43 +19,81 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all assignments for the teacher's classes
+    // Get assignments with full details
     const assignments = await prisma.assignment.findMany({
       where: {
         class: {
-          teacherId: params.teacherId
-        }
+          teacherId: params.teacherId,
+        },
       },
       include: {
         class: {
-          select: {
-            id: true,
-            name: true,
-            students: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
+          include: {
+            students: true
           }
         },
-        questions: true,
+        questions: {
+          select: {
+            id: true,
+            question: true,
+            options: true,
+            correctAnswerIndex: true,
+            explanation: true,
+          }
+        },
         submissions: {
           include: {
-            student: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
+            answers: true
           }
         }
-      }
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
-    return NextResponse.json(assignments);
+    // Format the response
+    const formattedAssignments = assignments.map(assignment => {
+      // Calculate stats
+      const submissionCount = assignment.submissions.length;
+      const totalStudents = assignment.class.students.length;
+      
+      // Calculate average score
+      const totalScore = assignment.submissions.reduce((acc, submission) => {
+        const correctAnswers = submission.answers.filter(answer => 
+          answer.selectedOption === assignment.questions.find(q => q.id === answer.questionId)?.correctAnswerIndex
+        ).length;
+        const score = (correctAnswers / assignment.questions.length) * 100;
+        return acc + score;
+      }, 0);
+      
+      const averageScore = submissionCount > 0 ? Math.round(totalScore / submissionCount) : 0;
+
+      return {
+        id: assignment.id,
+        title: assignment.title,
+        subject: assignment.subject,
+        dueDate: assignment.dueDate,
+        class: {
+          id: assignment.class.id,
+          name: assignment.class.name,
+        },
+        questions: assignment.questions.map(q => ({
+          id: q.id,
+          question: q.question,
+          options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
+          correctAnswerIndex: q.correctAnswerIndex,
+          explanation: q.explanation,
+        })),
+        stats: {
+          submissionCount,
+          totalStudents,
+          averageScore,
+        }
+      };
+    });
+
+    return NextResponse.json(formattedAssignments);
   } catch (error) {
     console.error('Failed to fetch assignments:', error);
     return NextResponse.json(
@@ -215,7 +253,7 @@ export async function GET_PERFORMANCE(
     }
 
     // Calculate performance metrics
-    const totalStudents = assignment.submissions.length;
+    const totalStudents = assignment.class.students.length;
     const averageScore = assignment.submissions.reduce((acc, sub) => {
       const correctAnswers = sub.answers.filter(a => a.isCorrect).length;
       return acc + (correctAnswers / assignment.questions.length) * 100;
@@ -247,6 +285,42 @@ export async function GET_PERFORMANCE(
     console.error('Failed to fetch assignment performance:', error);
     return NextResponse.json(
       { error: 'Failed to fetch assignment performance' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/teachers/[teacherId]/assignments/[assignmentId]
+export async function DELETE(
+  req: Request,
+  { params }: { params: { teacherId: string; assignmentId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify the teacher has access
+    if (session.user.id !== params.teacherId && session.user.role !== 'teacher') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Delete the assignment
+    await prisma.assignment.delete({
+      where: {
+        id: params.assignmentId,
+        class: {
+          teacherId: params.teacherId
+        }
+      }
+    });
+
+    return NextResponse.json({ message: 'Assignment deleted successfully' });
+  } catch (error) {
+    console.error('Failed to delete assignment:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete assignment' },
       { status: 500 }
     );
   }

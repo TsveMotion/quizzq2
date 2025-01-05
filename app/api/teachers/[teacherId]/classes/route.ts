@@ -33,19 +33,61 @@ export async function GET(
           }
         },
         assignments: {
-          select: {
-            id: true,
-            title: true,
-            dueDate: true,
-            content: true,
+          include: {
             questions: true,
-            submissions: true
+            submissions: {
+              include: {
+                student: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                },
+                answers: {
+                  include: {
+                    question: true
+                  }
+                }
+              }
+            }
           }
         }
       }
     });
 
-    return NextResponse.json(classes);
+    // Format the response to parse JSON options
+    const formattedClasses = classes.map(cls => ({
+      ...cls,
+      assignments: cls.assignments.map(assignment => {
+        // Calculate submission stats
+        const submissionCount = assignment.submissions.length;
+        const totalStudents = cls.students.length;
+        
+        // Calculate average score
+        const totalScore = assignment.submissions.reduce((acc, submission) => {
+          const correctAnswers = submission.answers.filter(a => a.isCorrect).length;
+          const score = (correctAnswers / assignment.questions.length) * 100;
+          return acc + score;
+        }, 0);
+        const averageScore = submissionCount > 0 ? Math.round(totalScore / submissionCount) : 0;
+
+        return {
+          ...assignment,
+          questions: assignment.questions.map(q => ({
+            ...q,
+            options: JSON.parse(q.options)
+          })),
+          stats: {
+            submissionCount,
+            totalStudents,
+            averageScore
+          }
+        };
+      })
+    }));
+
+    return NextResponse.json(formattedClasses);
   } catch (error) {
     console.error('Failed to fetch classes:', error);
     return NextResponse.json(
@@ -72,12 +114,12 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { name, description, yearGroup } = body;
+    const { name, description } = body;
 
     // Validate required fields
-    if (!name || !yearGroup) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'Name and year group are required' },
+        { error: 'Name is required' },
         { status: 400 }
       );
     }
@@ -87,7 +129,6 @@ export async function POST(
       data: {
         name,
         description,
-        yearGroup,
         teacherId: params.teacherId,
         schoolId: session.user.schoolId
       },
@@ -179,6 +220,40 @@ export async function PUT(
     console.error('Error updating class students:', error);
     return NextResponse.json(
       { error: 'Failed to update class students' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/teachers/[teacherId]/classes/[classId]
+export async function DELETE(
+  req: Request,
+  { params }: { params: { teacherId: string; classId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify the teacher has access
+    if (session.user.id !== params.teacherId && session.user.role !== 'teacher') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Delete the class and all related assignments
+    await prisma.class.delete({
+      where: {
+        id: params.classId,
+        teacherId: params.teacherId
+      }
+    });
+
+    return NextResponse.json({ message: 'Class deleted successfully' });
+  } catch (error) {
+    console.error('Failed to delete class:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete class' },
       { status: 500 }
     );
   }

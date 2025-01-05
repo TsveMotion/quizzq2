@@ -259,6 +259,18 @@ export default function SchoolAdminDashboard({ user }: DashboardProps) {
       { name: 'English Essay', dueDate: '2025-01-20', submissions: 22, totalStudents: 30 }
     ]
   });
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: '',
+    schoolId: user.schoolId
+  });
+
   const { toast } = useToast();
   const router = useRouter();
 
@@ -474,16 +486,19 @@ export default function SchoolAdminDashboard({ user }: DashboardProps) {
     }
   };
 
-  const onDeleteUser = async (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
 
+    setIsLoading(true);
     try {
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete user');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete user');
       }
 
       toast({
@@ -491,14 +506,22 @@ export default function SchoolAdminDashboard({ user }: DashboardProps) {
         description: 'User deleted successfully',
       });
 
-      fetchData();
+      // Reset states
+      setIsConfirmingDelete(false);
+      setSelectedUser(null);
+      setIsViewingUser(false);
+      
+      // Refresh user list
+      fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete user',
+        description: error instanceof Error ? error.message : 'Failed to delete user',
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -539,41 +562,6 @@ export default function SchoolAdminDashboard({ user }: DashboardProps) {
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/schools/${user.school.id}/users/${selectedUser.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
-
-      toast({
-        title: 'Success',
-        description: 'User deleted successfully',
-      });
-
-      setIsConfirmingDelete(false);
-      setSelectedUser(null);
-      setIsViewingUser(false);
-      fetchData(); // Refresh the users list
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete user',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleUpdateSettings = async (formData: any) => {
     try {
       const response = await fetch(`/api/schools/${user.school.id}/settings`, {
@@ -606,7 +594,91 @@ export default function SchoolAdminDashboard({ user }: DashboardProps) {
     }
   };
 
-  const filteredUsers = users.filter((user) => {
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/admin/users?schoolId=${user.schoolId}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch users');
+      }
+      const data = await response.json();
+      setUsers(data);
+      setFilteredUsers(data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch users",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newUser),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create user');
+      }
+
+      await fetchUsers();
+      setIsAddingUser(false);
+      setNewUser({
+        name: '',
+        email: '',
+        password: '',
+        role: '',
+        schoolId: user.schoolId
+      });
+
+      toast({
+        title: "Success",
+        description: "User created successfully",
+      });
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create user",
+        variant: "destructive"
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [user.schoolId]);
+
+  useEffect(() => {
+    let filtered = [...users];
+    
+    if (searchTerm) {
+      filtered = filtered.filter(user => 
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter(user => user.role === roleFilter);
+    }
+
+    setFilteredUsers(filtered);
+  }, [users, searchTerm, roleFilter]);
+
+  const filteredUsersList = users.filter((user) => {
     const searchLower = searchQuery.toLowerCase();
     return (
       user.name?.toLowerCase().includes(searchLower) ||
@@ -888,171 +960,154 @@ export default function SchoolAdminDashboard({ user }: DashboardProps) {
         </TabsContent>
 
         <TabsContent value="users" className="space-y-6">
-          {/* Existing users table */}
-          <Card className="col-span-4">
+          <Card className="mb-6">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Users</CardTitle>
-                <div className="flex gap-4">
-                  <Input
-                    placeholder="Search users..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-[200px]"
-                  />
-                  <Dialog open={isAddingUser} onOpenChange={setIsAddingUser}>
-                    <DialogTrigger asChild>
-                      <Button>Add User</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <form onSubmit={handleSubmit(onCreateUser)}>
-                        <DialogHeader>
-                          <DialogTitle>Add New User</DialogTitle>
-                          <DialogDescription>
-                            Create a new user account
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="name">Name</Label>
-                            <Input
-                              id="name"
-                              {...register('name')}
-                              placeholder="John Doe"
-                            />
-                            {errors.name && (
-                              <p className="text-sm text-red-500">
-                                {errors.name.message}
-                              </p>
-                            )}
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                              id="email"
-                              {...register('email')}
-                              placeholder="john@example.com"
-                            />
-                            {errors.email && (
-                              <p className="text-sm text-red-500">
-                                {errors.email.message}
-                              </p>
-                            )}
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="password">Password</Label>
-                            <Input
-                              id="password"
-                              type="password"
-                              {...register('password')}
-                            />
-                            {errors.password && (
-                              <p className="text-sm text-red-500">
-                                {errors.password.message}
-                              </p>
-                            )}
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="role">Role</Label>
-                            <Select
-                              onValueChange={(value) =>
-                                (document.getElementById('role') as HTMLInputElement).value = value
-                              }
-                              defaultValue="student"
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select role" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="student">Student</SelectItem>
-                                <SelectItem value="teacher">Teacher</SelectItem>
-                                <SelectItem value="schooladmin">School Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <input
-                              type="hidden"
-                              id="role"
-                              {...register('role')}
-                              defaultValue="student"
-                            />
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button type="submit" disabled={isAddingUser}>
-                            {isAddingUser && (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            )}
-                            Add User
-                          </Button>
-                        </DialogFooter>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>School Users</CardTitle>
+                  <CardDescription>Manage users in your school</CardDescription>
                 </div>
+                <Dialog open={isAddingUser} onOpenChange={setIsAddingUser}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <UsersIcon className="h-4 w-4 mr-2" />
+                      Add User
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New User</DialogTitle>
+                      <DialogDescription>
+                        Create a new user account in your school.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateUser} className="space-y-4">
+                      <div className="space-y-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="name">Name</Label>
+                          <Input
+                            id="name"
+                            placeholder="Enter user name"
+                            value={newUser.name}
+                            onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="Enter email address"
+                            value={newUser.email}
+                            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="password">Password</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            placeholder="Enter password"
+                            value={newUser.password}
+                            onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="role">Role</Label>
+                          <Select 
+                            value={newUser.role}
+                            onValueChange={(value) => setNewUser({ ...newUser, role: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="teacher">Teacher</SelectItem>
+                              <SelectItem value="student">Student</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit">Create User</Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[600px] w-full">
+              <div className="flex gap-4 mb-4">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search users..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select
+                  value={roleFilter}
+                  onValueChange={setRoleFilter}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="teacher">Teacher</SelectItem>
+                    <SelectItem value="student">Student</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
-                      <TableHead>Classes</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.id} className="cursor-pointer hover:bg-muted/50">
-                        <TableCell onClick={() => {
-                          setSelectedUser(user);
-                          setIsViewingUser(true);
-                        }}>{user.name}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <Badge variant={
-                            user.role === 'schooladmin' ? 'default' :
-                            user.role === 'teacher' ? 'secondary' : 'outline'
-                          }>
-                            {user.role}
-                          </Badge>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center">
+                          <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                         </TableCell>
-                        <TableCell>
-                          {user.role === 'teacher' ? user._count?.teacherOf || 0 :
-                           user.role === 'student' ? user._count?.enrolledIn || 0 : '-'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
+                      </TableRow>
+                    ) : filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center">No users found</TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>{user.name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell className="capitalize">{user.role}</TableCell>
+                          <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell className="text-right">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setIsEditingUser(true);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive"
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setIsConfirmingDelete(true);
-                              }}
+                              className="text-red-600"
+                              onClick={() => handleDeleteUser(user.id)}
                             >
                               Delete
                             </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1284,7 +1339,9 @@ export default function SchoolAdminDashboard({ user }: DashboardProps) {
                 </div>
                 <div>
                   <Label>Created At</Label>
-                  <p className="text-sm">{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedUser.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
 

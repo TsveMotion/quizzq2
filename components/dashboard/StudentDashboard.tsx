@@ -2,15 +2,68 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from '@/components/ui/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import PracticeQuizzes from './PracticeQuizzes';
+import { useSession } from 'next-auth/react';
+import { 
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { 
+  Calendar,
+  BookOpen,
+  Eye,
+  Clock,
+  PenSquare,
+  CheckSquare,
+  ListChecks,
+  Settings,
+  Bell,
+  Sun,
+  Moon,
+  Languages,
+  ChevronRight,
+  Send,
+  Bot,
+  Sparkles,
+  Loader2,
+  X,
+  Pencil,
+  Home,
+  BarChart3,
+  Brain,
+  Trophy,
+  Target,
+  BookOpenCheck,
+  GraduationCap
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface QuizQuestion {
   id: string;
@@ -58,14 +111,280 @@ interface Class {
   assignments: Assignment[];
 }
 
+interface AssignmentType {
+  id: string;
+  title: string;
+  subject: string;
+  dueDate: string;
+  class: {
+    id: string;
+    name: string;
+  };
+  questions: {
+    id: string;
+    question: string;
+    options: string[];
+    correctAnswerIndex?: number;
+    explanation?: string;
+    selectedOption?: number;
+  }[];
+  status: {
+    submitted: boolean;
+    score?: number;
+    submittedAt?: string;
+  };
+}
+
+interface AssignmentCardProps {
+  assignment: AssignmentType;
+  onSelect: (assignment: AssignmentType) => void;
+}
+
+const AssignmentCard: React.FC<AssignmentCardProps> = ({ assignment, onSelect }) => {
+  const dueDate = new Date(assignment.dueDate);
+  const isOverdue = dueDate < new Date();
+  const isDueSoon = !isOverdue && dueDate.getTime() - new Date().getTime() < 24 * 60 * 60 * 1000;
+
+  // Calculate progress for this specific assignment
+  const questionsAnswered = assignment.status.submitted ? assignment.questions.length : 0;
+  const progress = `${questionsAnswered} / ${assignment.questions.length}`;
+
+  return (
+    <Card className="group hover:shadow-md transition-all">
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <CardTitle className="line-clamp-1">{assignment.title}</CardTitle>
+            <CardDescription>{assignment.class.name} • {assignment.subject}</CardDescription>
+          </div>
+          {assignment.status.submitted ? (
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              Score: {assignment.status.score}%
+            </Badge>
+          ) : isOverdue ? (
+            <Badge variant="destructive">Overdue</Badge>
+          ) : isDueSoon ? (
+            <Badge variant="warning" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+              Due Soon
+            </Badge>
+          ) : (
+            <Badge variant="outline">Active</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Calendar className="mr-2 h-4 w-4" />
+            <span>Due {format(dueDate, 'MMM d, yyyy')}</span>
+          </div>
+          <div className="flex items-center text-sm text-muted-foreground">
+            <ListChecks className="mr-2 h-4 w-4" />
+            <span>{progress} Questions</span>
+          </div>
+          {assignment.status.submitted && (
+            <Progress 
+              value={assignment.status.score} 
+              className="h-2"
+              indicatorClassName={cn(
+                assignment.status.score >= 70 ? "bg-green-500" :
+                assignment.status.score >= 50 ? "bg-yellow-500" :
+                "bg-red-500"
+              )}
+            />
+          )}
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button 
+          variant={assignment.status.submitted ? "outline" : "default"}
+          className="w-full"
+          onClick={() => onSelect(assignment)}
+        >
+          {assignment.status.submitted ? (
+            <>
+              <Eye className="mr-2 h-4 w-4" />
+              View Results
+            </>
+          ) : (
+            <>
+              <Pencil className="mr-2 h-4 w-4" />
+              Start Assignment
+            </>
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
+const AssignmentView = ({ 
+  assignment,
+  onClose,
+  onSubmit
+}: { 
+  assignment: AssignmentType;
+  onClose: () => void;
+  onSubmit: (answers: { questionId: string; selectedOption: number }[]) => Promise<void>;
+}) => {
+  const [answers, setAnswers] = useState<{ questionId: string; selectedOption: number }[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleOptionSelect = (questionId: string, optionIndex: number) => {
+    setAnswers(prev => {
+      const existing = prev.findIndex(a => a.questionId === questionId);
+      if (existing !== -1) {
+        const newAnswers = [...prev];
+        newAnswers[existing] = { questionId, selectedOption: optionIndex };
+        return newAnswers;
+      }
+      return [...prev, { questionId, selectedOption: optionIndex }];
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (answers.length !== assignment.questions.length) {
+      toast({
+        title: "Error",
+        description: "Please answer all questions before submitting",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(answers);
+      toast({
+        title: "Success",
+        description: "Assignment submitted successfully",
+      });
+      onClose();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to submit assignment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const currentQuestion = assignment.questions[currentQuestionIndex];
+  const selectedAnswer = answers.find(a => a.questionId === currentQuestion.id)?.selectedOption;
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{assignment.title}</DialogTitle>
+          <DialogDescription>
+            {assignment.class.name} • {assignment.subject}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              Question {currentQuestionIndex + 1} of {assignment.questions.length}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {answers.length} of {assignment.questions.length} answered
+            </div>
+          </div>
+
+          <Progress 
+            value={(answers.length / assignment.questions.length) * 100} 
+            className="h-2"
+          />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {currentQuestion.question}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-2">
+                {currentQuestion.options.map((option, index) => (
+                  <Button
+                    key={index}
+                    variant={selectedAnswer === index ? "default" : "outline"}
+                    className="justify-start h-auto py-4 px-4"
+                    onClick={() => handleOptionSelect(currentQuestion.id, index)}
+                  >
+                    <div className="flex items-center">
+                      <div className="w-6 h-6 rounded-full border-2 border-primary flex items-center justify-center mr-2">
+                        {String.fromCharCode(65 + index)}
+                      </div>
+                      <span>{option}</span>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <DialogFooter className="flex justify-between items-center">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentQuestionIndex === 0}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setCurrentQuestionIndex(prev => Math.min(assignment.questions.length - 1, prev + 1))}
+              disabled={currentQuestionIndex === assignment.questions.length - 1}
+            >
+              Next
+            </Button>
+          </div>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={answers.length !== assignment.questions.length || isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              'Submit Assignment'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const AssignmentTabs = {
+  ALL: 'All',
+  PENDING: 'Pending',
+  COMPLETED: 'Completed',
+  OVERDUE: 'Overdue'
+} as const;
+
+type AssignmentTabType = keyof typeof AssignmentTabs;
+
 export default function StudentDashboard({ user }: { user: any }) {
+  const { data: session } = useSession();
   const [classes, setClasses] = useState<Class[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentType[]>([]);
+  const [selectedAssignment, setSelectedAssignment] = useState<AssignmentType | null>(null);
+  const [assignmentTab, setAssignmentTab] = useState<AssignmentTabType>('ALL');
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'assignments' | 'practice'>('overview');
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
-  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
   const [showExplanation, setShowExplanation] = useState<Record<string, boolean>>({});
   const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle');
   const [showAiHelper, setShowAiHelper] = useState(false);
@@ -81,6 +400,8 @@ export default function StudentDashboard({ user }: { user: any }) {
   const [isTyping, setIsTyping] = useState(false);
   const [currentMessage, setCurrentMessage] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const scrollToBottom = () => {
     if (chatContainerRef.current) {
@@ -154,174 +475,117 @@ export default function StudentDashboard({ user }: { user: any }) {
     }
   };
 
-  const submitAssignment = async (assignmentId: string) => {
+  const submitAssignment = async (answers: { questionId: string; selectedOption: number }[]) => {
+    if (!selectedAssignment || !session?.user?.id) return;
+    
+    setSubmitting(true);
     try {
-      if (Object.keys(selectedAnswers).length === 0) {
-        toast({
-          title: 'Error',
-          description: 'Please answer at least one question',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Find the assignment
-      const assignment = classes
-        .flatMap(cls => cls.assignments)
-        .find(a => a.id === assignmentId);
-
-      if (!assignment) {
-        toast({
-          title: 'Error',
-          description: 'Assignment not found',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Check if all questions are answered
-      if (!assignment.questions || assignment.questions.length === 0) {
-        toast({
-          title: 'Error',
-          description: 'No questions found in this assignment',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const unansweredQuestions = assignment.questions.filter(
-        q => !selectedAnswers[q.id]
-      );
-
-      if (unansweredQuestions.length > 0) {
-        toast({
-          title: 'Warning',
-          description: `You have ${unansweredQuestions.length} unanswered questions. Please answer all questions before submitting.`,
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      setSubmissionStatus('submitting');
-
-      const response = await fetch(`/api/student/assignments/${assignmentId}/submit`, {
+      const response = await fetch(`/api/students/${session.user.id}/assignments/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          answers: Object.entries(selectedAnswers).map(([questionId, answer]) => ({
-            questionId,
-            answer
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          assignmentId: selectedAssignment.id,
+          answers: answers.map(answer => ({
+            questionId: answer.questionId,
+            selectedOption: answer.selectedOption
           }))
         }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to submit assignment');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to submit assignment');
       }
 
       const result = await response.json();
-
-      setSubmissionStatus('submitted');
-      toast({
-        title: 'Success',
-        description: `Assignment submitted successfully! Your grade: ${result.grade}%`,
-      });
-
-      // Show explanations for all questions
-      const newExplanations = assignment.questions.reduce((acc, question) => {
-        acc[question.id] = true;
-        return acc;
-      }, {} as Record<string, boolean>);
-      setShowExplanation(newExplanations);
-
-      // Reset selected answers
+      
+      // Update the local state immediately
+      setAssignments(prev => prev.map(a => 
+        a.id === selectedAssignment.id 
+          ? {
+              ...a,
+              status: {
+                submitted: true,
+                score: result.submission.score,
+                submittedAt: new Date().toISOString()
+              }
+            }
+          : a
+      ));
+      
+      // Refresh assignments to get the latest data
+      await fetchAssignments();
+      
+      // Reset states and close dialog
       setSelectedAnswers({});
+      setSelectedAssignment(null);
 
-      // Refresh classes to update submission status
-      await fetchClasses();
-    } catch (error) {
-      setSubmissionStatus('idle');
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to submit assignment',
-        variant: 'destructive',
+        title: "Success!",
+        description: `Assignment submitted successfully with score: ${result.submission.score}%`,
       });
+    } catch (error) {
+      console.error('Error submitting assignment:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit assignment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const renderQuestion = (question: QuizQuestion, index: number, assignment: Assignment) => {
-    const submission = assignment.submissions[0];
-    const answer = submission?.answers.find(a => a.questionId === question.id);
-    const isSubmitted = !!submission;
-    const isCorrect = answer?.isCorrect;
-
-    return (
-      <Card key={question.id} className="mb-4">
-        <CardHeader>
-          <CardTitle className="flex justify-between items-start">
-            <h4 className="font-medium">Question {index + 1}</h4>
-            {isSubmitted && (
-              <div className="text-sm text-muted-foreground">
-                Your answer: {answer?.answer}
-                <span className={answer?.isCorrect ? "text-green-600 ml-2" : "text-red-600 ml-2"}>
-                  ({answer?.isCorrect ? "Correct" : "Incorrect"})
-                </span>
-              </div>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="prose max-w-none">
-            <p className="font-medium">{question.questionText}</p>
-          </div>
-          
-          <div className="space-y-2">
-            {['A', 'B', 'C', 'D'].map((option) => {
-              const optionText = question[`option${option}` as keyof QuizQuestion] as string;
-              const isSelected = selectedAnswers[question.id] === option;
-              const isDisabled = isSubmitted;
-              
-              return (
-                <div
-                  key={option}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    isDisabled ? 'opacity-75 cursor-not-allowed' : 'hover:bg-gray-50'
-                  } ${
-                    isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                  }`}
-                  onClick={() => {
-                    if (!isDisabled) {
-                      setSelectedAnswers(prev => ({
-                        ...prev,
-                        [question.id]: option
-                      }));
-                    }
-                  }}
-                >
-                  <div className="flex items-center space-x-2">
-                    <div className={`w-6 h-6 rounded-full border flex items-center justify-center ${
-                      isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300'
-                    }`}>
-                      {option}
-                    </div>
-                    <span>{optionText}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {(isSubmitted || showExplanation[question.id]) && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="font-medium text-gray-900">Explanation:</p>
-              <p className="text-gray-700">{question.explanation}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
+  const handleAnswerSelect = (questionId: string, optionIndex: number) => {
+    setSelectedAnswers(prev => ({
+      ...prev,
+      [questionId]: optionIndex
+    }));
   };
+
+  const renderQuestionForSubmission = (question: AssignmentType['questions'][0], index: number) => (
+    <Card key={question.id} className="overflow-hidden">
+      <CardHeader className="border-b">
+        <CardTitle className="text-base">
+          Question {index + 1}
+        </CardTitle>
+        <CardDescription className="mt-2 text-base font-normal text-foreground">
+          {question.question}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {question.options.map((text, idx) => {
+            const option = String.fromCharCode(65 + idx);
+            const isSelected = selectedAnswers[question.id] === idx;
+            
+            return (
+              <div
+                key={option}
+                className={cn(
+                  "p-4 rounded-lg border cursor-pointer transition-colors",
+                  isSelected && "bg-primary/10 border-primary"
+                )}
+                onClick={() => handleAnswerSelect(question.id, idx)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "flex items-center justify-center w-6 h-6 rounded-full text-sm font-medium",
+                    isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  )}>
+                    {option}
+                  </div>
+                  <span>{text}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   const getPendingAssignments = () => {
     return classes.flatMap(cls => 
@@ -331,261 +595,504 @@ export default function StudentDashboard({ user }: { user: any }) {
     );
   };
 
+  const fetchAssignments = async () => {
+    try {
+      const response = await fetch(`/api/students/${session?.user.id}/assignments`);
+      if (!response.ok) throw new Error('Failed to fetch assignments');
+      const data = await response.json();
+      setAssignments(data);
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user.id) {
+      fetchAssignments();
+    }
+  }, [session?.user.id]);
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      return format(new Date(dateString), 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid Date';
+    }
+  };
+
+  const isOverdue = (dateString: string | undefined) => {
+    if (!dateString) return false;
+    try {
+      return new Date(dateString) < new Date();
+    } catch (error) {
+      console.error('Error checking if overdue:', error);
+      return false;
+    }
+  };
+
+  const isDueSoon = (dateString: string | undefined) => {
+    if (!dateString) return false;
+    try {
+      const dueDate = new Date(dateString);
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      return dueDate > now && dueDate <= tomorrow;
+    } catch (error) {
+      console.error('Error checking if due soon:', error);
+      return false;
+    }
+  };
+
+  const performanceData = [
+    { month: 'Jan', score: 85 },
+    { month: 'Feb', score: 78 },
+    { month: 'Mar', score: 92 },
+    { month: 'Apr', score: 88 },
+    { month: 'May', score: 95 },
+  ];
+
+  const subjectPerformance = [
+    { subject: 'Math', score: 85, total: 100 },
+    { subject: 'Science', score: 92, total: 100 },
+    { subject: 'English', score: 78, total: 100 },
+    { subject: 'History', score: 88, total: 100 },
+  ];
+
+  const getFilteredAssignments = () => {
+    switch (assignmentTab) {
+      case 'PENDING':
+        return assignments.filter(a => !a.submissions?.length);
+      case 'COMPLETED':
+        return assignments.filter(a => a.submissions?.length > 0);
+      case 'OVERDUE':
+        return assignments.filter(a => {
+          const dueDate = new Date(a.dueDate);
+          return !a.submissions?.length && dueDate < new Date();
+        });
+      default:
+        return assignments;
+    }
+  };
+
+  const calculateAverageScore = () => {
+    const submittedAssignments = assignments.filter(a => a.status.submitted);
+    const totalScore = submittedAssignments.reduce((acc, curr) => acc + (curr.status.score || 0), 0);
+    return Math.round(totalScore / submittedAssignments.length || 0);
+  };
+
+  const getNextDueDate = () => {
+    const pendingAssignments = assignments.filter(a => !a.status.submitted);
+    const nextDueDate = pendingAssignments.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+    return nextDueDate ? formatDate(nextDueDate.dueDate) : 'None';
+  };
+
   return (
-    <div className="p-6 pb-8">
-      <h1 className="text-2xl font-bold mb-4">Student Dashboard</h1>
-      
-      <div className="flex space-x-2 mb-6">
-        <Button 
-          variant={activeTab === 'overview' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </Button>
-        <Button 
-          variant={activeTab === 'classes' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('classes')}
-        >
-          My Classes
-        </Button>
-        <Button 
-          variant={activeTab === 'assignments' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('assignments')}
-        >
-          Assignments
-        </Button>
-        <Button 
-          variant={activeTab === 'practice' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('practice')}
-        >
-          Practice Quizzes
-        </Button>
+    <div className="flex-1 space-y-4 p-4 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Student Dashboard</h2>
       </div>
 
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Stats</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-medium">Enrolled Classes</h3>
-                  <p className="text-2xl font-bold">{classes.length}</p>
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="grid grid-cols-4 gap-4 w-full">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <Home className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="assignments" className="flex items-center gap-2">
+            <BookOpenCheck className="h-4 w-4" />
+            Assignments
+          </TabsTrigger>
+          <TabsTrigger value="ai-quiz" className="flex items-center gap-2">
+            <Brain className="h-4 w-4" />
+            AI Quiz Creator
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Settings
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Assignments
+                </CardTitle>
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{assignments.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  {assignments.filter(a => a.status.submitted).length} completed
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Average Score
+                </CardTitle>
+                <Trophy className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {calculateAverageScore()}%
                 </div>
-                <div>
-                  <h3 className="font-medium">Pending Assignments</h3>
-                  <p className="text-2xl font-bold">{getPendingAssignments().length}</p>
+                <p className="text-xs text-muted-foreground">
+                  From {assignments.filter(a => a.status.submitted).length} submissions
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Next Due Date
+                </CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {getNextDueDate()}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                <p className="text-xs text-muted-foreground">
+                  {getPendingAssignments().length} pending assignments
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Study Streak
+                </CardTitle>
+                <Target className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">7 days</div>
+                <p className="text-xs text-muted-foreground">
+                  Keep it up!
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {activeTab === 'classes' && (
-        <div className="space-y-4">
-          {classes.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">You are not enrolled in any classes yet.</p>
-          ) : (
-            classes.map((cls) => (
-              <Card key={cls.id}>
-                <CardHeader>
-                  <CardTitle>{cls.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {cls.description && (
-                    <p className="text-gray-600 mb-4">{cls.description}</p>
-                  )}
-                  <div className="text-sm text-gray-500 mb-4">
-                    Teacher: {cls.teacher.name} ({cls.teacher.email})
-                  </div>
-                  <div>
-                    <h3 className="font-medium mb-2">Assignments</h3>
-                    {cls.assignments.length === 0 ? (
-                      <p className="text-gray-500">No assignments yet.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {cls.assignments.map((assignment) => (
-                          <div
-                            key={assignment.id}
-                            className="border rounded-lg p-4 cursor-pointer hover:bg-gray-50"
-                            onClick={() => setSelectedAssignment(assignment)}
-                          >
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-medium">{assignment.title}</h4>
-                              <span className="text-sm text-gray-500">
-                                Due: {format(new Date(assignment.dueDate), 'PPP')}
-                              </span>
-                            </div>
-                            {assignment.submissions.length > 0 && (
-                              <div className="mt-2 text-sm text-green-600">
-                                Submitted {assignment.submissions[0].grade !== null && 
-                                  `- Grade: ${assignment.submissions[0].grade}/100`}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7 mt-4">
+            <Card className="col-span-4">
+              <CardHeader>
+                <CardTitle>Performance Overview</CardTitle>
+              </CardHeader>
+              <CardContent className="pl-2">
+                <ResponsiveContainer width="100%" height={350}>
+                  <LineChart data={performanceData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="score" stroke="#8884d8" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="col-span-3">
+              <CardHeader>
+                <CardTitle>Subject Performance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {subjectPerformance.map((subject) => (
+                    <div key={subject.subject}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium">
+                          {subject.subject}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {subject.score}/{subject.total}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      )}
-
-      {activeTab === 'assignments' && (
-        <div className="space-y-4">
-          {getPendingAssignments().length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No pending assignments.</p>
-          ) : (
-            getPendingAssignments().map((assignment) => (
-              <Card key={assignment.id}>
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-center">
-                    <span>{assignment.title}</span>
-                    <span className="text-sm font-normal text-muted-foreground">
-                      Due: {format(new Date(assignment.dueDate), 'PPP p')}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {assignment.questions?.map((question, index) => 
-                      renderQuestion(question, index, assignment)
-                    )}
-                  </div>
-
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">
-                        {Object.keys(selectedAnswers).length} of {assignment.questions?.length || 0} questions answered
-                      </div>
-                      <Button 
-                        onClick={() => submitAssignment(assignment.id)}
-                        disabled={
-                          submissionStatus === 'submitting' || 
-                          !assignment.questions?.length ||
-                          Object.keys(selectedAnswers).length !== assignment.questions?.length
-                        }
-                      >
-                        {submissionStatus === 'submitting' 
-                          ? 'Submitting...' 
-                          : submissionStatus === 'submitted'
-                            ? 'Submitted!'
-                            : 'Submit Assignment'
-                        }
-                      </Button>
+                      <Progress value={(subject.score / subject.total) * 100} />
                     </div>
-                    {assignment.questions?.length > 0 && 
-                     Object.keys(selectedAnswers).length !== assignment.questions?.length && (
-                      <p className="text-sm text-yellow-600 mt-2">
-                        Please answer all {assignment.questions.length} questions before submitting.
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      )}
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-      {activeTab === 'practice' && (
-        <PracticeQuizzes />
-      )}
-
-      <Dialog open={showAiHelper} onOpenChange={setShowAiHelper}>
-        <DialogContent className="max-w-2xl h-[80vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span>AI Study Helper</span>
-              {isTyping && (
-                <span className="text-sm text-muted-foreground animate-pulse">
-                  typing...
-                </span>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              Ask for help understanding concepts. I won't give direct answers, but I'll guide you to find them yourself.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div 
-            ref={chatContainerRef}
-            className="flex-1 overflow-y-auto p-4 space-y-4 mb-4 h-[calc(80vh-12rem)]"
-          >
-            {messages.map((message, index) => (
-              message.role !== 'system' && (
-                <div
-                  key={index}
-                  className={`flex ${
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.role === 'user'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-900'
-                    }`}
+        <TabsContent value="assignments">
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold tracking-tight">Assignments</h2>
+              <div className="flex gap-2">
+                {Object.entries(AssignmentTabs).map(([key, label]) => (
+                  <Button
+                    key={key}
+                    variant={assignmentTab === key ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setAssignmentTab(key as AssignmentTabType)}
+                    className="min-w-[100px]"
                   >
-                    {message.role === 'user' ? (
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                    ) : (
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown
-                          components={{
-                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                            strong: ({ children }) => <span className="font-bold text-blue-700">{children}</span>,
-                            em: ({ children }) => <span className="italic text-gray-600">{children}</span>,
-                            ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
-                            ol: ({ children }) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
-                            li: ({ children }) => <li className="mb-1">{children}</li>,
-                            code: ({ children }) => (
-                              <code className="bg-gray-200 rounded px-1 py-0.5 text-sm font-mono">
-                                {children}
-                              </code>
-                            ),
-                          }}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
-                    )}
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {assignments.length === 0 ? (
+              <Card className="p-8 text-center">
+                <div className="space-y-3">
+                  <BookOpen className="mx-auto h-12 w-12 text-muted-foreground/60" />
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-medium">No Assignments Yet</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Your assignments will appear here once they are assigned by your teachers.
+                    </p>
                   </div>
                 </div>
-              )
-            ))}
-            {isTyping && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-lg p-3 max-w-[80%]">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></span>
-                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
-                  </div>
-                </div>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {getFilteredAssignments().map((assignment) => (
+                  <AssignmentCard 
+                    key={assignment.id} 
+                    assignment={assignment}
+                    onSelect={setSelectedAssignment}
+                  />
+                ))}
               </div>
             )}
           </div>
+        </TabsContent>
 
-          <form onSubmit={sendMessage} className="mt-auto">
-            <div className="flex gap-2">
-              <Input
-                value={currentMessage}
-                onChange={(e) => setCurrentMessage(e.target.value)}
-                placeholder="Ask for help understanding a concept..."
-                disabled={isTyping}
-              />
-              <Button type="submit" disabled={isTyping || !currentMessage.trim()}>
-                Send
+        <TabsContent value="ai-quiz">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Quiz Creator</CardTitle>
+              <CardDescription>
+                Generate personalized quizzes to test your knowledge
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Topic or Subject</label>
+                <input
+                  type="text"
+                  placeholder="e.g., World War II, Algebra, Shakespeare..."
+                  className="w-full p-2 border rounded-md"
+                  value={''}
+                  onChange={(e) => {}}
+                />
+              </div>
+              <Button 
+                className="w-full"
+                onClick={() => {}}
+                disabled={true}
+              >
+                <Brain className="h-4 w-4 mr-2" />
+                Generate Quiz
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>Settings</CardTitle>
+              <CardDescription>
+                Manage your account preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">Notification Preferences</h3>
+                <div className="flex items-center space-x-2">
+                  <input type="checkbox" id="email-notif" />
+                  <label htmlFor="email-notif">Email notifications for new assignments</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input type="checkbox" id="due-notif" />
+                  <label htmlFor="due-notif">Due date reminders</label>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">Theme</h3>
+                <select className="w-full p-2 border rounded-md">
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                  <option value="system">System</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">Language</h3>
+                <select className="w-full p-2 border rounded-md">
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                </select>
+              </div>
+              <Button className="w-full">Save Settings</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Assignment Details Dialog */}
+      <Dialog 
+        open={selectedAssignment !== null} 
+        onOpenChange={(open) => !open && setSelectedAssignment(null)}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b">
+            <DialogTitle>{selectedAssignment?.title}</DialogTitle>
+            <DialogDescription>
+              {selectedAssignment?.class.name} • {selectedAssignment?.subject}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Assignment Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Due Date</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {formatDate(selectedAssignment?.dueDate)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {selectedAssignment?.status.submitted ? 'Submitted' :
+                     isOverdue(selectedAssignment?.dueDate) ? 'Overdue' :
+                     isDueSoon(selectedAssignment?.dueDate) ? 'Due Soon' :
+                     'Active'}
+                  </p>
+                </CardContent>
+              </Card>
+              {selectedAssignment?.status.submitted ? (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Your Score</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {selectedAssignment.status.score}%
+                    </div>
+                    <Progress 
+                      value={selectedAssignment.status.score} 
+                      className="h-2 mt-2"
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Progress</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {Object.keys(selectedAnswers).length} / {selectedAssignment?.questions.length}
+                    </div>
+                    <Progress 
+                      value={
+                        (Object.keys(selectedAnswers).length / 
+                        (selectedAssignment?.questions.length || 1)) * 100
+                      } 
+                      className="h-2 mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Questions answered
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
-          </form>
+
+            {/* Questions */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold sticky top-0 bg-background z-10">
+                Questions
+              </h3>
+              <div className="space-y-6">
+                {selectedAssignment?.status.submitted
+                  ? selectedAssignment?.questions.map((question, index) => (
+                      <Card key={question.id} className="overflow-hidden">
+                        <CardHeader className="border-b">
+                          <CardTitle className="text-base">
+                            Question {index + 1}
+                          </CardTitle>
+                          <CardDescription className="mt-2 text-base font-normal text-foreground">
+                            {question.question}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {question.options.map((text, idx) => {
+                              const option = String.fromCharCode(65 + idx);
+                              const isCorrect = question.correctAnswerIndex === idx;
+                              const isSelected = question.selectedOption === idx;
+                              return (
+                                <div
+                                  key={option}
+                                  className={cn(
+                                    "p-4 rounded-lg border",
+                                    isCorrect && "bg-green-50 border-green-200 shadow-sm",
+                                    isSelected && !isCorrect && "bg-red-50 border-red-200"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className={cn(
+                                      "flex items-center justify-center w-6 h-6 rounded-full text-sm font-medium",
+                                      isCorrect ? "bg-green-500 text-white" :
+                                      isSelected && !isCorrect ? "bg-red-500 text-white" :
+                                      "bg-muted text-muted-foreground"
+                                    )}>
+                                      {option}
+                                    </div>
+                                    <span className={cn(
+                                      isCorrect && "text-green-700 font-medium",
+                                      isSelected && !isCorrect && "text-red-700"
+                                    )}>
+                                      {text}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {question.explanation && (
+                            <div className="mt-4 p-4 bg-muted rounded-lg">
+                              <p className="font-medium text-sm text-muted-foreground mb-1">
+                                Explanation
+                              </p>
+                              <p className="text-sm">
+                                {question.explanation}
+                              </p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))
+                  : selectedAssignment?.questions.map((question, index) => 
+                      renderQuestionForSubmission(question, index)
+                    )}
+              </div>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          {selectedAssignment && !selectedAssignment.status.submitted && (
+            <div className="sticky bottom-0 bg-background pt-4 border-t">
+              <AssignmentView 
+                assignment={selectedAssignment} 
+                onClose={() => setSelectedAssignment(null)} 
+                onSubmit={submitAssignment}
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

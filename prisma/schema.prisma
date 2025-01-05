@@ -73,19 +73,16 @@ model Assignment {
 }
 
 model QuizQuestion {
-  id           String     @id @default(cuid())
-  questionText String
-  optionA      String
-  optionB      String
-  optionC      String
-  optionD      String
-  correctOption String    // "A", "B", "C", or "D"
-  explanation  String
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  assignmentId String
-  submissions  QuestionSubmission[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                String     @id @default(cuid())
+  question          String
+  options           String     // JSON array of options
+  correctAnswerIndex Int
+  explanation       String
+  assignment        Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignmentId      String
+  submissions       QuestionSubmission[]
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 }
 
 model QuestionSubmission {
@@ -94,7 +91,7 @@ model QuestionSubmission {
   questionId   String
   submission   HomeworkSubmission @relation(fields: [submissionId], references: [id])
   submissionId String
-  answer       String       // Student's answer ("A", "B", "C", or "D")
+  answer       Int          // Student's answer (0-3)
   isCorrect    Boolean
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
