@@ -45,38 +45,34 @@ export function CreateClassModal({ isOpen, onClose, onSuccess, schoolId, teacher
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/admin/classes', {
+      const response = await fetch(`/api/schools/${schoolId}/classes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
-          schoolId,
+          name: formData.name,
+          description: formData.description,
+          teacherId: formData.teacherId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create class');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create class');
       }
 
       toast({
         title: "Success",
         description: "Class created successfully",
       });
-
       onSuccess();
       onClose();
-      setFormData({
-        name: '',
-        description: '',
-        teacherId: '',
-      });
+      setFormData({ name: '', description: '', teacherId: '' });
     } catch (error) {
-      console.error('Error creating class:', error);
       toast({
         title: "Error",
-        description: "Failed to create class. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to create class",
         variant: "destructive",
       });
     } finally {

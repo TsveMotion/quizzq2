@@ -46,15 +46,14 @@ export function CreateStudentModal({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch(`/api/schools/${schoolId}/students`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
-          schoolId,
-          role: 'STUDENT',
+          name: formData.name,
+          email: formData.email,
         }),
       });
 
@@ -65,14 +64,12 @@ export function CreateStudentModal({
 
       toast({
         title: "Success",
-        description: "Student created successfully",
+        description: "Student created successfully. They can login using their email as password.",
       });
-
       onSuccess();
       onClose();
       setFormData({ name: '', email: '', password: '' });
     } catch (error) {
-      console.error('Error creating student:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create student",

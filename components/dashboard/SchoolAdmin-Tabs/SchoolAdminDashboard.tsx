@@ -1,13 +1,18 @@
 'use client';
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutDashboard, Users, GraduationCap, BookOpen, LogOut } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  LayoutDashboard, 
+  Users, 
+  GraduationCap, 
+  BookOpen, 
+  LogOut 
+} from "lucide-react";
+import { OverviewTab } from "./OverviewTab";
 import { TeachersTab } from "./TeachersTab";
 import { StudentsTab } from "./StudentsTab";
 import { ClassesTab } from "./ClassesTab";
@@ -15,24 +20,25 @@ import { ClassesTab } from "./ClassesTab";
 interface School {
   id: string;
   name: string;
-  roleNumber: string;
-  description: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface SchoolAdminDashboardProps {
-  initialSchool: School;
+  school: School;
 }
 
-export function SchoolAdminDashboard({ initialSchool }: SchoolAdminDashboardProps) {
+export function SchoolAdminDashboard({ school }: SchoolAdminDashboardProps) {
   const { data: session } = useSession();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-  const [teachers, setTeachers] = useState([]);
-  const [students, setStudents] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [school, setSchool] = useState<School>(initialSchool);
   const [activeTab, setActiveTab] = useState("overview");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [data, setData] = useState({
+    teachers: [],
+    students: [],
+    classes: []
+  });
 
   const fetchData = useCallback(async () => {
     if (!session?.user?.schoolId) {
@@ -47,9 +53,9 @@ export function SchoolAdminDashboard({ initialSchool }: SchoolAdminDashboardProp
     try {
       setIsLoading(true);
       const [teachersRes, studentsRes, classesRes] = await Promise.all([
-        fetch(`/api/admin/users?role=teacher&schoolId=${session.user.schoolId}`),
-        fetch(`/api/admin/users?role=student&schoolId=${session.user.schoolId}`),
-        fetch(`/api/admin/classes?schoolId=${session.user.schoolId}`)
+        fetch(`/api/schools/${session.user.schoolId}/teachers`),
+        fetch(`/api/schools/${session.user.schoolId}/students`),
+        fetch(`/api/schools/${session.user.schoolId}/classes`)
       ]);
 
       if (!teachersRes.ok || !studentsRes.ok || !classesRes.ok) {
@@ -62,10 +68,11 @@ export function SchoolAdminDashboard({ initialSchool }: SchoolAdminDashboardProp
         classesRes.json()
       ]);
 
-      setTeachers(teachersData);
-      setStudents(studentsData);
-      setClasses(classesData);
-
+      setData({
+        teachers: teachersData,
+        students: studentsData,
+        classes: classesData
+      });
     } catch (error) {
       toast({
         title: "Error",
@@ -87,10 +94,6 @@ export function SchoolAdminDashboard({ initialSchool }: SchoolAdminDashboardProp
     return <div>Please sign in to access the dashboard</div>;
   }
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
   if (!school) {
     return <div>No school data available</div>;
   }
@@ -104,12 +107,12 @@ export function SchoolAdminDashboard({ initialSchool }: SchoolAdminDashboardProp
     {
       title: "Teachers",
       value: "teachers",
-      icon: Users,
+      icon: GraduationCap,
     },
     {
       title: "Students",
       value: "students",
-      icon: GraduationCap,
+      icon: Users,
     },
     {
       title: "Classes",
@@ -160,78 +163,60 @@ export function SchoolAdminDashboard({ initialSchool }: SchoolAdminDashboardProp
         </div>
       </div>
 
-      <div className="flex-1">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-          <TabsContent value="overview" className="m-0 h-full">
-            <div className="h-full p-8">
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Total Teachers</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{teachers.length}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Total Students</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{students.length}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Total Classes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{classes.length}</div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
+      <div className="flex-1 overflow-auto">
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+          <div className="flex items-center justify-between space-y-2">
+            <h2 className="text-3xl font-bold tracking-tight">
+              {school.name} Dashboard
+            </h2>
+          </div>
 
-          <TabsContent value="teachers" className="m-0 h-full">
-            <div className="h-full p-8">
+          <div className="space-y-4">
+            {activeTab === "overview" && (
+              <OverviewTab
+                teachers={data.teachers}
+                students={data.students}
+                classes={data.classes}
+                isLoading={isLoading}
+              />
+            )}
+
+            {activeTab === "teachers" && (
               <TeachersTab
-                teachers={teachers}
+                teachers={data.teachers}
                 isLoading={isLoading}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
-                schoolId={session.user.schoolId}
+                schoolId={school.id}
                 onTeachersChange={fetchData}
               />
-            </div>
-          </TabsContent>
+            )}
 
-          <TabsContent value="students" className="m-0 h-full">
-            <div className="h-full p-8">
+            {activeTab === "students" && (
               <StudentsTab
-                students={students}
+                students={data.students}
                 isLoading={isLoading}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
-                schoolId={session.user.schoolId}
-                onStudentCreated={fetchData}
+                schoolId={school.id}
+                onStudentsChange={fetchData}
               />
-            </div>
-          </TabsContent>
+            )}
 
-          <TabsContent value="classes" className="m-0 h-full">
-            <div className="h-full p-8">
+            {activeTab === "classes" && (
               <ClassesTab
-                classes={classes}
+                classes={data.classes}
+                teachers={data.teachers}
+                students={data.students}
                 isLoading={isLoading}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
-                schoolId={session.user.schoolId}
-                onClassCreated={fetchData}
+                schoolId={school.id}
+                onClassesChange={fetchData}
               />
-            </div>
-          </TabsContent>
-        </Tabs>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

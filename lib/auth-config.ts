@@ -18,7 +18,32 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
-          include: { school: true }
+          include: {
+            school: {
+              include: {
+                classes: true,
+                users: {
+                  where: {
+                    OR: [
+                      { role: "TEACHER" },
+                      { role: "STUDENT" }
+                    ]
+                  }
+                }
+              }
+            },
+            enrolledClasses: {
+              include: {
+                teacher: true,
+                classTeachers: {
+                  include: {
+                    teacher: true
+                  }
+                }
+              }
+            },
+            teachingClasses: true,
+          }
         });
 
         if (!user) {
@@ -43,13 +68,15 @@ export const authOptions: NextAuthOptions = {
           schoolId: user.schoolId,
           school: user.school,
           status: user.status,
+          enrolledClasses: user.enrolledClasses,
+          teachingClasses: user.teachingClasses,
         };
       }
     })
   ],
   pages: {
-    signIn: '/signin',
-    error: '/signin',
+    signIn: '/auth/signin',
+    error: '/auth/signin',
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -64,6 +91,8 @@ export const authOptions: NextAuthOptions = {
           schoolId: user.schoolId,
           school: user.school,
           status: user.status,
+          enrolledClasses: user.enrolledClasses,
+          teachingClasses: user.teachingClasses,
         };
       }
       return token;
@@ -79,6 +108,8 @@ export const authOptions: NextAuthOptions = {
           schoolId: token.schoolId,
           school: token.school,
           status: token.status,
+          enrolledClasses: token.enrolledClasses,
+          teachingClasses: token.teachingClasses,
         }
       };
     }

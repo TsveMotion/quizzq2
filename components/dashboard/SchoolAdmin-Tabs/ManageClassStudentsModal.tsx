@@ -41,6 +41,7 @@ interface ManageClassStudentsModalProps {
   onClose: () => void;
   onSuccess: () => void;
   classData: Class;
+  schoolId: string;
   allStudents: Student[];
 }
 
@@ -49,6 +50,7 @@ export function ManageClassStudentsModal({
   onClose,
   onSuccess,
   classData,
+  schoolId,
   allStudents,
 }: ManageClassStudentsModalProps) {
   const { toast } = useToast();
@@ -81,7 +83,7 @@ export function ManageClassStudentsModal({
     if (isOpen) {
       fetchClassStudents();
     }
-  }, [isOpen, classData.id, allStudents, toast]);
+  }, [isOpen, classData.id, schoolId, allStudents, toast]);
 
   const handleAddStudent = async (student: Student) => {
     setIsLoading(true);
@@ -98,6 +100,7 @@ export function ManageClassStudentsModal({
 
       setClassStudents([...classStudents, student]);
       setAvailableStudents(availableStudents.filter(s => s.id !== student.id));
+      onSuccess();
       
       toast({
         title: "Success",
@@ -130,6 +133,7 @@ export function ManageClassStudentsModal({
 
       setClassStudents(classStudents.filter(s => s.id !== student.id));
       setAvailableStudents([...availableStudents, student]);
+      onSuccess();
       
       toast({
         title: "Success",
@@ -184,66 +188,82 @@ export function ManageClassStudentsModal({
           <div className="grid grid-cols-2 gap-4">
             {/* Current Students */}
             <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-2">Enrolled Students</h4>
               <ScrollArea className="h-[400px]">
                 <div className="space-y-2">
-                  {classStudents.map((student) => (
-                    <div
-                      key={student.id}
-                      className="flex items-center justify-between p-2 rounded-lg border"
-                    >
-                      <div>
-                        <p className="font-medium">{student.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {student.email}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveStudent(student)}
-                        disabled={isLoading}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                  {classStudents.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      No students enrolled yet
                     </div>
-                  ))}
+                  ) : (
+                    classStudents.map((student) => (
+                      <div
+                        key={student.id}
+                        className="flex items-center justify-between p-2 rounded-lg border"
+                      >
+                        <div>
+                          <p className="font-medium">{student.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {student.email}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveStudent(student)}
+                          disabled={isLoading}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </ScrollArea>
             </div>
 
             {/* Available Students */}
             <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-2">Available Students</h4>
               <ScrollArea className="h-[400px]">
                 <div className="space-y-2">
-                  {filteredAvailableStudents.map((student) => (
-                    <div
-                      key={student.id}
-                      className="flex items-center justify-between p-2 rounded-lg border"
-                    >
-                      <div>
-                        <p className="font-medium">{student.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {student.email}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleAddStudent(student)}
-                        disabled={isLoading}
-                      >
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
+                  {filteredAvailableStudents.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      {searchTerm ? 'No matching students found' : 'No available students'}
                     </div>
-                  ))}
+                  ) : (
+                    filteredAvailableStudents.map((student) => (
+                      <div
+                        key={student.id}
+                        className="flex items-center justify-between p-2 rounded-lg border"
+                      >
+                        <div>
+                          <p className="font-medium">{student.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {student.email}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleAddStudent(student)}
+                          disabled={isLoading}
+                        >
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </ScrollArea>
             </div>
           </div>
         </div>
 
-        <DialogFooter className="mt-4">
-          <Button onClick={onClose}>Done</Button>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

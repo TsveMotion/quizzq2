@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth-config';
 
 // GET /api/schools/[schoolId]/users - Get all users for a specific school
 export async function GET(
@@ -35,18 +35,14 @@ export async function GET(
     }
 
     // Check if user has access to this school
-    if (currentUser.role !== 'superadmin' && currentUser.schoolId !== params.schoolId) {
-      console.error('User does not have access to this school', {
-        userSchoolId: currentUser.schoolId,
-        requestedSchoolId: params.schoolId,
-        userRole: currentUser.role
-      });
+    if (currentUser.role !== 'SUPERADMIN' && currentUser.schoolId !== params.schoolId) {
+      console.error('User does not have access to this school');
       return NextResponse.json({ error: 'Unauthorized access to school data' }, { status: 403 });
     }
 
     console.log('Fetching users for school:', params.schoolId);
 
-    // Get all users for the school
+    // Get all users for the school with their relationships
     const users = await prisma.user.findMany({
       where: {
         schoolId: params.schoolId
@@ -57,15 +53,23 @@ export async function GET(
         email: true,
         role: true,
         powerLevel: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
+        avatar: true,
+        bio: true,
+        subjects: true,
+        education: true,
+        experience: true,
+        phoneNumber: true,
+        officeHours: true,
         school: {
           select: {
             id: true,
             name: true
           }
         },
-        teacherOf: {
+        teachingClasses: {
           select: {
             id: true,
             name: true,
@@ -79,7 +83,7 @@ export async function GET(
             }
           }
         },
-        enrolledIn: {
+        enrolledClasses: {
           select: {
             id: true,
             name: true,
@@ -95,43 +99,19 @@ export async function GET(
         },
         _count: {
           select: {
-            teacherOf: true,
-            enrolledIn: true,
+            teachingClasses: true,
+            enrolledClasses: true,
             submissions: true
           }
         }
       }
     });
 
-    console.log('Found users:', users.length);
-    console.log('Users by role:');
-    console.log('- Students:', users.filter(u => u.role === 'student').length);
-    console.log('- Teachers:', users.filter(u => u.role === 'teacher').length);
-    console.log('- Admins:', users.filter(u => u.role === 'schooladmin').length);
-
-    const stats = {
-      totalStudents: users.filter(u => u.role === 'student').length,
-      totalTeachers: users.filter(u => u.role === 'teacher').length,
-      totalAdmins: users.filter(u => u.role === 'schooladmin').length,
-      activeUsers: users.length,
-      totalSubmissions: users.reduce((acc, user) => acc + (user._count?.submissions || 0), 0)
-    };
-
-    console.log('Returning response with stats:', stats);
-    
-    return NextResponse.json({ 
-      users,
-      stats,
-      school: currentUser.school
-    });
+    return NextResponse.json(users);
   } catch (error) {
     console.error('Detailed error in API:', error);
-    if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
     return NextResponse.json(
-      { error: 'Failed to fetch users', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch users', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -144,68 +124,34 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const data = await req.json();
-    const { name, email, password, role } = data;
+    const { name, email, role, powerLevel, ...otherData } = data;
 
-    // Verify email is not already taken
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
+    // Hash password (you might want to generate a random password or handle this differently)
+    const hashedPassword = await bcrypt.hash(email, 10); // Using email as initial password
 
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'Email already exists' },
-        { status: 400 }
-      );
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create the user
-    const user = await prisma.user.create({
+    const newUser = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        role,
-        powerLevel: 1,
+        role: role.toUpperCase(),
+        powerLevel: powerLevel || 1,
         schoolId: params.schoolId,
-        createdBy: {
-          connect: {
-            id: session.user.id
-          }
-        }
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-        school: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
+        status: 'ACTIVE',
+        ...otherData
       }
     });
 
-    return NextResponse.json(user);
+    return NextResponse.json(newUser, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
-    if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
     return NextResponse.json(
-      { error: 'Failed to create user', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to create user' },
       { status: 500 }
     );
   }
@@ -218,27 +164,23 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Delete user
+    // Delete the user
     await prisma.user.delete({
-      where: { 
+      where: {
         id: params.userId,
         schoolId: params.schoolId
       }
     });
 
-    return new NextResponse(null, { status: 204 });
+    return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
-    if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
     return NextResponse.json(
-      { error: 'Failed to delete user', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to delete user' },
       { status: 500 }
     );
   }

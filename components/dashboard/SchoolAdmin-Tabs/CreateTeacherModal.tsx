@@ -47,33 +47,31 @@ export function CreateTeacherModal({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch(`/api/schools/${schoolId}/teachers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
-          schoolId,
-          role: 'TEACHER',
+          name: formData.name,
+          email: formData.email,
+          subjects: formData.subject
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to create teacher');
+        throw new Error(error.error || 'Failed to create teacher');
       }
 
       toast({
         title: "Success",
-        description: "Teacher created successfully",
+        description: "Teacher created successfully. They can login using their email as password.",
       });
-
       onSuccess();
       onClose();
       setFormData({ name: '', email: '', password: '', subject: '' });
     } catch (error) {
-      console.error('Error creating teacher:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create teacher",

@@ -11,19 +11,16 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const classId = params.classId;
-    if (!classId) {
-      return new NextResponse('Class ID is required', { status: 400 });
-    }
 
-    // Get teachers in the class through the ClassTeacher join table
-    const classTeachers = await db.classTeacher.findMany({
-      where: { classId },
-      select: {
+    const classWithTeachers = await db.class.findUnique({
+      where: { id: classId },
+      include: {
         teacher: {
           select: {
             id: true,
@@ -34,11 +31,14 @@ export async function GET(
       },
     });
 
-    const teachers = classTeachers.map(ct => ct.teacher);
-    return NextResponse.json(teachers);
+    if (!classWithTeachers) {
+      return new NextResponse("Class not found", { status: 404 });
+    }
+
+    return NextResponse.json(classWithTeachers.teacher);
   } catch (error) {
-    console.error('[CLASS_TEACHERS_GET]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    console.error("[CLASS_TEACHERS_GET]", error);
+    return new NextResponse("Internal error", { status: 500 });
   }
 }
 
@@ -48,48 +48,22 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const classId = params.classId;
-    if (!classId) {
-      return new NextResponse('Class ID is required', { status: 400 });
-    }
+    const { teacherId } = await req.json();
 
-    const body = await req.json();
-    const { teacherId } = body;
-
-    if (!teacherId) {
-      return new NextResponse('Teacher ID is required', { status: 400 });
-    }
-
-    // Check if the relationship already exists
-    const existingRelation = await db.classTeacher.findFirst({
-      where: {
-        AND: [
-          { classId: classId },
-          { teacherId: teacherId }
-        ]
-      }
-    });
-
-    if (existingRelation) {
-      return new NextResponse('Teacher is already assigned to this class', { status: 400 });
-    }
-
-    // Create the teacher-class relationship
-    await db.classTeacher.create({
+    const updatedClass = await db.class.update({
+      where: { id: classId },
       data: {
-        classId,
-        teacherId,
+        teacher: {
+          connect: { id: teacherId },
+        },
       },
-    });
-
-    // Get updated list of teachers
-    const classTeachers = await db.classTeacher.findMany({
-      where: { classId },
-      select: {
+      include: {
         teacher: {
           select: {
             id: true,
@@ -100,11 +74,10 @@ export async function POST(
       },
     });
 
-    const teachers = classTeachers.map(ct => ct.teacher);
-    return NextResponse.json(teachers);
+    return NextResponse.json(updatedClass.teacher);
   } catch (error) {
-    console.error('[CLASS_TEACHERS_POST]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    console.error("[CLASS_TEACHERS_POST]", error);
+    return new NextResponse("Internal error", { status: 500 });
   }
 }
 
@@ -114,36 +87,21 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const classId = params.classId;
-    if (!classId) {
-      return new NextResponse('Class ID is required', { status: 400 });
-    }
 
-    const body = await req.json();
-    const { teacherId } = body;
-
-    if (!teacherId) {
-      return new NextResponse('Teacher ID is required', { status: 400 });
-    }
-
-    // Delete the teacher-class relationship
-    await db.classTeacher.deleteMany({
-      where: {
-        AND: [
-          { classId: classId },
-          { teacherId: teacherId }
-        ]
+    const updatedClass = await db.class.update({
+      where: { id: classId },
+      data: {
+        teacher: {
+          disconnect: true,
+        },
       },
-    });
-
-    // Get updated list of teachers
-    const classTeachers = await db.classTeacher.findMany({
-      where: { classId },
-      select: {
+      include: {
         teacher: {
           select: {
             id: true,
@@ -154,10 +112,9 @@ export async function DELETE(
       },
     });
 
-    const teachers = classTeachers.map(ct => ct.teacher);
-    return NextResponse.json(teachers);
+    return NextResponse.json(updatedClass.teacher);
   } catch (error) {
-    console.error('[CLASS_TEACHERS_DELETE]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    console.error("[CLASS_TEACHERS_DELETE]", error);
+    return new NextResponse("Internal error", { status: 500 });
   }
 }
