@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Users, BookOpen, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import { ViewClassDetailsModal } from './ViewClassDetailsModal';
 
 interface Class {
   id: string;
@@ -27,6 +28,7 @@ export default function TeacherClassesTab() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchClasses = async () => {
@@ -124,7 +126,11 @@ export default function TeacherClassesTab() {
                 </div>
               </div>
               <div className="mt-4 flex justify-end">
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSelectedClassId(cls.id)}
+                >
                   View Details
                 </Button>
               </div>
@@ -139,6 +145,14 @@ export default function TeacherClassesTab() {
           </div>
         )}
       </div>
+
+      {selectedClassId && (
+        <ViewClassDetailsModal
+          isOpen={!!selectedClassId}
+          onClose={() => setSelectedClassId(null)}
+          classId={selectedClassId}
+        />
+      )}
     </div>
   );
 }

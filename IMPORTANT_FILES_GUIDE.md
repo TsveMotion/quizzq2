@@ -9,98 +9,161 @@ This document outlines the key files and directories in the QUIZZQ project. Use 
 - `/lib/routes.ts` - Route definitions and role-based routing configuration
 - `/middleware.ts` - Authentication and route protection middleware
 
-## Authentication
+## API Routes Structure
 
-- `/app/(auth)/signin/page.tsx` - Sign in page component
-- `/app/(auth)/signup/page.tsx` - Sign up page component
-- `/app/(auth)/layout.tsx` - Layout wrapper for auth pages
-- `/app/api/auth/[...nextauth]/route.ts` - NextAuth API routes
-- `/app/api/auth/register/route.ts` - User registration API endpoint
-
-## Dashboard Pages
-
-- `/app/dashboard/page.tsx` - Main dashboard router
-- `/app/dashboard/layout.tsx` - Common dashboard layout
-- `/app/dashboard/superadmin/page.tsx` - SuperAdmin dashboard page
-- `/app/dashboard/schooladmin/page.tsx` - SchoolAdmin dashboard page
-- `/app/dashboard/teacher/page.tsx` - Teacher dashboard page
-- `/app/dashboard/student/page.tsx` - Student dashboard page
-
-## Dashboard Components
-
-### SuperAdmin Components
-- `/components/dashboard/SuperAdmin-Tabs/SuperAdminDashboard.tsx` - Main SuperAdmin dashboard component
-- `/components/dashboard/SuperAdmin-Tabs/SchoolsTab.tsx` - Schools management tab
-- `/components/dashboard/SuperAdmin-Tabs/UsersTab.tsx` - Users management tab
-
-### SchoolAdmin Components
-- `/components/dashboard/SchoolAdmin-Tabs/SchoolAdminDashboard.tsx` - Main SchoolAdmin dashboard component
-- `/components/dashboard/SchoolAdmin-Tabs/TeachersTab.tsx` - Teachers management tab
-- `/components/dashboard/SchoolAdmin-Tabs/StudentsTab.tsx` - Students management tab
-- `/components/dashboard/SchoolAdmin-Tabs/ClassesTab.tsx` - Classes management tab
-- `/components/dashboard/SchoolAdmin-Tabs/OverviewTab.tsx` - School overview tab
-
-### Teacher Components
-- `/components/dashboard/Teacher-Tabs/TeacherDashboard.tsx` - Main Teacher dashboard component
-- `/components/dashboard/Teacher-Tabs/ClassesTab.tsx` - Teacher's classes tab
-- `/components/dashboard/Teacher-Tabs/StudentsTab.tsx` - Teacher's students tab
-
-### Student Components
-- `/components/dashboard/Student-Tabs/StudentDashboard.tsx` - Main Student dashboard component
-- `/components/dashboard/Student-Tabs/CoursesTab.tsx` - Student's courses tab
-- `/components/dashboard/Student-Tabs/GradesTab.tsx` - Student's grades tab
-
-## API Routes
-
-### School Management
-- `/app/api/admin/schools/route.ts` - School management API endpoints
-- `/app/api/schools/[schoolId]/settings/route.ts` - School settings management
-- `/app/api/schools/[schoolId]/stats/route.ts` - School statistics
-
-### User Management
-- `/app/api/schools/[schoolId]/users/route.ts` - General user management
-- `/app/api/schools/[schoolId]/teachers/route.ts` - Teacher-specific management
-  - GET: Fetch all teachers with their classes and profile info
-  - POST: Create new teacher with profile details
-  - DELETE: Remove teacher and reassign their classes
-- `/app/api/schools/[schoolId]/students/route.ts` - Student-specific management
-  - GET: Fetch all students with their enrolled classes
-  - POST: Create new student and optionally enroll in classes
-  - DELETE: Remove student from school and classes
-
-### Class Management
-- `/app/api/schools/[schoolId]/classes/route.ts` - Class management
-  - GET: Fetch all classes with teachers and students
-  - POST: Create new class with assigned teacher
-  - DELETE: Remove class and update relationships
-- `/app/api/admin/classes/[classId]/teachers/route.ts` - Class teachers management
-- `/app/api/admin/classes/[classId]/students/route.ts` - Class students management
-
-### Assignment Management
-- `/app/api/admin/classes/[classId]/assignments/route.ts` - Assignment management
-- `/app/api/admin/assignments/[assignmentId]/submissions/route.ts` - Assignment submissions
-
-### Practice Management
-- `/app/api/schools/[schoolId]/practice/route.ts` - Practice quiz management
-- `/app/api/schools/[schoolId]/practice/[quizId]/submissions/route.ts` - Practice submissions
+### Authentication
+- `/app/api/auth/[...nextauth]/route.ts` - NextAuth.js API routes
+- `/app/api/auth/register/route.ts` - User registration endpoint
 
 ### Admin Routes
-- `/app/api/admin/users/route.ts` - User management API endpoints
-- `/app/api/admin/schools/route.ts` - School management API endpoints
-- `/app/api/admin/classes/route.ts` - Class management API endpoints
-- `/app/api/admin/users/bulk-import-teachers/route.ts` - Bulk import teachers
-- `/app/api/admin/users/[id]/route.ts` - Individual user management
+- `/app/api/admin/schools/route.ts` - School management
+  - GET: List all schools
+  - POST: Create new school
+  - PUT: Update school details
+- `/app/api/admin/classes/route.ts` - Global class management
+  - GET: List all classes
+  - POST: Create new class
+- `/app/api/admin/classes/[classId]/route.ts` - Individual class management
+  - GET: Get class details
+  - PUT: Update class
+  - DELETE: Delete class
+- `/app/api/admin/classes/[classId]/students/route.ts` - Class students management
+  - GET: List students in class
+  - POST: Add student to class
+  - DELETE: Remove student from class
+- `/app/api/admin/classes/[classId]/teachers/route.ts` - Class teachers management
+  - GET: Get class teacher
+  - POST: Assign teacher to class
+  - DELETE: Remove teacher from class
+
+### Teacher Routes
+- `/app/api/teachers/classes/route.ts` - Teacher's classes
+  - GET: List all classes for logged-in teacher
+- `/app/api/teachers/classes/[classId]/students/route.ts` - Teacher's class students
+  - GET: List students in teacher's class
+- `/app/api/teachers/classes/[classId]/assignments/route.ts` - Class assignments
+  - GET: List class assignments
+  - POST: Create new assignment
+  - PUT: Update assignment
+  - DELETE: Delete assignment
 
 ### School Routes
-- `/app/api/schools/[schoolId]/settings/route.ts` - School settings management
-- `/app/api/schools/[schoolId]/stats/route.ts` - School statistics
-- `/app/api/schools/[schoolId]/users/route.ts` - School users management
-- `/app/api/schools/[schoolId]/users/[userId]/route.ts` - Individual school user management
+- `/app/api/schools/[schoolId]/settings/route.ts` - School settings
+  - GET: Get school settings
+  - PUT: Update school settings
+- `/app/api/schools/[schoolId]/teachers/route.ts` - School teachers
+  - GET: List school teachers
+  - POST: Add new teacher
+  - DELETE: Remove teacher
+- `/app/api/schools/[schoolId]/students/route.ts` - School students
+  - GET: List school students
+  - POST: Add new student
+  - DELETE: Remove student
+- `/app/api/schools/[schoolId]/classes/route.ts` - School classes
+  - GET: List school classes
+  - POST: Create new class
+  - DELETE: Delete class
 
-### Class Routes
-- `/app/api/admin/classes/[classId]/teachers/route.ts` - Class teachers management
-- `/app/api/admin/classes/[classId]/students/route.ts` - Class students management
+## Important Import Paths
 
+### Core Imports
+```typescript
+// Authentication
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-config';
+
+// Database
+import { prisma } from '@/lib/prisma';
+
+// UI Components
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog';
+
+// Icons
+import { Search, Users, BookOpen, Calendar } from 'lucide-react';
+
+// Utilities
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+```
+
+### API Response Format
+```typescript
+// Success Response
+return NextResponse.json(data);
+
+// Error Response
+return new NextResponse("Error message", { status: errorCode });
+```
+
+## Common API Patterns
+
+### Authentication Check
+```typescript
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    // Your code here...
+  } catch (error) {
+    console.error("[ERROR_TAG]", error);
+    return new NextResponse("Internal error", { status: 500 });
+  }
+}
+```
+
+### Role-Based Access
+```typescript
+if (session?.user?.role !== 'EXPECTED_ROLE') {
+  return new NextResponse("Unauthorized", { status: 401 });
+}
+```
+
+### Database Queries
+```typescript
+// Fetch with relations
+const data = await prisma.model.findMany({
+  where: { /* conditions */ },
+  include: {
+    relation: {
+      select: {
+        id: true,
+        name: true,
+      },
+    },
+  },
+});
+
+// Create with relations
+const newItem = await prisma.model.create({
+  data: {
+    field: value,
+    relation: {
+      connect: { id: relationId },
+    },
+  },
+  include: {
+    relation: true,
+  },
+});
+```
+
+## Error Handling
+All API routes should follow this error handling pattern:
+```typescript
+try {
+  // Your code here...
+} catch (error) {
+  console.error("[ROUTE_ERROR_TAG]", error);
+  return new NextResponse("Internal error", { status: 500 });
+}
+```
 ## Important Files Guide
 
 ## Core Components

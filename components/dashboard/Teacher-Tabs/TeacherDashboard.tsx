@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import TeacherClassesTab from './TeacherClassesTab';
+import TeacherOverviewTab from './TeacherOverviewTab';
 import TeacherAssignmentsTab from './TeacherAssignmentsTab';
 import TeacherProfileTab from './TeacherProfileTab';
 import { Loader2 } from 'lucide-react';
@@ -61,12 +62,7 @@ export default function TeacherDashboard() {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'overview':
-        return (
-          <div className="p-6">
-            <h2 className="text-3xl font-bold tracking-tight mb-4">Welcome, {session.user.name}</h2>
-            <p className="text-muted-foreground">Select a section from the sidebar to get started.</p>
-          </div>
-        );
+        return <TeacherOverviewTab />;
       case 'classes':
         return <TeacherClassesTab />;
       case 'assignments':
@@ -109,21 +105,21 @@ export default function TeacherDashboard() {
             );
           })}
         </nav>
-        <Button
-          variant="ghost"
-          className="mt-auto w-full justify-start gap-2 text-gray-300 hover:text-white"
-          onClick={() => signOut({ callbackUrl: '/signin' })}
-        >
-          <LogOut className="h-5 w-5" />
-          Logout
-        </Button>
+        <div className="border-t border-gray-800 pt-4">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 text-gray-300 hover:text-white"
+            onClick={() => signOut()}
+          >
+            <LogOut className="h-5 w-5" />
+            Sign Out
+          </Button>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="h-full">
-          {renderCurrentView()}
-        </div>
+      <div className="flex-1 overflow-y-auto bg-background p-8">
+        {renderCurrentView()}
       </div>
     </div>
   );
