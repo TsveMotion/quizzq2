@@ -14,27 +14,29 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSession, signOut } from "next-auth/react";
 import { ModeToggle } from "@/components/mode-toggle";
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session, status } = useSession();
 
   const handleLogout = async () => {
     await signOut({ 
-      redirect: false,
-      callbackUrl: '/'
+      redirect: false
     });
+    router.push('/');
   };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto">
-        <div className="flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center">
           {/* Logo */}
-          <div className="flex items-center gap-2">
+          <div className="flex-shrink-0 flex items-center gap-2">
             <Link href="/" className="flex items-center space-x-2">
               <Brain className="h-8 w-8 text-primary" />
               <span className="hidden font-bold sm:inline-block">
@@ -44,7 +46,7 @@ export function Navbar() {
           </div>
 
           {/* Navigation Links - Center */}
-          <nav className="mx-6 flex items-center space-x-4 lg:space-x-6">
+          <nav className="flex-1 flex items-center justify-center space-x-4 lg:space-x-6">
             <Link
               href="/"
               className={cn(
@@ -78,7 +80,7 @@ export function Navbar() {
           </nav>
 
           {/* Right Side - Auth Buttons */}
-          <div className="flex items-center space-x-4">
+          <div className="flex-shrink-0 flex items-center space-x-4">
             <ModeToggle />
             {status === 'loading' ? (
               <div className="h-9 w-9 animate-pulse rounded-md bg-muted" />

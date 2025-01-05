@@ -9,21 +9,24 @@ generator client {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      String   @default("student") // student, teacher, schooladmin, superadmin
-  powerLevel Int     @default(1)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  schoolId  String?
-  teacherId String?
-  school    School?  @relation(fields: [schoolId], references: [id])
-  teacher   User?    @relation("TeacherToStudent", fields: [teacherId], references: [id])
-  students  User[]   @relation("TeacherToStudent")
-  teacherOf Class[]  @relation("TeacherToClass")
-  enrolledIn Class[] @relation("StudentToClass")
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String
+  role        String    // student, teacher, admin
+  powerLevel  Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  schoolId    String?
+  teacherId   String?
+  school      School?   @relation(fields: [schoolId], references: [id])
+  teacher     User?     @relation("TeacherToStudent", fields: [teacherId], references: [id])
+  students    User[]    @relation("TeacherToStudent")
+  teacherOf   Class[]   @relation("TeacherToClass")
+  enrolledIn  Class[]   @relation("StudentToClass")
+  practiceQuizzes PracticeQuiz[]
+  assignments Assignment[] @relation("TeacherAssignments")
+  submissions HomeworkSubmission[] @relation("StudentSubmissions")
 
   @@index([schoolId])
   @@index([teacherId])
@@ -113,4 +116,24 @@ model HomeworkSubmission {
   updatedAt    DateTime   @updatedAt
 
   @@unique([studentId, assignmentId])
+}
+
+model PracticeQuiz {
+  id          String            @id @default(cuid())
+  subject     String
+  topic       String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  studentId   String
+  student     User             @relation(fields: [studentId], references: [id])
+  questions   PracticeQuestion[]
+}
+
+model PracticeQuestion {
+  id             String       @id @default(cuid())
+  question       String
+  optionsJson    String      // Store options as JSON string
+  correctOption  Int
+  practiceQuizId String
+  practiceQuiz   PracticeQuiz @relation(fields: [practiceQuizId], references: [id])
 }
