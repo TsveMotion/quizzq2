@@ -15,6 +15,7 @@ interface JWTPayload {
   role: string;
   powerLevel: number;
   schoolId?: string;
+  school?: any;
   iat?: number;
   exp?: number;
 }
@@ -25,6 +26,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   providers: [
     CredentialsProvider({
@@ -41,6 +43,9 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
+          },
+          include: {
+            school: true
           }
         });
 
@@ -59,7 +64,9 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          powerLevel: user.powerLevel,
           schoolId: user.schoolId,
+          school: user.school
         };
       }
     })
@@ -71,7 +78,9 @@ export const authOptions: NextAuthOptions = {
           ...token,
           id: user.id,
           role: user.role,
-          schoolId: user.schoolId,
+          powerLevel: user.powerLevel,
+          schoolId: user.schoolId || token.schoolId,
+          school: user.school || token.school
         };
       }
       return token;
@@ -83,7 +92,9 @@ export const authOptions: NextAuthOptions = {
           ...session.user,
           id: token.id,
           role: token.role,
+          powerLevel: token.powerLevel,
           schoolId: token.schoolId,
+          school: token.school
         }
       };
     }

@@ -1,52 +1,38 @@
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { db } from '@/lib/db';
-import StudentDashboard from '@/components/dashboard/StudentDashboard';
-import TeacherDashboard from '@/components/dashboard/TeacherDashboard';
-import SchoolAdminDashboard from '@/components/dashboard/SchoolAdminDashboard';
 import SuperAdminDashboard from '@/components/dashboard/SuperAdminDashboard';
-import { options } from '../api/auth/[...nextauth]/options';
+import SchoolAdminDashboard from '@/components/dashboard/SchoolAdminDashboard';
+import TeacherDashboard from '@/components/dashboard/TeacherDashboard';
+import StudentDashboard from '@/components/dashboard/StudentDashboard';
+import { prisma } from '@/lib/prisma';
 
 export default async function DashboardPage() {
-  const session = await getServerSession(options);
+  const session = await getServerSession(authOptions);
+  console.log('Initial session:', session);
 
-  if (!session?.user?.id) {
-    redirect('/login');
+  if (!session) {
+    redirect('/auth/signin');
   }
 
-  // Get full user data from database
-  const user = await db.user.findUnique({
-    where: { 
-      id: session.user.id 
-    },
-    include: { 
-      school: true,
-      teacherOf: {
-        include: {
-          students: true,
-          assignments: {
-            include: {
-              questions: true,
-              submissions: {
-                include: {
-                  student: true
-                }
-              }
-            }
-          }
-        }
-      },
-      enrolledIn: {
-        include: {
-          teacher: true,
-          assignments: {
-            include: {
-              questions: true,
-              submissions: {
-                include: {
-                  student: true
-                }
-              }
+  // For superadmin, we don't need to fetch additional user data
+  if (session.user.role === 'superadmin') {
+    return <SuperAdminDashboard user={session.user} />;
+  }
+
+  // Get user with school information for other roles
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: {
+      school: {
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: {
+            select: {
+              users: true
             }
           }
         }
@@ -54,21 +40,37 @@ export default async function DashboardPage() {
     }
   });
 
+  console.log('Fetched user:', user);
+
   if (!user) {
-    console.error('User not found:', session.user.id);
-    redirect('/login');
+    redirect('/auth/signin');
   }
 
-  // Return the appropriate dashboard component based on user role
+  // For school admin, combine session data with school info
+  if (user.role === 'schooladmin') {
+    const schoolAdminData = {
+      ...session.user,
+      schoolId: user.schoolId, // Add schoolId explicitly
+      school: user.school
+    };
+    console.log('School admin data:', schoolAdminData);
+    return <SchoolAdminDashboard user={schoolAdminData} />;
+  }
+
+  // For other roles, pass the complete user data
+  const userData = {
+    ...user,
+    schoolId: user.schoolId, // Add schoolId explicitly
+    school: user.school
+  };
+
+  // Render the appropriate dashboard based on user role
   switch (user.role) {
-    case 'superadmin':
-      return <SuperAdminDashboard />;
-    case 'schooladmin':
-      return <SchoolAdminDashboard user={user} />;
     case 'teacher':
-      return <TeacherDashboard user={user} />;
+      return <TeacherDashboard user={userData} />;
     case 'student':
+      return <StudentDashboard user={userData} />;
     default:
-      return <StudentDashboard user={user} />;
+      redirect('/auth/signin');
   }
 }

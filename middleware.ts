@@ -1,47 +1,69 @@
+import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
 
-export async function middleware(request: NextRequest) {
-  console.log('\n--- Middleware Start ---');
-  console.log('Path:', request.nextUrl.pathname);
+export default withAuth(
+  function middleware(req) {
+    const token = req.nextauth.token;
+    const role = token?.role;
+    const pathname = req.nextUrl.pathname;
 
-  const session = await getToken({ req: request });
-  console.log('Session present:', !!session);
-
-  const isAuthPage = request.nextUrl.pathname.startsWith('/login') || 
-                    request.nextUrl.pathname.startsWith('/signup');
-
-  // Handle auth pages (login/signup)
-  if (isAuthPage) {
-    if (session) {
-      console.log('User already logged in, redirecting to dashboard');
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+    // Redirect from /dashboard/[role] to /dashboard for all users
+    if (pathname.startsWith('/dashboard/')) {
+      const url = new URL('/dashboard', req.url);
+      return NextResponse.redirect(url);
     }
-    console.log('Allowing access to auth page');
+
+    // Handle /dashboard route based on user role
+    if (pathname === '/dashboard') {
+      if (!role) {
+        const url = new URL('/auth/signin', req.url);
+        return NextResponse.redirect(url);
+      }
+
+      // Allow access to dashboard for all authenticated users
+      return NextResponse.next();
+    }
+
+    // Protect API routes
+    if (pathname.startsWith('/api/')) {
+      if (!role) {
+        return new NextResponse('Unauthorized', { status: 401 });
+      }
+
+      // Handle school-specific routes
+      if (pathname.startsWith('/api/schools/')) {
+        const urlParts = pathname.split('/');
+        const requestedSchoolId = urlParts[3]; // /api/schools/[schoolId]/...
+
+        // Allow superadmins to access all schools
+        if (role === 'superadmin') {
+          return NextResponse.next();
+        }
+
+        // For school admins and other roles, verify school access
+        if (token.schoolId && token.schoolId === requestedSchoolId) {
+          return NextResponse.next();
+        }
+
+        console.error('Unauthorized school access:', {
+          role,
+          userSchoolId: token.schoolId,
+          requestedSchoolId,
+          pathname
+        });
+        return new NextResponse('Unauthorized access to school data', { status: 403 });
+      }
+    }
+
     return NextResponse.next();
+  },
+  {
+    callbacks: {
+      authorized: ({ token }) => !!token,
+    },
   }
-
-  // Handle protected routes
-  if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    if (!session) {
-      console.log('No session found, redirecting to login');
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-
-    // Redirect /dashboard/superadmin to /dashboard
-    if (request.nextUrl.pathname === '/dashboard/superadmin') {
-      console.log('Redirecting superadmin to main dashboard');
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    console.log('Access granted to dashboard');
-    return NextResponse.next();
-  }
-
-  return NextResponse.next();
-}
+);
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/signup']
-}
+  matcher: ['/dashboard/:path*', '/api/:path*'],
+};

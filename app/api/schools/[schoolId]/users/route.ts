@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import { verifyAuth } from '@/lib/auth';
-import { cookies } from 'next/headers';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // GET /api/schools/[schoolId]/users - Get all users for a specific school
 export async function GET(
@@ -10,48 +10,128 @@ export async function GET(
   { params }: { params: { schoolId: string } }
 ) {
   try {
-    if (!params.schoolId) {
-      return NextResponse.json({ error: 'School ID is required' }, { status: 400 });
+    const session = await getServerSession(authOptions);
+    console.log('Session in API:', session);
+    console.log('Requested school ID:', params.schoolId);
+
+    if (!session?.user) {
+      console.error('No session user found');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get token from cookie
-    const cookieStore = cookies();
-    const token = cookieStore.get('token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized - No token' }, { status: 401 });
-    }
-
-    const userData = await verifyAuth(token);
-    if (!userData) {
-      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
-    }
-
-    // Verify the user has access to this school
-    const user = await prisma.user.findUnique({
-      where: { id: userData.userId },
-      include: { school: true }
+    // Get the current user with their school info
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: {
+        school: true
+      }
     });
 
-    if (!user || user.schoolId !== params.schoolId) {
-      return NextResponse.json({ error: 'Unauthorized - Wrong school' }, { status: 401 });
+    console.log('Current user in API:', currentUser);
+
+    if (!currentUser) {
+      console.error('User not found in database');
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    // Check if user has access to this school
+    if (currentUser.role !== 'superadmin' && currentUser.schoolId !== params.schoolId) {
+      console.error('User does not have access to this school', {
+        userSchoolId: currentUser.schoolId,
+        requestedSchoolId: params.schoolId,
+        userRole: currentUser.role
+      });
+      return NextResponse.json({ error: 'Unauthorized access to school data' }, { status: 403 });
+    }
+
+    console.log('Fetching users for school:', params.schoolId);
 
     // Get all users for the school
     const users = await prisma.user.findMany({
       where: {
-        schoolId: params.schoolId,
+        schoolId: params.schoolId
       },
-      orderBy: {
-        createdAt: 'desc'
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        powerLevel: true,
+        createdAt: true,
+        updatedAt: true,
+        school: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        teacherOf: {
+          select: {
+            id: true,
+            name: true,
+            students: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true
+              }
+            }
+          }
+        },
+        enrolledIn: {
+          select: {
+            id: true,
+            name: true,
+            teacher: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            teacherOf: true,
+            enrolledIn: true,
+            submissions: true
+          }
+        }
       }
     });
 
-    return NextResponse.json({ users });
+    console.log('Found users:', users.length);
+    console.log('Users by role:');
+    console.log('- Students:', users.filter(u => u.role === 'student').length);
+    console.log('- Teachers:', users.filter(u => u.role === 'teacher').length);
+    console.log('- Admins:', users.filter(u => u.role === 'schooladmin').length);
+
+    const stats = {
+      totalStudents: users.filter(u => u.role === 'student').length,
+      totalTeachers: users.filter(u => u.role === 'teacher').length,
+      totalAdmins: users.filter(u => u.role === 'schooladmin').length,
+      activeUsers: users.length,
+      totalSubmissions: users.reduce((acc, user) => acc + (user._count?.submissions || 0), 0)
+    };
+
+    console.log('Returning response with stats:', stats);
+    
+    return NextResponse.json({ 
+      users,
+      stats,
+      school: currentUser.school
+    });
   } catch (error) {
-    console.error('Failed to fetch users:', error);
+    console.error('Detailed error in API:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return NextResponse.json(
-      { error: 'Failed to fetch users: ' + (error.message || 'Unknown error') },
+      { error: 'Failed to fetch users', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -63,169 +143,102 @@ export async function POST(
   { params }: { params: { schoolId: string } }
 ) {
   try {
-    console.log('Received request to create user'); // Debug log
-    console.log('School ID from params:', params.schoolId);
-
-    // Get token from cookie
-    const cookieStore = cookies();
-    const token = cookieStore.get('token')?.value;
-
-    if (!token) {
-      console.log('No token found in cookies');
-      return NextResponse.json({ error: 'Unauthorized - No token' }, { status: 401 });
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userData = await verifyAuth(token);
-    console.log('Verified user data:', userData); // Debug log
+    const data = await req.json();
+    const { name, email, password, role } = data;
 
-    if (!userData) {
-      console.log('Invalid token');
-      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
-    }
-
-    // Verify the user is a school admin for this school
-    const admin = await prisma.user.findUnique({
-      where: { id: userData.userId },
-      include: { school: true }
-    });
-
-    console.log('Admin user:', admin); // Debug log
-
-    if (!admin) {
-      console.log('Admin not found');
-      return NextResponse.json({ error: 'Unauthorized - Admin not found' }, { status: 401 });
-    }
-
-    if (!params.schoolId) {
-      console.log('School ID is missing from params');
-      return NextResponse.json({ error: 'School ID is required' }, { status: 400 });
-    }
-
-    if (admin.schoolId !== params.schoolId) {
-      console.log('School ID mismatch', { adminSchoolId: admin.schoolId, requestedSchoolId: params.schoolId });
-      return NextResponse.json({ error: 'Unauthorized - Wrong school' }, { status: 401 });
-    }
-
-    if (admin.role !== 'schooladmin') {
-      console.log('Not a school admin', { role: admin.role });
-      return NextResponse.json({ error: 'Unauthorized - Not a school admin' }, { status: 401 });
-    }
-
-    const requestData = await req.json();
-    console.log('Request data:', requestData); // Debug log
-
-    const { name, email, password, role } = requestData;
-
-    if (!name || !email || !password || !role) {
-      console.log('Missing required fields', { name, email, password, role });
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    // Validate role
-    const allowedRoles = ['student', 'teacher', 'schooladmin'];
-    if (!allowedRoles.includes(role)) {
-      console.log('Invalid role', { role, allowedRoles });
-      return NextResponse.json(
-        { error: `Invalid role: ${role}. Allowed roles are: ${allowedRoles.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Check if email is already in use
+    // Verify email is not already taken
     const existingUser = await prisma.user.findUnique({
       where: { email }
     });
 
     if (existingUser) {
-      console.log('Email already in use', { email });
       return NextResponse.json(
-        { error: 'Email already in use' },
+        { error: 'Email already exists' },
         { status: 400 }
       );
     }
 
-    // Hash password
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Get power level based on role
-    const powerLevel = {
-      'student': 2,
-      'teacher': 3,
-      'schooladmin': 4,
-    }[role] || 2;
-
-    console.log('Creating user with power level:', powerLevel); // Debug log
-
-    // Create user
+    // Create the user
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
         role,
-        powerLevel,
-        schoolId: params.schoolId
+        powerLevel: 1,
+        schoolId: params.schoolId,
+        createdBy: {
+          connect: {
+            id: session.user.id
+          }
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+        school: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
       }
     });
 
-    console.log('User created:', { id: user.id, name: user.name, role: user.role }); // Debug log
-
-    return NextResponse.json({ user }, { status: 201 });
+    return NextResponse.json(user);
   } catch (error) {
-    console.error('Failed to create user:', error);
+    console.error('Error creating user:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return NextResponse.json(
-      { error: 'Failed to create user: ' + (error.message || 'Unknown error') },
+      { error: 'Failed to create user', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/schools/[schoolId]/users/[userId] - Delete a user from a specific school
+// DELETE /api/schools/[schoolId]/users/[userId] - Delete a user
 export async function DELETE(
   req: Request,
   { params }: { params: { schoolId: string; userId: string } }
 ) {
   try {
-    if (!params.schoolId || !params.userId) {
-      return NextResponse.json({ error: 'School ID and User ID are required' }, { status: 400 });
-    }
-
-    // Get token from cookie
-    const cookieStore = cookies();
-    const token = cookieStore.get('token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized - No token' }, { status: 401 });
-    }
-
-    const userData = await verifyAuth(token);
-    if (!userData) {
-      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
-    }
-
-    // Verify the user is a school admin for this school
-    const admin = await prisma.user.findUnique({
-      where: { id: userData.userId },
-      include: { school: true }
-    });
-
-    if (!admin || admin.schoolId !== params.schoolId || admin.role !== 'schooladmin') {
-      return NextResponse.json({ error: 'Unauthorized - Not authorized' }, { status: 401 });
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Delete user
     await prisma.user.delete({
-      where: {
+      where: { 
         id: params.userId,
-        schoolId: params.schoolId // Ensure user belongs to this school
+        schoolId: params.schoolId
       }
     });
 
-    return NextResponse.json({ success: true });
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error('Failed to delete user:', error);
+    console.error('Error deleting user:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return NextResponse.json(
-      { error: 'Failed to delete user: ' + (error.message || 'Unknown error') },
+      { error: 'Failed to delete user', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

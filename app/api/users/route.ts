@@ -1,77 +1,136 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { hash } from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { hash } from 'bcrypt';
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'superadmin') {
-      return new NextResponse('Unauthorized', { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { email, name, role, schoolId, password } = body;
-
-    if (!email || !name || !role || !password) {
-      return new NextResponse('Missing required fields', { status: 400 });
-    }
-
-    // Validate role
-    const validRoles = ['student', 'teacher', 'schooladmin', 'superadmin'];
-    if (!validRoles.includes(role)) {
-      return new NextResponse('Invalid role', { status: 400 });
-    }
-
-    // Hash the password
-    const hashedPassword = await hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        role,
-        schoolId,
-        password: hashedPassword,
-      },
-      include: {
-        school: true,
-      },
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { school: true }
     });
 
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
-    return NextResponse.json(userWithoutPassword);
-  } catch (error) {
-    console.error('Error creating user:', error);
-    if (error.code === 'P2002') {
-      return new NextResponse('Email already exists', { status: 400 });
-    }
-    return new NextResponse('Internal Server Error', { status: 500 });
-  }
-}
-
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'superadmin') {
-      return new NextResponse('Unauthorized', { status: 401 });
+    if (!currentUser || !['superadmin', 'schooladmin', 'teacher'].includes(currentUser.role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const users = await prisma.user.findMany({
+    const data = await req.json();
+    const { name, email, password, role, schoolId } = data;
+
+    // Teachers can only create students
+    if (currentUser.role === 'teacher' && role !== 'student') {
+      return NextResponse.json({ error: 'Teachers can only create student accounts' }, { status: 403 });
+    }
+
+    // Validate school access
+    if ((currentUser.role === 'schooladmin' || currentUser.role === 'teacher') && currentUser.schoolId !== schoolId) {
+      return NextResponse.json({ error: 'Unauthorized access to school' }, { status: 403 });
+    }
+
+    // Hash password
+    const hashedPassword = await hash(password, 10);
+
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        powerLevel: role === 'student' ? 1 : 2,
+        school: {
+          connect: {
+            id: schoolId
+          }
+        },
+        ...(role === 'student' && currentUser.role === 'teacher' ? {
+          createdBy: {
+            connect: {
+              id: currentUser.id
+            }
+          }
+        } : {})
+      },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
-        schoolId: true,
-        createdAt: true,
-        updatedAt: true,
+        createdBy: true,
         school: {
           select: {
             id: true,
-            name: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    return NextResponse.json(user);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return NextResponse.json(
+      { error: 'Failed to create user' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { school: true }
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Get query parameters
+    const url = new URL(req.url);
+    const schoolId = url.searchParams.get('schoolId');
+    const role = url.searchParams.get('role');
+
+    // Build where clause
+    const where: any = {};
+    if (currentUser.role === 'schooladmin') {
+      where.schoolId = currentUser.schoolId;
+    } else if (schoolId) {
+      where.schoolId = schoolId;
+    }
+    if (role) {
+      where.role = role;
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        school: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        _count: {
+          select: {
+            submissions: true
           }
         }
       },
@@ -83,7 +142,10 @@ export async function GET() {
     return NextResponse.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch users' },
+      { status: 500 }
+    );
   }
 }
 

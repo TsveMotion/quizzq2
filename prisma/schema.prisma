@@ -9,23 +9,24 @@ generator client {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  password     String
-  name         String?
-  role         String    @default("member") // member, student, teacher, schooladmin, superadmin
-  powerLevel   Int       @default(1) // 1-5 power level
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  school       School?   @relation(fields: [schoolId], references: [id])
-  schoolId     String?
-  teacherOf    Class[]   @relation("TeacherClasses")
-  enrolledIn   Class[]   @relation("StudentClasses")
-  createdBy    User?     @relation("TeacherStudents", fields: [teacherId], references: [id])
-  teacherId    String?
-  students     User[]    @relation("TeacherStudents")
-  assignments  Assignment[] @relation("TeacherAssignments")
-  submissions  HomeworkSubmission[] @relation("StudentSubmissions")
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("student") // student, teacher, schooladmin, superadmin
+  powerLevel Int     @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  schoolId  String?
+  teacherId String?
+  school    School?  @relation(fields: [schoolId], references: [id])
+  teacher   User?    @relation("TeacherToStudent", fields: [teacherId], references: [id])
+  students  User[]   @relation("TeacherToStudent")
+  teacherOf Class[]  @relation("TeacherToClass")
+  enrolledIn Class[] @relation("StudentToClass")
+
+  @@index([schoolId])
+  @@index([teacherId])
 }
 
 model School {
@@ -45,9 +46,9 @@ model Class {
   description String?
   school      School       @relation(fields: [schoolId], references: [id])
   schoolId    String
-  teacher     User         @relation("TeacherClasses", fields: [teacherId], references: [id])
+  teacher     User         @relation("TeacherToClass", fields: [teacherId], references: [id])
   teacherId   String
-  students    User[]       @relation("StudentClasses")
+  students    User[]       @relation("StudentToClass")
   assignments Assignment[] @relation("ClassAssignments")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

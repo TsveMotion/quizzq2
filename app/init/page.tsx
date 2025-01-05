@@ -4,7 +4,14 @@ import bcrypt from 'bcryptjs';
 import { ROLES } from '@/lib/roles';
 
 export default async function InitPage() {
-  const email = 'superadmin@quizzq.com';
+  const email = process.env.SUPERADMIN_EMAIL;
+  const password = process.env.SUPERADMIN_PASSWORD;
+
+  if (!email || !password) {
+    console.error('Missing SUPERADMIN_EMAIL or SUPERADMIN_PASSWORD environment variables');
+    redirect('/login');
+    return;
+  }
 
   try {
     // Check if superadmin exists
@@ -14,7 +21,7 @@ export default async function InitPage() {
 
     if (!existingAdmin) {
       // Create superadmin
-      const hashedPassword = await bcrypt.hash('Tsvetozar_TsveK22', 10);
+      const hashedPassword = await bcrypt.hash(password, 10);
       
       await prisma.user.create({
         data: {
@@ -25,6 +32,8 @@ export default async function InitPage() {
           powerLevel: 5,
         },
       });
+
+      console.log('Superadmin created successfully');
     }
   } catch (error) {
     console.error('Error:', error);

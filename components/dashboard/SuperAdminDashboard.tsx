@@ -163,34 +163,25 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleAddUser = async (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!newUser.name || !newUser.email || !newUser.password || !newUser.role) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const response = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newUser),
+        body: JSON.stringify({
+          ...newUser,
+          powerLevel: 1,
+        }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to create user');
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create user');
       }
 
-      const user = await response.json();
-      setUsers([user, ...users]);
       setIsAddingUser(false);
       setNewUser({
         name: '',
@@ -205,7 +196,6 @@ export default function SuperAdminDashboard() {
         description: "User created successfully",
       });
 
-      // Refresh the users list
       fetchUsers();
     } catch (error) {
       console.error('Error creating user:', error);
@@ -721,7 +711,7 @@ export default function SuperAdminDashboard() {
                     Fill in the details to create a new user.
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleAddUser} className="space-y-4">
+                <form onSubmit={handleCreateUser} className="space-y-4">
                   <div className="space-y-4">
                     <div className="grid gap-2">
                       <Label htmlFor="name">Name</Label>

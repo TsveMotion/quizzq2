@@ -10,25 +10,64 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
+import {
+  Users,
+  GraduationCap,
+  BookOpen,
+  ClipboardList,
+  PlusCircle,
+  Search,
+  Calendar,
+  BarChart2,
+  Settings,
+  UserPlus,
+  FileText,
+  CheckCircle2,
+  XCircle,
+  Clock
+} from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 interface Student {
   id: string;
   name: string;
   email: string;
+  enrolledIn?: any[];
+  progress: {
+    averageScore: number;
+    totalSubmissions: number;
+  };
 }
 
 interface Class {
   id: string;
   name: string;
   description?: string;
+  yearGroup: string;
   students: Student[];
 }
 
@@ -46,16 +85,15 @@ interface QuizQuestion {
 interface Assignment {
   id: string;
   title: string;
-  content: string;
   dueDate: string;
-  class: Class;
   subject: string;
   topic: string;
+  yearGroup: string;
+  complexity: string;
+  class: Class;
   questions: QuizQuestion[];
   submissions: Array<{
     id: string;
-    content: string;
-    grade?: number;
     student: Student;
     answers?: Array<{
       questionId: string;
@@ -63,264 +101,129 @@ interface Assignment {
       isCorrect: boolean;
     }>;
   }>;
+  content?: string;
 }
 
 export default function TeacherDashboard({ user }: { user: any }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
-  const [selectedAssignmentForPerformance, setSelectedAssignmentForPerformance] = useState<Assignment | null>(null);
-  const [showQuestionDialog, setShowQuestionDialog] = useState(false);
-  const [showStudentPerformance, setShowStudentPerformance] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: '', email: '', password: '' });
-  const [newClass, setNewClass] = useState({ name: '', description: '' });
-  const [newAssignment, setNewAssignment] = useState({
-    title: '',
-    classId: '',
-    dueDate: '',
-    subject: '',
-    topic: '',
-    yearGroup: '7',
-    complexity: 'medium',
-    questionCount: 5
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    totalClasses: 0,
+    activeAssignments: 0,
+    averageScore: 0,
   });
-  const [isNewStudentDialogOpen, setIsNewStudentDialogOpen] = useState(false);
-  const [isNewClassDialogOpen, setIsNewClassDialogOpen] = useState(false);
-  const [isAddStudentsDialogOpen, setIsAddStudentsDialogOpen] = useState(false);
-  const [isNewAssignmentDialogOpen, setIsNewAssignmentDialogOpen] = useState(false);
-  const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'classes' | 'assignments'>('overview');
+
+  const [isCreateStudentDialogOpen, setIsCreateStudentDialogOpen] = useState(false);
+  const [newStudent, setNewStudent] = useState({
+    name: '',
+    email: '',
+    password: ''
+  });
+
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
 
   useEffect(() => {
-    if (activeTab === 'students') {
-      fetchStudents();
-    } else if (activeTab === 'classes') {
-      fetchClasses();
-    } else if (activeTab === 'assignments') {
-      fetchAssignments();
-    }
-  }, [activeTab]);
+    fetchData();
+  }, [user.id]);
 
-  const fetchStudents = async () => {
+  const fetchData = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/students');
-      if (!response.ok) throw new Error('Failed to fetch students');
-      const data = await response.json();
-      setStudents(data);
+      await Promise.all([
+        fetchClasses(),
+        fetchAssignments(),
+      ]);
     } catch (error) {
+      console.error('Error fetching data:', error);
       toast({
         title: 'Error',
-        description: 'Failed to fetch students',
+        description: 'Failed to load dashboard data',
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const fetchClasses = async () => {
     try {
-      const response = await fetch('/api/classes');
+      const response = await fetch(`/api/teachers/${user.id}/classes`);
       if (!response.ok) throw new Error('Failed to fetch classes');
       const data = await response.json();
       setClasses(data);
+      
+      // Update stats
+      const totalStudents = data.reduce((acc, cls) => acc + cls.students.length, 0);
+      setStats(prev => ({
+        ...prev,
+        totalStudents,
+        totalClasses: data.length
+      }));
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch classes',
-        variant: 'destructive',
-      });
+      throw error;
     }
   };
 
   const fetchAssignments = async () => {
     try {
-      const response = await fetch('/api/assignments');
+      const response = await fetch(`/api/teachers/${user.id}/assignments`);
       if (!response.ok) throw new Error('Failed to fetch assignments');
       const data = await response.json();
       setAssignments(data);
+
+      // Update stats
+      const activeAssignments = data.filter(a => new Date(a.dueDate) > new Date()).length;
+      const completedAssignments = data.filter(a => a.submissions.length > 0);
+      const totalScores = completedAssignments.reduce((acc, assignment) => {
+        const assignmentScore = assignment.submissions.reduce((sum, sub) => {
+          const correctAnswers = sub.answers?.filter(a => a.isCorrect).length || 0;
+          return sum + (correctAnswers / assignment.questions.length) * 100;
+        }, 0);
+        return acc + (assignmentScore / assignment.submissions.length);
+      }, 0);
+      const averageScore = completedAssignments.length > 0 
+        ? totalScores / completedAssignments.length 
+        : 0;
+
+      setStats(prev => ({
+        ...prev,
+        activeAssignments,
+        averageScore: Math.round(averageScore)
+      }));
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch assignments',
-        variant: 'destructive',
-      });
+      throw error;
     }
   };
 
-  const createAssignment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const createClass = async () => {
     try {
-      if (!newAssignment.title || !newAssignment.classId || !newAssignment.dueDate || 
-          !newAssignment.subject || !newAssignment.topic || !newAssignment.yearGroup || 
-          !newAssignment.complexity || !newAssignment.questionCount) {
-        toast({
-          title: 'Error',
-          description: 'Please fill in all fields',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const response = await fetch('/api/assignments', {
+      const response = await fetch(`/api/teachers/${user.id}/classes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAssignment),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: '',
+          yearGroup: '',
+          description: ''
+        }),
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error);
+        throw new Error('Failed to create class');
       }
 
-      const data = await response.json();
-      
-      setAssignments(prev => [...prev, data]);
-      setIsNewAssignmentDialogOpen(false);
-      setNewAssignment({
-        title: '',
-        classId: '',
-        dueDate: '',
-        subject: '',
-        topic: '',
-        yearGroup: '7',
-        complexity: 'medium',
-        questionCount: 5
-      });
-
-      toast({
-        title: 'Success',
-        description: 'Assignment created successfully',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to create assignment',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const deleteAssignment = async (assignmentId: string) => {
-    try {
-      const response = await fetch(`/api/assignments/${assignmentId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) throw new Error('Failed to delete assignment');
-
-      // Remove the assignment from state
-      setAssignments(prev => prev.filter(a => a.id !== assignmentId));
-      
-      toast({
-        title: 'Success',
-        description: 'Assignment deleted successfully',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete assignment',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const viewAssignmentQuestions = (assignment: Assignment) => {
-    setSelectedAssignment(assignment);
-    setShowQuestionDialog(true);
-  };
-
-  const createStudent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (!newStudent.name || !newStudent.email || !newStudent.password) {
-        toast({
-          title: 'Error',
-          description: 'Please fill in all fields',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const response = await fetch('/api/students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newStudent),
-      });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error);
-      }
-      
-      toast({
-        title: 'Success',
-        description: 'Student created successfully',
-      });
-      
-      setIsNewStudentDialogOpen(false);
-      setNewStudent({ name: '', email: '', password: '' });
-      fetchStudents();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to create student',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const resetPassword = async (studentId: string) => {
-    try {
-      const response = await fetch(`/api/students/${studentId}/reset-password`, {
-        method: 'POST',
-      });
-      
-      if (!response.ok) throw new Error('Failed to reset password');
-      
-      const data = await response.json();
-      
-      toast({
-        title: 'Success',
-        description: `Password reset successfully. Temporary password: ${data.temporaryPassword}`,
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to reset password',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const createClass = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (!newClass.name) {
-        toast({
-          title: 'Error',
-          description: 'Please enter a class name',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const response = await fetch('/api/classes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newClass),
-      });
-      
-      if (!response.ok) throw new Error('Failed to create class');
-      
+      await fetchClasses();
       toast({
         title: 'Success',
         description: 'Class created successfully',
       });
-      
-      setIsNewClassDialogOpen(false);
-      setNewClass({ name: '', description: '' });
-      fetchClasses();
     } catch (error) {
       toast({
         title: 'Error',
@@ -330,480 +233,444 @@ export default function TeacherDashboard({ user }: { user: any }) {
     }
   };
 
-  const openAddStudentsDialog = (classId: string) => {
-    setSelectedClassId(classId);
-    setSelectedStudents([]);
-    setIsAddStudentsDialogOpen(true);
-  };
-
-  const addStudentsToClass = async () => {
+  const createAssignment = async () => {
     try {
-      if (!selectedClassId || selectedStudents.length === 0) {
-        toast({
-          title: 'Error',
-          description: 'Please select at least one student',
-          variant: 'destructive',
-        });
-        return;
+      const response = await fetch(`/api/teachers/${user.id}/assignments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: '',
+          classId: '',
+          dueDate: '',
+          subject: '',
+          topic: '',
+          yearGroup: '',
+          complexity: '',
+          questions: []
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create assignment');
       }
 
-      const response = await fetch(`/api/classes/${selectedClassId}/students`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentIds: selectedStudents }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to add students to class');
-      
+      await fetchAssignments();
       toast({
         title: 'Success',
-        description: 'Students added to class successfully',
+        description: 'Assignment created successfully',
       });
-      
-      setIsAddStudentsDialogOpen(false);
-      setSelectedStudents([]);
-      fetchClasses();
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to add students to class',
+        description: 'Failed to create assignment',
         variant: 'destructive',
       });
     }
   };
 
-  const toggleStudent = (studentId: string) => {
-    setSelectedStudents(prev => 
-      prev.includes(studentId)
-        ? prev.filter(id => id !== studentId)
-        : [...prev, studentId]
-    );
-  };
-
-  const calculateStudentStats = (assignment: Assignment) => {
-    const stats = {
-      averageGrade: 0,
-      questionStats: {} as Record<string, { correct: number; total: number; questionText: string }>,
-      studentPerformance: [] as Array<{
-        student: Student;
-        grade: number;
-        struggledQuestions: Array<{ questionId: string; questionText: string }>;
-      }>,
-    };
-
-    if (!assignment.submissions || assignment.submissions.length === 0) {
-      return stats;
-    }
-
-    // Calculate average grade
-    const totalGrade = assignment.submissions.reduce((sum, sub) => sum + (sub.grade || 0), 0);
-    stats.averageGrade = totalGrade / assignment.submissions.length;
-
-    // Initialize question stats
-    if (assignment.questions && Array.isArray(assignment.questions)) {
-      assignment.questions.forEach(q => {
-        if (q && q.id) {
-          stats.questionStats[q.id] = {
-            correct: 0,
-            total: 0,
-            questionText: q.questionText || 'Question text not available'
-          };
-        }
+  const addStudentToClass = async (classId: string, studentData: { name: string; email: string; password: string }) => {
+    try {
+      const response = await fetch(`/api/teachers/${user.id}/students`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...studentData,
+          classId
+        }),
       });
-    }
 
-    // Calculate per-student performance and question statistics
-    assignment.submissions.forEach(submission => {
-      if (!submission || !submission.student) return;
-
-      const struggledQuestions: Array<{ questionId: string; questionText: string }> = [];
-      
-      if (submission.answers && Array.isArray(submission.answers)) {
-        submission.answers.forEach(answer => {
-          if (!answer || !answer.questionId) return;
-
-          const questionStat = stats.questionStats[answer.questionId];
-          if (questionStat) {
-            questionStat.total++;
-            if (answer.isCorrect) {
-              questionStat.correct++;
-            } else {
-              const question = assignment.questions?.find(q => q?.id === answer.questionId);
-              if (question) {
-                struggledQuestions.push({
-                  questionId: answer.questionId,
-                  questionText: question.questionText || 'Question text not available'
-                });
-              }
-            }
-          }
-        });
+      if (!response.ok) {
+        throw new Error('Failed to add student');
       }
 
-      stats.studentPerformance.push({
-        student: submission.student,
-        grade: submission.grade || 0,
-        struggledQuestions
+      await fetchClasses();
+      toast({
+        title: 'Success',
+        description: 'Student added successfully',
       });
-    });
-
-    return stats;
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add student',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const renderAssignments = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Assignments</h2>
-        <Button onClick={() => setIsNewAssignmentDialogOpen(true)}>
-          Create Assignment
-        </Button>
-      </div>
+  const handleCreateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`/api/teachers/${user.id}/students`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newStudent),
+      });
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {assignments.map((assignment) => (
-          <Card key={assignment.id} className="flex flex-col">
-            <CardHeader>
-              <CardTitle>{assignment.title}</CardTitle>
-              <CardDescription>
-                Due: {new Date(assignment.dueDate).toLocaleDateString()}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>Class: {assignment.class?.name}</p>
-              <p>Subject: {assignment.subject}</p>
-              <p>Topic: {assignment.topic}</p>
-              <p>Questions: {assignment.questions?.length || 0}</p>
-              <p>Submissions: {assignment.submissions?.length || 0}</p>
-              {assignment.submissions?.length > 0 && (
-                <p className="text-green-600 font-medium">
-                  Average Grade: {
-                    Math.round(
-                      assignment.submissions.reduce((sum, sub) => sum + (sub.grade || 0), 0) / 
-                      assignment.submissions.length
-                    )
-                  }%
-                </p>
-              )}
-            </CardContent>
-            <CardFooter className="flex flex-col gap-2 mt-auto">
-              <div className="flex justify-between w-full">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setSelectedAssignment(assignment);
-                    setShowQuestionDialog(true);
-                  }}
-                >
-                  View Questions
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={() => deleteAssignment(assignment.id)}
-                >
-                  Delete
-                </Button>
-              </div>
-              {assignment.submissions?.length > 0 && (
-                <Button 
-                  className="w-full"
-                  variant="secondary"
-                  onClick={() => {
-                    setSelectedAssignmentForPerformance(assignment);
-                    setShowStudentPerformance(true);
-                  }}
-                >
-                  View Student Performance
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+      if (!response.ok) {
+        throw new Error('Failed to create student');
+      }
 
-      {/* Questions Dialog */}
-      <Dialog open={showQuestionDialog} onOpenChange={setShowQuestionDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedAssignment?.title} - Questions
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            {!selectedAssignment?.questions || selectedAssignment.questions.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No questions available for this assignment.</p>
-              </div>
-            ) : (
-              selectedAssignment.questions.map((question, index) => (
-                <Card key={question.id} className="p-4">
-                  <h3 className="font-semibold mb-2">Question {index + 1}</h3>
-                  <p className="mb-4 text-lg">{question.questionText}</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <p className={`p-2 rounded ${
-                        question.correctOption === 'A' 
-                          ? 'bg-green-100 text-green-700 font-medium' 
-                          : 'hover:bg-gray-50'
-                      }`}>
-                        A: {question.optionA}
-                      </p>
-                      <p className={`p-2 rounded ${
-                        question.correctOption === 'B' 
-                          ? 'bg-green-100 text-green-700 font-medium' 
-                          : 'hover:bg-gray-50'
-                      }`}>
-                        B: {question.optionB}
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <p className={`p-2 rounded ${
-                        question.correctOption === 'C' 
-                          ? 'bg-green-100 text-green-700 font-medium' 
-                          : 'hover:bg-gray-50'
-                      }`}>
-                        C: {question.optionC}
-                      </p>
-                      <p className={`p-2 rounded ${
-                        question.correctOption === 'D' 
-                          ? 'bg-green-100 text-green-700 font-medium' 
-                          : 'hover:bg-gray-50'
-                      }`}>
-                        D: {question.optionD}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <p className="text-green-600 font-medium">
-                      Correct Answer: {question.correctOption}
-                    </p>
-                    {question.explanation && (
-                      <div className="mt-2 p-3 bg-gray-50 rounded">
-                        <p className="font-medium text-sm text-gray-600">Explanation:</p>
-                        <p className="text-muted-foreground mt-1">
-                          {question.explanation}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      await fetchData();
+      setIsCreateStudentDialogOpen(false);
+      setNewStudent({ name: '', email: '', password: '' });
+      toast({
+        title: 'Success',
+        description: 'Student created successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to create student',
+        variant: 'destructive',
+      });
+    }
+  };
 
-      {/* Student Performance Dialog */}
-      <Dialog 
-        open={showStudentPerformance} 
-        onOpenChange={setShowStudentPerformance}
-      >
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Student Performance - {selectedAssignmentForPerformance?.title}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedAssignmentForPerformance && (
-            <div className="space-y-6">
-              {/* Overall Statistics */}
-              <Card className="p-4">
-                <h3 className="font-semibold mb-4">Overall Statistics</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Average Grade</p>
-                    <p className="text-2xl font-bold">
-                      {Math.round(calculateStudentStats(selectedAssignmentForPerformance).averageGrade)}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Submissions</p>
-                    <p className="text-2xl font-bold">
-                      {selectedAssignmentForPerformance.submissions?.length || 0}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Questions</p>
-                    <p className="text-2xl font-bold">
-                      {selectedAssignmentForPerformance.questions?.length || 0}
-                    </p>
-                  </div>
-                </div>
-              </Card>
+  const handleCreateClass = () => {
+    setSelectedClass(null);
+    // Add your dialog logic here
+  };
 
-              {/* Question Statistics */}
-              <Card className="p-4">
-                <h3 className="font-semibold mb-4">Question Analysis</h3>
-                {selectedAssignmentForPerformance.questions && 
-                selectedAssignmentForPerformance.questions.length > 0 ? (
-                  <div className="space-y-4">
-                    {Object.entries(calculateStudentStats(selectedAssignmentForPerformance).questionStats)
-                      .map(([questionId, stats]) => (
-                        <div key={questionId} className="border-b pb-2">
-                          <p className="font-medium">{stats.questionText}</p>
-                          <div className="flex justify-between items-center mt-1">
-                            <p className="text-sm text-muted-foreground">
-                              Correct Answers: {stats.correct}/{stats.total}
-                            </p>
-                            <p className={`text-sm font-medium ${
-                              (stats.correct / stats.total) * 100 >= 70 
-                                ? 'text-green-600' 
-                                : (stats.correct / stats.total) * 100 >= 50 
-                                  ? 'text-yellow-600' 
-                                  : 'text-red-600'
-                            }`}>
-                              {Math.round((stats.correct / stats.total) * 100)}% Success Rate
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-4">
-                    No questions available for analysis
-                  </p>
-                )}
-              </Card>
+  const handleCreateAssignment = () => {
+    setSelectedAssignment(null);
+    // Add your dialog logic here
+  };
 
-              {/* Individual Student Performance */}
-              <Card className="p-4">
-                <h3 className="font-semibold mb-4">Individual Performance</h3>
-                {selectedAssignmentForPerformance.submissions && 
-                selectedAssignmentForPerformance.submissions.length > 0 ? (
-                  <div className="space-y-4">
-                    {calculateStudentStats(selectedAssignmentForPerformance)
-                      .studentPerformance
-                      .sort((a, b) => b.grade - a.grade)
-                      .map((student) => (
-                        <Card key={student.student.id} className="p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium">{student.student.name}</p>
-                              <p className="text-sm text-gray-500">{student.student.email}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className={`text-lg font-bold ${
-                                student.grade >= 70 
-                                  ? 'text-green-600' 
-                                  : student.grade >= 50 
-                                    ? 'text-yellow-600' 
-                                    : 'text-red-600'
-                              }`}>
-                                {student.grade}%
-                              </p>
-                            </div>
-                          </div>
-                          {student.struggledQuestions.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-sm font-medium text-red-600">
-                                Struggled with {student.struggledQuestions.length} questions:
-                              </p>
-                              <ul className="mt-1 space-y-1">
-                                {student.struggledQuestions.map((q) => (
-                                  <li key={q.questionId} className="text-sm text-muted-foreground">
-                                    • {q.questionText}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </Card>
-                      ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-4">
-                    No student submissions available
-                  </p>
-                )}
-              </Card>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+  const handleAddStudent = (classId: string) => {
+    // Add your dialog logic here
+  };
+
+  const handleAddStudentDialog = async () => {
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...newStudent,
+          role: 'student',
+          schoolId: user.schoolId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create student');
+      }
+
+      const newStudentData = await response.json();
+      setStudents([...students, newStudentData]);
+      setNewStudent({ name: '', email: '', password: '' });
+      setIsAddingStudent(false);
+      toast({
+        title: 'Success',
+        description: 'Student added successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const response = await fetch(`/api/teachers/${user.id}/students`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch students');
+        }
+        const data = await response.json();
+        setStudents(data);
+      } catch (error) {
+        console.error('Error fetching students:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch students',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    fetchStudents();
+  }, [user.id]);
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Teacher Dashboard</h1>
-      
-      <div className="flex space-x-2 mb-6">
-        <Button 
-          variant={activeTab === 'overview' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </Button>
-        <Button 
-          variant={activeTab === 'students' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('students')}
-        >
-          Student Management
-        </Button>
-        <Button 
-          variant={activeTab === 'classes' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('classes')}
-        >
-          Class Management
-        </Button>
-        <Button 
-          variant={activeTab === 'assignments' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('assignments')}
-        >
-          Assignments
-        </Button>
+    <div className="container mx-auto p-6 space-y-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Teacher Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back, {user.name}</p>
+        </div>
+        <div className="flex gap-4">
+          <Button onClick={handleCreateClass}>
+            <PlusCircle className="h-4 w-4 mr-2" />
+            New Class
+          </Button>
+          <Button onClick={handleCreateAssignment}>
+            <FileText className="h-4 w-4 mr-2" />
+            New Assignment
+          </Button>
+        </div>
       </div>
 
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="border rounded p-4">
-            <h3 className="font-medium mb-2">Your Classes</h3>
-            <p className="text-gray-600">Manage your classes and students.</p>
-          </div>
-          <div className="border rounded p-4">
-            <h3 className="font-medium mb-2">Create Quiz</h3>
-            <p className="text-gray-600">Create new quizzes and assignments.</p>
-          </div>
-          <div className="border rounded p-4">
-            <h3 className="font-medium mb-2">Grade Assignments</h3>
-            <p className="text-gray-600">Review and grade student submissions.</p>
-          </div>
-          <div className="border rounded p-4">
-            <h3 className="font-medium mb-2">Analytics</h3>
-            <p className="text-gray-600">View class performance analytics.</p>
-          </div>
-          <div className="border rounded p-4">
-            <h3 className="font-medium mb-2">Resources</h3>
-            <p className="text-gray-600">Manage teaching resources and materials.</p>
-          </div>
-          <div className="border rounded p-4">
-            <h3 className="font-medium mb-2">Schedule</h3>
-            <p className="text-gray-600">View and manage your teaching schedule.</p>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'students' && (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader>
-            <CardTitle>Student Management</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <Dialog open={isNewStudentDialogOpen} onOpenChange={setIsNewStudentDialogOpen}>
+            <div className="text-2xl font-bold">{stats.totalStudents}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Classes</CardTitle>
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalClasses}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Active Assignments</CardTitle>
+            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.activeAssignments}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+            <BarChart2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.averageScore}%</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="classes" className="space-y-6">
+        <TabsList className="bg-muted/50 p-1 gap-2 rounded-lg">
+          <TabsTrigger 
+            value="classes"
+            className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-white/50 transition-all duration-200 rounded-md px-6 py-2"
+          >
+            <div className="flex items-center space-x-2">
+              <GraduationCap className="h-4 w-4" />
+              <span>Classes</span>
+              <Badge variant="secondary" className="ml-2 bg-muted-foreground/10">
+                {classes.length}
+              </Badge>
+            </div>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="assignments"
+            className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-white/50 transition-all duration-200 rounded-md px-6 py-2"
+          >
+            <div className="flex items-center space-x-2">
+              <ClipboardList className="h-4 w-4" />
+              <span>Assignments</span>
+              <Badge variant="secondary" className="ml-2 bg-muted-foreground/10">
+                {assignments.length}
+              </Badge>
+            </div>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="students"
+            className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-white/50 transition-all duration-200 rounded-md px-6 py-2"
+          >
+            <div className="flex items-center space-x-2">
+              <Users className="h-4 w-4" />
+              <span>Students</span>
+              <Badge variant="secondary" className="ml-2 bg-muted-foreground/10">
+                {stats.totalStudents}
+              </Badge>
+            </div>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="classes">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Class Management</CardTitle>
+                  <CardDescription>Manage your classes and students</CardDescription>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search classes..."
+                      className="pl-8"
+                    />
+                  </div>
+                  <Button onClick={handleCreateClass}>
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Add Class
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Class Name</TableHead>
+                    <TableHead>Year Group</TableHead>
+                    <TableHead>Students</TableHead>
+                    <TableHead>Active Assignments</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {classes.map((cls) => (
+                    <TableRow key={cls.id}>
+                      <TableCell className="font-medium">{cls.name}</TableCell>
+                      <TableCell>Year {cls.yearGroup}</TableCell>
+                      <TableCell>{cls.students.length} students</TableCell>
+                      <TableCell>
+                        {assignments.filter(a => a.class.id === cls.id && new Date(a.dueDate) > new Date()).length}
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="ghost" onClick={() => handleAddStudent(cls.id)}>
+                          Add Student
+                        </Button>
+                        <Button variant="ghost" onClick={() => setSelectedClass(cls)}>
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="assignments">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Assignments</CardTitle>
+                  <CardDescription>Manage and track assignments</CardDescription>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search assignments..."
+                      className="pl-8"
+                    />
+                  </div>
+                  <Button onClick={handleCreateAssignment}>
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Create Assignment
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Submissions</TableHead>
+                    <TableHead>Average Score</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assignments.map((assignment) => {
+                    const submissionCount = assignment.submissions.length;
+                    const averageScore = submissionCount > 0
+                      ? Math.round(
+                          assignment.submissions.reduce((acc, sub) => {
+                            const correctAnswers = sub.answers?.filter(a => a.isCorrect).length || 0;
+                            return acc + (correctAnswers / assignment.questions.length) * 100;
+                          }, 0) / submissionCount
+                        )
+                      : 0;
+
+                    return (
+                      <TableRow key={assignment.id}>
+                        <TableCell className="font-medium">
+                          <div>{assignment.title}</div>
+                          {assignment.content && (
+                            <div className="text-sm text-muted-foreground">
+                              {assignment.content}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{assignment.class.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                            {format(new Date(assignment.dueDate), 'MMM d, yyyy')}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {submissionCount} / {assignment.class.students.length}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={averageScore >= 70 ? "success" : averageScore >= 50 ? "warning" : "destructive"}>
+                            {averageScore}%
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" onClick={() => setSelectedAssignment(assignment)}>
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="students" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold tracking-tight">Students</h2>
+            <Dialog open={isAddingStudent} onOpenChange={setIsAddingStudent}>
               <DialogTrigger asChild>
-                <Button className="mb-4">Create New Student</Button>
+                <Button>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Student
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Create New Student</DialogTitle>
+                  <DialogTitle>Add New Student</DialogTitle>
+                  <DialogDescription>
+                    Create a new student account. They will receive their login credentials via email.
+                  </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={createStudent} className="space-y-4">
+                <div className="space-y-4">
                   <div>
                     <Label htmlFor="name">Name</Label>
                     <Input
                       id="name"
                       value={newStudent.name}
                       onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
-                      placeholder="Enter student name"
                     />
                   </div>
                   <div>
@@ -813,271 +680,88 @@ export default function TeacherDashboard({ user }: { user: any }) {
                       type="email"
                       value={newStudent.email}
                       onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
-                      placeholder="Enter student email"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="password">Initial Password</Label>
+                    <Label htmlFor="password">Password</Label>
                     <Input
                       id="password"
                       type="password"
                       value={newStudent.password}
                       onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })}
-                      placeholder="Enter initial password"
                     />
                   </div>
-                  <Button type="submit">Create Student</Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            <div className="space-y-4">
-              {students.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No students found. Create one to get started!</p>
-              ) : (
-                students.map((student) => (
-                  <div key={student.id} className="flex items-center justify-between p-2 border rounded">
-                    <div>
-                      <p className="font-medium">{student.name}</p>
-                      <p className="text-sm text-gray-500">{student.email}</p>
-                    </div>
-                    <Button variant="outline" onClick={() => resetPassword(student.id)}>
-                      Reset Password
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'classes' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Class Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Dialog open={isNewClassDialogOpen} onOpenChange={setIsNewClassDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="mb-4">Create New Class</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Class</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={createClass} className="space-y-4">
-                  <div>
-                    <Label htmlFor="className">Class Name</Label>
-                    <Input
-                      id="className"
-                      value={newClass.name}
-                      onChange={(e) => setNewClass({ ...newClass, name: e.target.value })}
-                      placeholder="Enter class name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="classDescription">Description</Label>
-                    <Input
-                      id="classDescription"
-                      value={newClass.description}
-                      onChange={(e) => setNewClass({ ...newClass, description: e.target.value })}
-                      placeholder="Enter class description"
-                    />
-                  </div>
-                  <Button type="submit">Create Class</Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={isAddStudentsDialogOpen} onOpenChange={setIsAddStudentsDialogOpen}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Add Students to Class</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="max-h-[400px] overflow-y-auto space-y-2">
-                    {students.map((student) => (
-                      <div key={student.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`student-${student.id}`}
-                          checked={selectedStudents.includes(student.id)}
-                          onCheckedChange={() => toggleStudent(student.id)}
-                        />
-                        <Label htmlFor={`student-${student.id}`}>
-                          <div>
-                            <p className="font-medium">{student.name}</p>
-                            <p className="text-sm text-gray-500">{student.email}</p>
-                          </div>
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                  <Button onClick={addStudentsToClass}>Add Selected Students</Button>
                 </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddingStudent(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddStudentDialog}>Add Student</Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
+          </div>
 
-            <div className="space-y-4">
-              {classes.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No classes found. Create one to get started!</p>
-              ) : (
-                classes.map((cls) => (
-                  <div key={cls.id} className="border rounded p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="font-medium">{cls.name}</h3>
-                        {cls.description && (
-                          <p className="text-sm text-gray-500">{cls.description}</p>
-                        )}
-                      </div>
-                      <Button onClick={() => openAddStudentsDialog(cls.id)}>
-                        Add Students
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-gray-700">Students</h4>
-                      {cls.students.length === 0 ? (
-                        <p className="text-sm text-gray-500">No students in this class</p>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {cls.students.map((student) => (
-                            <div key={student.id} className="text-sm text-gray-600 p-2 bg-gray-50 rounded">
-                              <p className="font-medium">{student.name}</p>
-                              <p className="text-gray-500">{student.email}</p>
+          <div className="grid gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>My Students</CardTitle>
+                <CardDescription>Manage your students and their progress</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Classes</TableHead>
+                      <TableHead>Progress</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {students.map((student) => (
+                      <TableRow key={student.id}>
+                        <TableCell>{student.name}</TableCell>
+                        <TableCell>{student.email}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {student.enrolledIn?.map((cls) => (
+                              <Badge key={cls.id} variant="outline">
+                                {cls.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <div className="text-sm font-medium">
+                                {student.progress.averageScore}% Average
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {student.progress.totalSubmissions} Submissions
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'assignments' && renderAssignments()}
-
-      <Dialog open={isNewAssignmentDialogOpen} onOpenChange={setIsNewAssignmentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Assignment</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={createAssignment} className="space-y-4">
-            <div>
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={newAssignment.title}
-                onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
-                placeholder="Enter assignment title"
-              />
-            </div>
-            <div>
-              <Label htmlFor="class">Class</Label>
-              <Select
-                value={newAssignment.classId}
-                onValueChange={(value) => setNewAssignment({ ...newAssignment, classId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a class" />
-                </SelectTrigger>
-                <SelectContent>
-                  {classes.map((cls) => (
-                    <SelectItem key={cls.id} value={cls.id}>
-                      {cls.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="dueDate">Due Date</Label>
-              <Input
-                id="dueDate"
-                type="datetime-local"
-                value={newAssignment.dueDate}
-                onChange={(e) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="subject">Subject</Label>
-              <Input
-                id="subject"
-                value={newAssignment.subject}
-                onChange={(e) => setNewAssignment({ ...newAssignment, subject: e.target.value })}
-                placeholder="Enter subject (e.g., Mathematics)"
-              />
-            </div>
-            <div>
-              <Label htmlFor="topic">Topic</Label>
-              <Input
-                id="topic"
-                value={newAssignment.topic}
-                onChange={(e) => setNewAssignment({ ...newAssignment, topic: e.target.value })}
-                placeholder="Enter topic (e.g., Quadratic Equations)"
-              />
-            </div>
-            <div>
-              <Label htmlFor="yearGroup">Year Group</Label>
-              <Select
-                value={newAssignment.yearGroup}
-                onValueChange={(value) => setNewAssignment({ ...newAssignment, yearGroup: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select year group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 7 }, (_, i) => i + 7).map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      Year {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="complexity">Complexity</Label>
-              <Select
-                value={newAssignment.complexity}
-                onValueChange={(value) => setNewAssignment({ ...newAssignment, complexity: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select complexity" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="easy">Easy</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="hard">Hard</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="questionCount">Number of Questions</Label>
-              <Select
-                value={newAssignment.questionCount.toString()}
-                onValueChange={(value) => setNewAssignment({ ...newAssignment, questionCount: parseInt(value) })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select number of questions" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[5, 10, 15, 20].map((count) => (
-                    <SelectItem key={count} value={count.toString()}>
-                      {count} Questions
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button type="submit">Create Assignment</Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Toaster />
+                            <Badge 
+                              variant={
+                                student.progress.averageScore >= 80 ? "success" :
+                                student.progress.averageScore >= 60 ? "warning" :
+                                "destructive"
+                              }
+                            >
+                              {student.progress.averageScore}%
+                            </Badge>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

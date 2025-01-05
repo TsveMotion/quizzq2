@@ -22,6 +22,9 @@ options.providers = [
         where: {
           email: credentials.email
         },
+        include: {
+          school: true
+        }
       });
 
       if (!user) {
@@ -40,6 +43,8 @@ options.providers = [
         name: user.name,
         role: user.role,
         powerLevel: user.powerLevel,
+        schoolId: user.schoolId,
+        school: user.school
       };
     }
   })
@@ -53,6 +58,8 @@ options.callbacks = {
         id: user.id,
         role: user.role,
         powerLevel: user.powerLevel,
+        schoolId: user.schoolId,
+        school: user.school
       };
     }
     return token;
@@ -65,6 +72,8 @@ options.callbacks = {
         id: token.id,
         role: token.role,
         powerLevel: token.powerLevel,
+        schoolId: token.schoolId,
+        school: token.school
       }
     };
   }
