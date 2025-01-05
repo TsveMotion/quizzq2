@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { hash } from 'bcrypt';
 import { ROLES } from '../lib/roles';
 
 const prisma = new PrismaClient();
@@ -14,12 +14,21 @@ async function createSuperAdmin() {
     });
 
     if (existingAdmin) {
-      console.log('Superadmin already exists');
+      // Update superadmin password
+      const hashedPassword = await hash('superadmin@quizzq.com', 10);
+      await prisma.user.update({
+        where: { email },
+        data: {
+          password: hashedPassword,
+          status: 'ACTIVE'
+        },
+      });
+      console.log('Superadmin password updated successfully');
       return;
     }
 
     // Create superadmin
-    const hashedPassword = await bcrypt.hash('Tsvetozar_TsveK22', 10);
+    const hashedPassword = await hash('superadmin@quizzq.com', 10);
     
     const superadmin = await prisma.user.create({
       data: {
@@ -28,12 +37,13 @@ async function createSuperAdmin() {
         name: 'Super Admin',
         role: ROLES.SUPERADMIN,
         powerLevel: 5,
+        status: 'ACTIVE'
       },
     });
 
     console.log('Superadmin created successfully:', superadmin.email);
   } catch (error) {
-    console.error('Error creating superadmin:', error);
+    console.error('Error managing superadmin:', error);
   } finally {
     await prisma.$disconnect();
   }

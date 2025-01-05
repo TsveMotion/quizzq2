@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { hash } from 'bcrypt';
-import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth-config';
+import { prisma } from "@/lib/prisma";
+import bcrypt from 'bcryptjs';
 
 // GET /api/admin/users - Get all users
 export async function GET(req: Request) {
@@ -12,24 +12,27 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only allow superadmin and schooladmin
-    if (!['superadmin', 'schooladmin'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
-
-    // Get query parameters
     const { searchParams } = new URL(req.url);
-    const schoolId = searchParams.get('schoolId');
     const role = searchParams.get('role');
+    const schoolId = searchParams.get('schoolId');
 
-    // Build where clause
-    const where: any = {};
-    if (schoolId) where.schoolId = schoolId;
-    if (role) where.role = role;
-
-    // If school admin, only show users from their school
-    if (session.user.role === 'schooladmin') {
-      where.schoolId = session.user.schoolId;
+    // Build where clause based on user role and query params
+    let where = {};
+    
+    if (session.user.role?.toLowerCase() === 'schooladmin') {
+      // School admins can only see users from their school
+      where = {
+        schoolId: session.user.schoolId,
+        ...(role && { role }),
+      };
+    } else if (session.user.role?.toLowerCase() === 'superadmin') {
+      // Super admins can see all users, with optional filters
+      where = {
+        ...(role && { role }),
+        ...(schoolId && { schoolId }),
+      };
+    } else {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const users = await prisma.user.findMany({
@@ -43,20 +46,14 @@ export async function GET(req: Request) {
         }
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
-    // Remove sensitive data from response
-    const sanitizedUsers = users.map(({ password, ...user }) => user);
-
-    return NextResponse.json(sanitizedUsers);
+    return NextResponse.json(users);
   } catch (error) {
-    console.error('Failed to get users:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
-    );
+    console.error('[USERS_GET]', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -68,90 +65,56 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only allow superadmin and schooladmin to create users
-    if (!['superadmin', 'schooladmin'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const body = await req.json();
+    const { email, password, name, role, schoolId } = body;
 
-    const data = await req.json();
-    const { name, email, password, role, schoolId } = data;
-
-    // Validate required fields
-    if (!name || !email || !password || !role) {
+    if (!email || !password || !name || !role) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Validate role permissions
-    if (session.user.role === 'schooladmin') {
-      // School admins can only create teachers and students
-      if (!['teacher', 'student'].includes(role)) {
-        return NextResponse.json(
-          { error: 'School admins can only create teachers and students' },
-          { status: 403 }
-        );
-      }
-      // School admins can only create users for their school
-      if (schoolId !== session.user.schoolId) {
-        return NextResponse.json(
-          { error: 'Cannot create users for other schools' },
-          { status: 403 }
-        );
-      }
-    }
-
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: 'User with this email already exists' },
+        { error: 'User already exists' },
         { status: 400 }
       );
     }
 
     // Hash password
-    const hashedPassword = await hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
     const user = await prisma.user.create({
       data: {
-        name,
         email,
+        name,
         password: hashedPassword,
         role,
-        powerLevel: role === 'student' ? 1 : role === 'teacher' ? 3 : 2,
-        school: schoolId ? {
-          connect: { id: schoolId }
-        } : undefined
+        schoolId,
+        status: 'ACTIVE',
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        powerLevel: true,
-        schoolId: true,
+      include: {
         school: {
           select: {
             id: true,
             name: true
           }
-        },
-        createdAt: true,
-        updatedAt: true
+        }
       }
     });
 
     return NextResponse.json(user);
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error('[USERS_POST]', error);
     return NextResponse.json(
-      { error: 'Failed to create user' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

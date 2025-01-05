@@ -81,10 +81,7 @@ export default function Home() {
               transition={{ delay: 0.6 }}
             >
               <Button size="lg" variant="secondary" asChild>
-                <Link href="/signup">Get Started</Link>
-              </Button>
-              <Button size="lg" variant="outline" className="bg-white/10 text-white hover:bg-white/20 hover:text-white" asChild>
-                <Link href="/demo">Try Demo</Link>
+                <Link href="/signin">Sign In</Link>
               </Button>
             </motion.div>
           </div>
@@ -317,7 +314,7 @@ export default function Home() {
               className="bg-white text-primary hover:bg-white/90 hover:text-primary/90 font-semibold"
               asChild
             >
-              <Link href="/signup">Start Learning Now</Link>
+              <Link href="/signin">Start Learning Now</Link>
             </Button>
           </motion.div>
         </div>

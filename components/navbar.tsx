@@ -117,13 +117,13 @@ export function Navbar() {
                   size="sm"
                   asChild
                   className={cn(
-                    "transition-colors hover:text-foreground/80",
-                    pathname === "/login" ? "text-foreground" : "text-foreground/60"
+                    "text-sm font-medium transition-colors hover:text-foreground/80",
+                    pathname === "/signin" ? "text-foreground" : "text-foreground/60"
                   )}
                 >
-                  <Link href="/login">
+                  <Link href="/signin">
                     <LogIn className="h-4 w-4 mr-2" />
-                    Login
+                    Sign In
                   </Link>
                 </Button>
                 <Button

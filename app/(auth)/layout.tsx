@@ -1,18 +1,14 @@
-import { Metadata } from 'next';
-import { ModeToggle } from "@/components/mode-toggle";
-
-export const metadata: Metadata = {
-  title: {
-    default: 'Authentication - QUIZZQ',
-    template: '%s - QUIZZQ',
-  },
-  description: 'Authentication pages for QUIZZQ - Sign in or create an account.',
-};
+import { Toaster } from "@/components/ui/toaster";
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5">
+      {children}
+      <Toaster />
+    </div>
+  );
 }

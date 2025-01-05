@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client'
-import { hash } from 'bcrypt'
+import { PrismaClient } from '@prisma/client';
+import bcryptjs from 'bcryptjs';
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 // Get superadmin credentials from environment variables
 const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'superadmin@quizzq.com';
@@ -18,39 +18,42 @@ async function main() {
     });
 
     // Create superadmin
-    const hashedPassword = await hash(SUPERADMIN_PASSWORD, 10);
+    const hashedPassword = await bcryptjs.hash(SUPERADMIN_PASSWORD, 10);
     const superadmin = await prisma.user.create({
         data: {
             email: SUPERADMIN_EMAIL,
             password: hashedPassword,
             name: "Super Admin",
-            role: "superadmin",
-            powerLevel: 5
+            role: "SUPERADMIN",
+            powerLevel: 5,
+            status: "ACTIVE"
         }
     });
 
     // Create a teacher
-    const teacherPassword = await hash("teacher123", 10);
+    const teacherPassword = await bcryptjs.hash("teacher123", 10);
     const teacher = await prisma.user.create({
         data: {
             email: "teacher@quizzq.com",
             password: teacherPassword,
             name: "Test Teacher",
-            role: "teacher",
+            role: "TEACHER",
             powerLevel: 3,
+            status: "ACTIVE",
             schoolId: school.id
         }
     });
 
     // Create a student
-    const studentPassword = await hash("student123", 10);
+    const studentPassword = await bcryptjs.hash("student123", 10);
     const student = await prisma.user.create({
         data: {
             email: "student@quizzq.com",
             password: studentPassword,
             name: "Test Student",
-            role: "student",
+            role: "STUDENT",
             powerLevel: 1,
+            status: "ACTIVE",
             schoolId: school.id,
             teacherId: teacher.id
         }

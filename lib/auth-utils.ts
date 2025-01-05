@@ -8,7 +8,7 @@ export async function getAuthUser() {
   const token = cookies().get('token')?.value;
   
   if (!token) {
-    redirect('/login');
+    redirect('/signin');
   }
 
   try {
@@ -16,6 +16,6 @@ export async function getAuthUser() {
     return payload;
   } catch (error) {
     console.error('Token verification failed:', error);
-    redirect('/login');
+    redirect('/signin');
   }
 }

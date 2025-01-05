@@ -15,15 +15,27 @@ model User {
   name        String
   role        String    // student, teacher, admin
   powerLevel  Int       @default(1)
+  status      String    @default("active") // active, inactive
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   schoolId    String?
   teacherId   String?
+  
+  // Profile fields
+  avatar      String?   // URL to avatar image
+  bio         String?   // Teacher's biography
+  subjects    String?   // JSON array of subjects they teach
+  education   String?   // Educational background
+  experience  String?   // Years of teaching experience
+  phoneNumber String?   // Contact number
+  officeHours String?   // JSON array of office hours
+  
   school      School?   @relation(fields: [schoolId], references: [id])
   teacher     User?     @relation("TeacherToStudent", fields: [teacherId], references: [id])
   students    User[]    @relation("TeacherToStudent")
-  teacherOf   Class[]   @relation("TeacherToClass")
-  enrolledIn  Class[]   @relation("StudentToClass")
+  teachingClasses Class[] @relation("TeacherClasses")
+  classesTeaching ClassTeacher[]
+  enrolledClasses Class[] @relation("StudentClasses")
   practiceQuizzes PracticeQuiz[]
   assignments Assignment[] @relation("TeacherAssignments")
   submissions HomeworkSubmission[] @relation("StudentSubmissions")
@@ -39,22 +51,39 @@ model School {
   description  String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  users        User[]    // All users associated with this school
-  classes      Class[]   // All classes in this school
+  users        User[]
+  classes      Class[]
 }
 
 model Class {
   id          String       @id @default(cuid())
   name        String
   description String?
-  school      School       @relation(fields: [schoolId], references: [id])
   schoolId    String
-  teacher     User         @relation("TeacherToClass", fields: [teacherId], references: [id])
-  teacherId   String
-  students    User[]       @relation("StudentToClass")
-  assignments Assignment[] @relation("ClassAssignments")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  school      School       @relation(fields: [schoolId], references: [id])
+  teacherId   String
+  teacher     User         @relation("TeacherClasses", fields: [teacherId], references: [id])
+  classTeachers ClassTeacher[]
+  students    User[]       @relation("StudentClasses")
+  assignments Assignment[] @relation("ClassAssignments")
+
+  @@index([schoolId])
+  @@index([teacherId])
+}
+
+model ClassTeacher {
+  id        String   @id @default(cuid())
+  classId   String
+  teacherId String
+  class     Class    @relation(fields: [classId], references: [id])
+  teacher   User     @relation(fields: [teacherId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([classId, teacherId])
+  @@index([classId])
+  @@index([teacherId])
 }
 
 model Assignment {
@@ -62,10 +91,10 @@ model Assignment {
   title       String
   content     String       @default("") // Original AI response if needed
   dueDate     DateTime
-  class       Class        @relation("ClassAssignments", fields: [classId], references: [id])
   classId     String
-  teacher     User         @relation("TeacherAssignments", fields: [teacherId], references: [id])
   teacherId   String
+  class       Class        @relation("ClassAssignments", fields: [classId], references: [id])
+  teacher     User         @relation("TeacherAssignments", fields: [teacherId], references: [id])
   submissions HomeworkSubmission[]
   questions   QuizQuestion[]
   createdAt   DateTime     @default(now())
@@ -78,8 +107,8 @@ model QuizQuestion {
   options           String     // JSON array of options
   correctAnswerIndex Int
   explanation       String
-  assignment        Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   assignmentId      String
+  assignment        Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   submissions       QuestionSubmission[]
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
@@ -87,10 +116,10 @@ model QuizQuestion {
 
 model QuestionSubmission {
   id           String       @id @default(cuid())
-  question     QuizQuestion @relation(fields: [questionId], references: [id])
   questionId   String
-  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id])
+  question     QuizQuestion @relation(fields: [questionId], references: [id])
   submissionId String
+  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id])
   answer       Int          // Student's answer (0-3)
   isCorrect    Boolean
   createdAt    DateTime     @default(now())
@@ -100,30 +129,29 @@ model QuestionSubmission {
 }
 
 model HomeworkSubmission {
-  id           String     @id @default(cuid())
-  content      String?    // Optional general comments
-  grade        Int?       // Optional grade (0-100)
-  feedback     String?    // Teacher's feedback
-  student      User       @relation("StudentSubmissions", fields: [studentId], references: [id])
-  studentId    String
-  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  id          String       @id @default(cuid())
+  status      String      // "submitted", "graded"
+  content     String?     // Optional general comments
+  grade       Int?        // Optional grade (0-100)
+  feedback    String?     // Teacher's feedback
+  studentId   String
+  student     User        @relation("StudentSubmissions", fields: [studentId], references: [id])
   assignmentId String
-  answers      QuestionSubmission[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  @@unique([studentId, assignmentId])
+  assignment  Assignment  @relation(fields: [assignmentId], references: [id])
+  answers     QuestionSubmission[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model PracticeQuiz {
-  id          String            @id @default(cuid())
-  subject     String
-  topic       String
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  studentId   String
-  student     User             @relation(fields: [studentId], references: [id])
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
   questions   PracticeQuestion[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model PracticeQuestion {
@@ -131,8 +159,11 @@ model PracticeQuestion {
   question       String
   optionsJson    String      // Store options as JSON string
   correctOption  Int
+  explanation    String?
   practiceQuizId String
   practiceQuiz   PracticeQuiz @relation(fields: [practiceQuizId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 model Contact {

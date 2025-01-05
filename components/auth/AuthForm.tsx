@@ -16,11 +16,11 @@ const authSchema = z.object({
 });
 
 type AuthFormProps = {
-  defaultTab?: 'login' | 'signup';
+  defaultTab?: 'signin' | 'signup';
 };
 
-export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
-  const [isLogin, setIsLogin] = useState(defaultTab === 'login');
+export function AuthForm({ defaultTab = 'signin' }: AuthFormProps) {
+  const [isSignin, setIsSignin] = useState(defaultTab === 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -29,7 +29,7 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
 
   const validateForm = () => {
     try {
-      authSchema.parse({ email, password, name: isLogin ? undefined : name });
+      authSchema.parse({ email, password, name: isSignin ? undefined : name });
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -55,8 +55,8 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
     setIsLoading(true);
     
     try {
-      if (isLogin) {
-        const response = await fetch('/api/auth/login', {
+      if (isSignin) {
+        const response = await fetch('/api/auth/signin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
@@ -66,7 +66,7 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || 'Login failed');
+          throw new Error(data.error || 'Signin failed');
         }
 
         toast({
@@ -92,10 +92,10 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
 
         toast({
           title: "Account created!",
-          description: "Please login with your new account.",
+          description: "Please signin with your new account.",
         });
 
-        setIsLogin(true);
+        setIsSignin(true);
         setEmail('');
         setPassword('');
         setName('');
@@ -119,17 +119,17 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
         <div className="w-full max-w-md mx-auto space-y-8">
           <div className="space-y-2">
             <h1 className="text-3xl font-bold">
-              {isLogin ? 'Welcome Back!' : 'Create Account'}
+              {isSignin ? 'Welcome Back!' : 'Create Account'}
             </h1>
             <p className="text-muted-foreground">
-              {isLogin 
+              {isSignin 
                 ? 'Enter your credentials to access your account' 
                 : 'Join QUIZZQ and start your learning journey'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {!isLogin && (
+            {!isSignin && (
               <div className="space-y-2">
                 <label htmlFor="name" className="block text-sm font-medium">
                   Full Name
@@ -173,7 +173,7 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
                 <Input
                   id="password"
                   type="password"
-                  placeholder={isLogin ? "Enter your password" : "Create a password"}
+                  placeholder={isSignin ? "Enter your password" : "Create a password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 h-11"
@@ -182,20 +182,20 @@ export function AuthForm({ defaultTab = 'login' }: AuthFormProps) {
             </div>
 
             <Button type="submit" className="w-full h-11" variant="default">
-              {isLogin ? 'Sign In' : 'Create Account'}
+              {isSignin ? 'Sign In' : 'Create Account'}
             </Button>
           </form>
 
           <div className="text-center space-y-1">
             <p className="text-sm text-muted-foreground">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}
+              {isSignin ? "Don't have an account?" : "Already have an account?"}
             </p>
             <Button
               variant="link"
               className="text-primary font-semibold p-0 h-auto"
-              onClick={() => router.push(isLogin ? '/signup' : '/login')}
+              onClick={() => router.push(isSignin ? '/signup' : '/signin')}
             >
-              {isLogin ? 'Create Account' : 'Sign In'}
+              {isSignin ? 'Create Account' : 'Sign In'}
             </Button>
           </div>
         </div>
