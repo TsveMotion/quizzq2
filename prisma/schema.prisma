@@ -134,3 +134,15 @@ model PracticeQuestion {
   practiceQuizId String
   practiceQuiz   PracticeQuiz @relation(fields: [practiceQuizId], references: [id])
 }
+
+model Contact {
+  id          String    @id @default(cuid())
+  schoolName  String
+  name        String
+  email       String
+  role        String
+  message     String
+  status      String    @default("pending") // pending, contacted, resolved
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

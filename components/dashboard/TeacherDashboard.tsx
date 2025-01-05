@@ -722,6 +722,171 @@ export default function TeacherDashboard({ user }: { user: any }) {
     }
   };
 
+  const renderClassDetails = (cls: Class) => {
+    const classAssignments = assignments.filter(a => a.class.id === cls.id);
+    
+    return (
+      <Dialog open={isViewClassDetailsOpen} onOpenChange={setIsViewClassDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Class Details: {cls.name}</DialogTitle>
+            <DialogDescription>View and manage class information</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium">Class Information</h3>
+                <p className="text-sm text-muted-foreground">
+                  Total Students: {cls.students.length}
+                </p>
+              </div>
+              <div className="space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handleAddStudents(cls.id)}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add Students
+                </Button>
+                <Button
+                  onClick={() => {
+                    setSelectedClass(cls);
+                    setIsCreateAssignmentDialogOpen(true);
+                  }}
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Create Assignment
+                </Button>
+              </div>
+            </div>
+
+            <Tabs defaultValue="assignments" className="w-full">
+              <TabsList>
+                <TabsTrigger value="assignments">Assignments</TabsTrigger>
+                <TabsTrigger value="students">Students</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="assignments" className="space-y-4">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Assignment</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead>Submissions</TableHead>
+                        <TableHead>Average Score</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {classAssignments.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center">
+                            No assignments yet
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        classAssignments.map((assignment) => (
+                          <TableRow key={assignment.id}>
+                            <TableCell>{assignment.title}</TableCell>
+                            <TableCell>{format(new Date(assignment.dueDate), 'MMM d, yyyy')}</TableCell>
+                            <TableCell>
+                              {(assignment.submissions?.length || 0)} / {cls.students?.length || 0}
+                            </TableCell>
+                            <TableCell>
+                              {assignment.stats?.averageScore ? (
+                                <div className="flex items-center gap-2">
+                                  <span>{Math.round(assignment.stats.averageScore)}%</span>
+                                  <Progress value={assignment.stats.averageScore} className="w-20" />
+                                </div>
+                              ) : (
+                                'No submissions'
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedAssignment(assignment)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="students" className="space-y-4">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Completed</TableHead>
+                        <TableHead>Average Score</TableHead>
+                        <TableHead>Progress</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cls.students.map((student) => {
+                        const studentSubmissions = classAssignments.map(assignment => {
+                          const submission = assignment.submissions?.find(s => s?.student?.id === student.id);
+                          if (!submission) return null;
+                          
+                          const correctAnswers = submission.answers?.filter(a => a?.isCorrect)?.length || 0;
+                          const totalQuestions = assignment.questions?.length || 1;
+                          return {
+                            score: (correctAnswers / totalQuestions) * 100,
+                            assignmentId: assignment.id
+                          };
+                        }).filter(Boolean);
+
+                        const averageScore = studentSubmissions.length > 0
+                          ? studentSubmissions.reduce((acc, curr) => acc + (curr?.score || 0), 0) / studentSubmissions.length
+                          : 0;
+
+                        return (
+                          <TableRow key={student.id}>
+                            <TableCell>{student.name}</TableCell>
+                            <TableCell>{student.email}</TableCell>
+                            <TableCell>
+                              {studentSubmissions.length} / {classAssignments.length}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span>{Math.round(averageScore)}%</span>
+                                <Progress value={averageScore} className="w-20" />
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewStudentDetails(student)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
   return (
     <div className="flex-1 space-y-4 p-4 pt-6">
       <div className="flex items-center justify-between space-y-2">
@@ -861,7 +1026,7 @@ export default function TeacherDashboard({ user }: { user: any }) {
                     ) : (
                       classes.map((cls) => {
                         const activeAssignments = cls.assignments?.length || 0;
-                        const averageScore = cls.assignments?.reduce((acc, assignment) => {
+                        const averageScore = cls.assignments?.reduce((acc: number, assignment: any) => {
                           return acc + (assignment.stats?.averageScore || 0);
                         }, 0) / (activeAssignments || 1);
 
@@ -976,18 +1141,18 @@ export default function TeacherDashboard({ user }: { user: any }) {
                             <div className="flex items-center gap-2">
                               <Users className="h-4 w-4 text-muted-foreground" />
                               <span className="text-sm">
-                                {assignment.stats?.submissionCount ?? 0}/{assignment.stats?.totalStudents ?? 0}
+                                {(assignment.submissions?.length || 0)} / {(assignment.stats?.totalStudents || 0)}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <BarChart2 className="h-4 w-4 text-muted-foreground" />
                               <span className="text-sm">
-                                {assignment.stats?.averageScore ?? 0}% avg
+                                {(assignment.stats?.averageScore || 0)}% avg
                               </span>
                             </div>
                           </div>
                           <Progress 
-                            value={((assignment.stats?.submissionCount ?? 0) / (assignment.stats?.totalStudents ?? 1)) * 100} 
+                            value={((assignment.submissions?.length || 0) / (assignment.stats?.totalStudents || 1)) * 100} 
                             className="h-2"
                           />
                         </div>
@@ -1142,12 +1307,11 @@ export default function TeacherDashboard({ user }: { user: any }) {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {selectedAssignment?.stats?.submissionCount ?? 0}/
-                    {selectedAssignment?.stats?.totalStudents ?? 0}
+                    {(selectedAssignment?.stats?.submissionCount || 0)} / {(selectedAssignment?.stats?.totalStudents || 0)}
                   </div>
                   <Progress 
-                    value={((selectedAssignment?.stats?.submissionCount ?? 0) / 
-                           (selectedAssignment?.stats?.totalStudents ?? 1)) * 100} 
+                    value={((selectedAssignment?.stats?.submissionCount || 0) / 
+                           (selectedAssignment?.stats?.totalStudents || 1)) * 100} 
                     className="h-2 mt-2"
                   />
                 </CardContent>
@@ -1160,10 +1324,10 @@ export default function TeacherDashboard({ user }: { user: any }) {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {selectedAssignment?.stats?.averageScore ?? 0}%
+                    {(selectedAssignment?.stats?.averageScore || 0)}%
                   </div>
                   <Progress 
-                    value={selectedAssignment?.stats?.averageScore ?? 0} 
+                    value={selectedAssignment?.stats?.averageScore || 0} 
                     className="h-2 mt-2"
                   />
                 </CardContent>
@@ -1251,104 +1415,7 @@ export default function TeacherDashboard({ user }: { user: any }) {
       </Dialog>
 
       {/* Other Dialogs */}
-      <Dialog open={isViewClassDetailsOpen} onOpenChange={setIsViewClassDetailsOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Class Details: {selectedClass?.name}</DialogTitle>
-            <DialogDescription>
-              View and manage class information
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="font-semibold mb-2">Class Information</h3>
-                <div className="space-y-2">
-                  <div>
-                    <Label>Year Group</Label>
-                    <p className="text-sm">{selectedClass?.yearGroup}</p>
-                  </div>
-                  <div>
-                    <Label>Total Students</Label>
-                    <p className="text-sm">{selectedClass?.students?.length || 0} students</p>
-                  </div>
-                  <div>
-                    <Label>Active Assignments</Label>
-                    <p className="text-sm">
-                      {selectedClass?.assignments?.length || 0} assignments
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2">Quick Actions</h3>
-                <div className="space-y-2">
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => {
-                      setIsViewClassDetailsOpen(false);
-                      setIsAddStudentsDialogOpen(true);
-                    }}
-                  >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Add Students
-                  </Button>
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => {
-                      setIsViewClassDetailsOpen(false);
-                      setIsCreateAssignmentDialogOpen(true);
-                    }}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Create Assignment
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-2">Students</h3>
-              <div className="border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Progress</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedClass?.students?.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell>{student.name}</TableCell>
-                        <TableCell>{student.email}</TableCell>
-                        <TableCell>
-                          <Progress value={student.progress || 0} className="w-[60px]" />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {(!selectedClass?.students || selectedClass.students.length === 0) && (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground">
-                          No students yet. Add students to get started.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsViewClassDetailsOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {selectedClass && renderClassDetails(selectedClass)}
 
       <Dialog open={isCreateClassDialogOpen} onOpenChange={setIsCreateClassDialogOpen}>
         <DialogContent>

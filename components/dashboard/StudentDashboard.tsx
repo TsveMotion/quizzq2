@@ -141,74 +141,58 @@ interface AssignmentCardProps {
 }
 
 const AssignmentCard: React.FC<AssignmentCardProps> = ({ assignment, onSelect }) => {
-  const dueDate = new Date(assignment.dueDate);
-  const isOverdue = dueDate < new Date();
-  const isDueSoon = !isOverdue && dueDate.getTime() - new Date().getTime() < 24 * 60 * 60 * 1000;
-
-  // Calculate progress for this specific assignment
-  const questionsAnswered = assignment.status.submitted ? assignment.questions.length : 0;
-  const progress = `${questionsAnswered} / ${assignment.questions.length}`;
+  const hasSubmission = assignment.submissions && assignment.submissions.length > 0;
+  const submission = hasSubmission ? assignment.submissions[0] : null;
+  const score = submission?.grade || 0;
+  const isOverdue = new Date(assignment.dueDate) < new Date() && !hasSubmission;
 
   return (
-    <Card className="group hover:shadow-md transition-all">
+    <Card>
       <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <CardTitle className="line-clamp-1">{assignment.title}</CardTitle>
-            <CardDescription>{assignment.class.name} • {assignment.subject}</CardDescription>
-          </div>
-          {assignment.status.submitted ? (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              Score: {assignment.status.score}%
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-semibold">{assignment.title}</CardTitle>
+          {hasSubmission ? (
+            <Badge variant="outline" className="bg-green-50">
+              Score: {score}%
             </Badge>
           ) : isOverdue ? (
             <Badge variant="destructive">Overdue</Badge>
-          ) : isDueSoon ? (
-            <Badge variant="warning" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-              Due Soon
-            </Badge>
           ) : (
-            <Badge variant="outline">Active</Badge>
+            <Badge variant="outline">Pending</Badge>
           )}
         </div>
+        <CardDescription>
+          {assignment.class.name} • Due {format(new Date(assignment.dueDate), 'MMM d, yyyy')}
+        </CardDescription>
       </CardHeader>
+      
       <CardContent>
-        <div className="space-y-2">
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Calendar className="mr-2 h-4 w-4" />
-            <span>Due {format(dueDate, 'MMM d, yyyy')}</span>
-          </div>
-          <div className="flex items-center text-sm text-muted-foreground">
+        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+          <div className="flex items-center">
             <ListChecks className="mr-2 h-4 w-4" />
-            <span>{progress} Questions</span>
+            {assignment.questions.length} Questions
           </div>
-          {assignment.status.submitted && (
-            <Progress 
-              value={assignment.status.score} 
-              className="h-2"
-              indicatorClassName={cn(
-                assignment.status.score >= 70 ? "bg-green-500" :
-                assignment.status.score >= 50 ? "bg-yellow-500" :
-                "bg-red-500"
-              )}
-            />
-          )}
+          <div className="flex items-center">
+            <Clock className="mr-2 h-4 w-4" />
+            {hasSubmission ? 'Completed' : 'Not started'}
+          </div>
         </div>
       </CardContent>
+
       <CardFooter>
-        <Button 
-          variant={assignment.status.submitted ? "outline" : "default"}
+        <Button
           className="w-full"
           onClick={() => onSelect(assignment)}
+          variant={hasSubmission ? "outline" : "default"}
         >
-          {assignment.status.submitted ? (
+          {hasSubmission ? (
             <>
               <Eye className="mr-2 h-4 w-4" />
               View Results
             </>
           ) : (
             <>
-              <Pencil className="mr-2 h-4 w-4" />
+              <PenSquare className="mr-2 h-4 w-4" />
               Start Assignment
             </>
           )}
@@ -475,9 +459,9 @@ export default function StudentDashboard({ user }: { user: any }) {
     }
   };
 
-  const submitAssignment = async (answers: { questionId: string; selectedOption: number }[]) => {
-    if (!selectedAssignment || !session?.user?.id) return;
-    
+  const handleAssignmentSubmit = async (answers: { questionId: string; selectedOption: number }[]) => {
+    if (!session?.user?.id || !selectedAssignment) return;
+
     setSubmitting(true);
     try {
       const response = await fetch(`/api/students/${session.user.id}/assignments/submit`, {
@@ -487,51 +471,53 @@ export default function StudentDashboard({ user }: { user: any }) {
         },
         body: JSON.stringify({
           assignmentId: selectedAssignment.id,
-          answers: answers.map(answer => ({
-            questionId: answer.questionId,
-            selectedOption: answer.selectedOption
+          answers: answers.map(a => ({
+            questionId: a.questionId,
+            selectedOption: a.selectedOption
           }))
         }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to submit assignment');
+        throw new Error('Failed to submit assignment');
       }
 
-      const result = await response.json();
+      const submissionData = await response.json();
       
-      // Update the local state immediately
-      setAssignments(prev => prev.map(a => 
-        a.id === selectedAssignment.id 
-          ? {
-              ...a,
-              status: {
-                submitted: true,
-                score: result.submission.score,
-                submittedAt: new Date().toISOString()
+      // Update the assignments list with the new submission
+      setAssignments(prevAssignments => 
+        prevAssignments.map(assignment => 
+          assignment.id === selectedAssignment.id
+            ? {
+                ...assignment,
+                submissions: [{
+                  id: submissionData.id,
+                  grade: submissionData.grade,
+                  answers: submissionData.answers
+                }]
               }
-            }
-          : a
-      ));
-      
-      // Refresh assignments to get the latest data
-      await fetchAssignments();
-      
-      // Reset states and close dialog
-      setSelectedAnswers({});
-      setSelectedAssignment(null);
+            : assignment
+        )
+      );
 
+      // Show success message
       toast({
         title: "Success!",
-        description: `Assignment submitted successfully with score: ${result.submission.score}%`,
+        description: "Assignment submitted successfully",
       });
+
+      // Close the assignment view and clear selection
+      setSelectedAssignment(null);
+      
+      // Switch to the completed tab
+      setAssignmentTab('COMPLETED');
+      
     } catch (error) {
       console.error('Error submitting assignment:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to submit assignment. Please try again.",
-        variant: "destructive",
+        description: "Failed to submit assignment. Please try again.",
+        variant: "destructive"
       });
     } finally {
       setSubmitting(false);
@@ -587,12 +573,43 @@ export default function StudentDashboard({ user }: { user: any }) {
     </Card>
   );
 
+  const getFilteredAssignments = () => {
+    switch (assignmentTab) {
+      case 'PENDING':
+        return assignments.filter(a => !a.submissions?.length);
+      case 'COMPLETED':
+        return assignments.filter(a => a.submissions?.length > 0);
+      case 'OVERDUE':
+        return assignments.filter(a => {
+          const dueDate = new Date(a.dueDate);
+          return !a.submissions?.length && dueDate < new Date();
+        });
+      default:
+        return assignments;
+    }
+  };
+
+  const calculateAverageScore = () => {
+    const submittedAssignments = assignments.filter(a => a.submissions?.length > 0);
+    if (submittedAssignments.length === 0) return 0;
+    
+    const totalScore = submittedAssignments.reduce((acc, curr) => {
+      const submission = curr.submissions?.[0];
+      return acc + (submission?.grade || 0);
+    }, 0);
+    
+    return Math.round(totalScore / submittedAssignments.length);
+  };
+
+  const getNextDueDate = () => {
+    const pendingAssignments = assignments.filter(a => !a.submissions?.length)
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    
+    return pendingAssignments[0]?.dueDate ? formatDate(pendingAssignments[0].dueDate) : 'None';
+  };
+
   const getPendingAssignments = () => {
-    return classes.flatMap(cls => 
-      cls.assignments.filter(assignment => 
-        !assignment.submissions.length && new Date(assignment.dueDate) > new Date()
-      )
-    );
+    return assignments.filter(a => !a.submissions?.length);
   };
 
   const fetchAssignments = async () => {
@@ -661,34 +678,6 @@ export default function StudentDashboard({ user }: { user: any }) {
     { subject: 'English', score: 78, total: 100 },
     { subject: 'History', score: 88, total: 100 },
   ];
-
-  const getFilteredAssignments = () => {
-    switch (assignmentTab) {
-      case 'PENDING':
-        return assignments.filter(a => !a.submissions?.length);
-      case 'COMPLETED':
-        return assignments.filter(a => a.submissions?.length > 0);
-      case 'OVERDUE':
-        return assignments.filter(a => {
-          const dueDate = new Date(a.dueDate);
-          return !a.submissions?.length && dueDate < new Date();
-        });
-      default:
-        return assignments;
-    }
-  };
-
-  const calculateAverageScore = () => {
-    const submittedAssignments = assignments.filter(a => a.status.submitted);
-    const totalScore = submittedAssignments.reduce((acc, curr) => acc + (curr.status.score || 0), 0);
-    return Math.round(totalScore / submittedAssignments.length || 0);
-  };
-
-  const getNextDueDate = () => {
-    const pendingAssignments = assignments.filter(a => !a.status.submitted);
-    const nextDueDate = pendingAssignments.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
-    return nextDueDate ? formatDate(nextDueDate.dueDate) : 'None';
-  };
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6">
@@ -1089,7 +1078,7 @@ export default function StudentDashboard({ user }: { user: any }) {
               <AssignmentView 
                 assignment={selectedAssignment} 
                 onClose={() => setSelectedAssignment(null)} 
-                onSubmit={submitAssignment}
+                onSubmit={handleAssignmentSubmit}
               />
             </div>
           )}
