@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 
 // Helper to validate email format
 const isValidEmail = (email: string) => {
@@ -33,13 +33,34 @@ export async function POST(req: Request) {
 
     // Read the file
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(worksheet) as Array<{
-      Name: string;
-      Email: string;
-      Subjects?: string;
-    }>;
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const worksheet = workbook.getWorksheet(1); // Get first worksheet
+
+    if (!worksheet) {
+      return new NextResponse('No worksheet found in the file', { status: 400 });
+    }
+
+    // Convert worksheet to array of objects
+    const data: Array<{ Name: string; Email: string; Subjects?: string }> = [];
+    const headers: string[] = [];
+
+    // Get headers from the first row
+    worksheet.getRow(1).eachCell((cell, colNumber) => {
+      headers[colNumber - 1] = cell.value?.toString() || '';
+    });
+
+    // Get data from remaining rows
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // Skip header row
+
+      const rowData: any = {};
+      row.eachCell((cell, colNumber) => {
+        const header = headers[colNumber - 1];
+        rowData[header] = cell.value?.toString() || '';
+      });
+      data.push(rowData);
+    });
 
     // Validate data length
     if (data.length === 0) {
@@ -51,7 +72,6 @@ export async function POST(req: Request) {
 
     // Validate headers
     const requiredHeaders = ['Name', 'Email'];
-    const headers = Object.keys(data[0]);
     const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
     if (missingHeaders.length > 0) {
       return new NextResponse(

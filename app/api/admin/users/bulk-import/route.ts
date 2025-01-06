@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 import { prisma } from '@/lib/prisma';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import { generatePassword } from '@/lib/utils';
 
 // Helper to validate email format
@@ -34,11 +34,34 @@ export async function POST(req: Request) {
 
     // Read the file
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(worksheet, { raw: false }) as Array<{
-      [key: string]: string;
-    }>;
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const worksheet = workbook.getWorksheet(1); // Get first worksheet
+
+    if (!worksheet) {
+      return new NextResponse('No worksheet found in the file', { status: 400 });
+    }
+
+    // Get headers and data
+    const data: Array<{ [key: string]: string }> = [];
+    const headers: string[] = [];
+
+    // Get headers from the first row
+    worksheet.getRow(1).eachCell((cell, colNumber) => {
+      headers[colNumber - 1] = (cell.value?.toString() || '').toLowerCase();
+    });
+
+    // Get data from remaining rows
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // Skip header row
+
+      const rowData: { [key: string]: string } = {};
+      row.eachCell((cell, colNumber) => {
+        const header = headers[colNumber - 1];
+        rowData[header] = cell.value?.toString() || '';
+      });
+      data.push(rowData);
+    });
 
     // Validate data length
     if (data.length === 0) {
@@ -48,8 +71,7 @@ export async function POST(req: Request) {
       return new NextResponse('Maximum 500 students per import', { status: 400 });
     }
 
-    // Get headers in a case-insensitive way
-    const headers = Object.keys(data[0]).map(h => h.toLowerCase());
+    // Validate required headers
     const requiredHeaders = ['email', 'name'];
     const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
     if (missingHeaders.length > 0) {
@@ -68,10 +90,10 @@ export async function POST(req: Request) {
       const row = data[i];
       const rowNum = i + 2; // Add 2 to account for 1-based indexing and header row
 
-      // Get values in a case-insensitive way
-      const name = Object.entries(row).find(([key]) => key.toLowerCase() === 'name')?.[1]?.trim();
-      const email = Object.entries(row).find(([key]) => key.toLowerCase() === 'email')?.[1]?.trim();
-      const className = Object.entries(row).find(([key]) => key.toLowerCase() === 'class')?.[1]?.trim();
+      // Get values (headers are already lowercase from earlier)
+      const name = row['name']?.trim();
+      const email = row['email']?.trim();
+      const className = row['class']?.trim();
 
       // Check required fields
       if (!name) {

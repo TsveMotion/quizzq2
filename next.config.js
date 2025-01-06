@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverActions: true,
+  },
   images: {
     remotePatterns: [
       {
@@ -7,13 +10,7 @@ const nextConfig = {
         hostname: '**',
       },
     ],
-    unoptimized: true, // Disable image optimization if having issues
   },
-  experimental: {
-    serverActions: true,
-  },
-  reactStrictMode: true,
-  swcMinify: true,
 }
 
 module.exports = nextConfig
