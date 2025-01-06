@@ -97,7 +97,7 @@ export async function POST(req: Request) {
         name: row.Name.trim(),
         email: row.Email.trim().toLowerCase(),
         password: row.Email.trim().toLowerCase(), // Use email as password
-        subjects: row.Subjects ? JSON.stringify(row.Subjects.split(',').map(s => s.trim())) : null,
+        subjects: row.Subjects || null,
       });
     }
 

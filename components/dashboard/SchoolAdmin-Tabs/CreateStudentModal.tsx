@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Upload, UserPlus, Download, AlertCircle } from "lucide-react";
+import { Loader2, Upload, UserPlus, Download, AlertCircle, FileText, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
@@ -97,15 +97,15 @@ export function CreateStudentModal({
         body: formData,
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to import students');
+        throw new Error(data.message || 'Failed to import students');
       }
 
-      const result = await response.json();
       toast({
-        title: "Success",
-        description: `Successfully imported ${result.count} students`,
+        title: 'Success',
+        description: `Successfully imported ${data.count} students`,
       });
 
       onSuccess();
@@ -114,9 +114,9 @@ export function CreateStudentModal({
     } catch (error) {
       console.error('Error importing students:', error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to import students",
-        variant: "destructive",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to import students',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -154,19 +154,52 @@ export function CreateStudentModal({
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
-          file.type === "text/csv") {
-        setFile(file);
-      } else {
-        toast({
-          title: "Error",
-          description: "Please upload an Excel (.xlsx) or CSV file",
-          variant: "destructive",
-        });
-      }
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    // Check file type
+    if (!selectedFile.name.endsWith('.csv')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload a CSV file',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    // Check file size (max 5MB)
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'File size should be less than 5MB',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Read the first line to validate headers
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      const firstLine = content.split('\n')[0].trim();
+      const expectedHeaders = ['email', 'name'];
+      const actualHeaders = firstLine.split(',').map(header => header.trim().toLowerCase());
+
+      // Check required headers
+      const missingHeaders = expectedHeaders.filter(header => !actualHeaders.includes(header));
+      if (missingHeaders.length > 0) {
+        toast({
+          title: 'Invalid CSV format',
+          description: `Missing required columns: ${missingHeaders.join(', ')}. Please check the documentation for the correct format.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setFile(selectedFile);
+    };
+
+    reader.readAsText(selectedFile);
   };
 
   return (
@@ -257,8 +290,7 @@ export function CreateStudentModal({
               </form>
             </TabsContent>
 
-            <TabsContent value="import" className="mt-0">
-              <form onSubmit={handleBulkImport} className="space-y-4">
+            <TabsContent value="import" className="space-y-4">
                 <div
                   className={`border-2 border-dashed rounded-lg p-8 text-center ${
                     dragActive ? 'border-primary bg-primary/10' : 'border-muted-foreground/25'
@@ -268,50 +300,51 @@ export function CreateStudentModal({
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
                 >
-                  {file ? (
-                    <div className="space-y-2">
-                      <p className="font-medium">{file.name}</p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setFile(null)}
-                      >
-                        Remove File
-                      </Button>
+                  <div className="space-y-4">
+                    <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <div>
+                      <h3 className="font-medium">Upload Student List</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Drag and drop your CSV file here or click to browse
+                      </p>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">Drag and drop your Excel file here</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          or click to browse files
-                        </p>
-                      </div>
-                      <Input
-                        type="file"
-                        className="hidden"
-                        accept=".xlsx,.csv"
-                        onChange={handleFileSelect}
-                        id="file-upload"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById('file-upload')?.click()}
-                      >
-                        Browse Files
-                      </Button>
-                    </div>
-                  )}
+                    <Input
+                      type="file"
+                      className="hidden"
+                      accept=".csv"
+                      onChange={handleFileSelect}
+                      id="file-upload"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById('file-upload')?.click()}
+                    >
+                      Choose File
+                    </Button>
+                  </div>
                 </div>
+                {file && (
+                  <div className="flex items-center justify-between p-2 border rounded">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4" />
+                      <span className="text-sm">{file.name}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFile(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
 
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
                     Make sure your Excel file follows the required format.{' '}
-                    <Link href="/docs/student-import" className="font-medium underline">
+                    <Link href="/docs/user-management/bulk-import" className="font-medium underline underline-offset-4">
                       View documentation
                     </Link>
                   </AlertDescription>
@@ -323,7 +356,8 @@ export function CreateStudentModal({
                   </Button>
                   <Button
                     type="submit"
-                    disabled={isLoading || !file}
+                    disabled={!file || isLoading}
+                    onClick={handleBulkImport}
                   >
                     {isLoading ? (
                       <>
@@ -335,8 +369,7 @@ export function CreateStudentModal({
                     )}
                   </Button>
                 </div>
-              </form>
-            </TabsContent>
+              </TabsContent>
           </div>
         </Tabs>
       </DialogContent>

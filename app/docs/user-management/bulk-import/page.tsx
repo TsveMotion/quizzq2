@@ -59,17 +59,17 @@ export default function BulkImportPage() {
                 </CardHeader>
                 <CardContent>
                   <code className="text-sm bg-muted p-2 rounded-md block">
-                    email,name,grade,class<br />
-                    student1@school.com,Alice Johnson,10,A<br />
-                    student2@school.com,Bob Wilson,10,B
+                    email,name,class<br />
+                    student1@school.com,Alice Johnson,Class A<br />
+                    student2@school.com,Bob Wilson,Class B<br />
+                    student3@school.com,Carol Smith,
                   </code>
                   <div className="mt-4 space-y-2">
                     <p className="text-sm font-medium">Required Fields:</p>
                     <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
                       <li>email - Student&apos;s email address</li>
                       <li>name - Full name</li>
-                      <li>grade - Student&apos;s grade level</li>
-                      <li>class - Class section</li>
+                      <li>class - Class name (optional)</li>
                     </ul>
                   </div>
                 </CardContent>
