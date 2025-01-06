@@ -39,7 +39,8 @@ model User {
   practiceQuizzes PracticeQuiz[]
   assignments Assignment[] @relation("TeacherAssignments")
   submissions HomeworkSubmission[] @relation("StudentSubmissions")
-
+  activities   UserActivity[]
+  
   @@index([schoolId])
   @@index([teacherId])
 }
@@ -215,4 +216,15 @@ model SystemSettings {
   updatedAt        DateTime @updatedAt
   updatedBy        String?
   createdAt        DateTime @default(now())
+}
+
+model UserActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // e.g., 'login', 'logout', 'view_class', etc.
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([timestamp])
 }

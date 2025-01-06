@@ -40,6 +40,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          schoolId: user.schoolId,
         };
       }
     })
@@ -49,17 +50,25 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = user.role;
+        token.schoolId = user.schoolId;
         token.id = user.id;
       }
+
+      if (trigger === "update" && session) {
+        token.role = session.user.role;
+        token.schoolId = session.user.schoolId;
+      }
+
       return token;
     },
     async session({ session, token }) {
-      if (session?.user) {
-        session.user.role = token.role as string;
+      if (session.user) {
         session.user.id = token.id as string;
+        session.user.role = token.role as string;
+        session.user.schoolId = token.schoolId as string;
       }
       return session;
     }

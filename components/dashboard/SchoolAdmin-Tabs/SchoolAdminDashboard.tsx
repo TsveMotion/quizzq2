@@ -174,12 +174,7 @@ export function SchoolAdminDashboard({ school }: SchoolAdminDashboardProps) {
 
           <div className="space-y-4">
             {activeTab === "overview" && (
-              <OverviewTab
-                teachers={data.teachers}
-                students={data.students}
-                classes={data.classes}
-                isLoading={isLoading}
-              />
+              <OverviewTab school={school} />
             )}
 
             {activeTab === "teachers" && (
