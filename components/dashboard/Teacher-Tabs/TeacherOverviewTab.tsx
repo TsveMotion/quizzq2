@@ -5,6 +5,31 @@ import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, BookOpen, GraduationCap, Calendar } from 'lucide-react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  BarElement,
+} from 'chart.js';
+import { Line, Pie, Bar } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  BarElement
+);
 
 interface OverviewStats {
   totalStudents: number;
@@ -15,6 +40,19 @@ interface OverviewStats {
     description: string;
     date: string;
   }[];
+  performanceData: {
+    labels: string[];
+    data: number[];
+  };
+  assignmentCompletion: {
+    completed: number;
+    pending: number;
+    overdue: number;
+  };
+  classDistribution: {
+    labels: string[];
+    data: number[];
+  };
 }
 
 export default function TeacherOverviewTab() {
@@ -66,8 +104,10 @@ export default function TeacherOverviewTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <h2 className="text-3xl font-bold tracking-tight">Overview</h2>
+
+      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -98,7 +138,166 @@ export default function TeacherOverviewTab() {
         </Card>
       </div>
 
-      <Card className="mt-6">
+      {/* Charts Section */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Student Performance Line Chart */}
+        <Card className="h-[300px]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Student Performance Trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats?.performanceData && (
+              <div className="h-[220px]">
+                <Line
+                  data={{
+                    labels: stats.performanceData.labels,
+                    datasets: [
+                      {
+                        label: 'Average Score',
+                        data: stats.performanceData.data,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                          font: {
+                            size: 10,
+                          },
+                        },
+                      },
+                      x: {
+                        ticks: {
+                          font: {
+                            size: 10,
+                          },
+                          maxRotation: 45,
+                          minRotation: 45,
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Assignment Completion Pie Chart */}
+        <Card className="h-[300px]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Assignment Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats?.assignmentCompletion && (
+              <div className="h-[220px]">
+                <Pie
+                  data={{
+                    labels: ['Completed', 'Pending', 'Overdue'],
+                    datasets: [
+                      {
+                        data: [
+                          stats.assignmentCompletion.completed,
+                          stats.assignmentCompletion.pending,
+                          stats.assignmentCompletion.overdue,
+                        ],
+                        backgroundColor: [
+                          'rgb(75, 192, 192)',
+                          'rgb(255, 205, 86)',
+                          'rgb(255, 99, 132)',
+                        ],
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
+                        labels: {
+                          font: {
+                            size: 10,
+                          },
+                          padding: 8,
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Class Distribution Bar Chart */}
+        <Card className="md:col-span-2 h-[300px]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Students per Class</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats?.classDistribution && (
+              <div className="h-[220px]">
+                <Bar
+                  data={{
+                    labels: stats.classDistribution.labels,
+                    datasets: [
+                      {
+                        label: 'Students',
+                        data: stats.classDistribution.data,
+                        backgroundColor: 'rgb(54, 162, 235)',
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          font: {
+                            size: 10,
+                          },
+                        },
+                      },
+                      x: {
+                        ticks: {
+                          font: {
+                            size: 10,
+                          },
+                          maxRotation: 45,
+                          minRotation: 45,
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Activity Card */}
+      <Card>
         <CardHeader>
           <CardTitle className="text-lg">Recent Activity</CardTitle>
         </CardHeader>
