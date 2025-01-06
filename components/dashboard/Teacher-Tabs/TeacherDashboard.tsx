@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,13 +10,12 @@ import {
   ClipboardList,
   UserCircle,
   LogOut,
+  Loader2
 } from "lucide-react";
-import { signOut } from "next-auth/react";
 import TeacherClassesTab from './TeacherClassesTab';
 import TeacherOverviewTab from './TeacherOverviewTab';
 import TeacherAssignmentsTab from './TeacherAssignmentsTab';
 import TeacherProfileTab from './TeacherProfileTab';
-import { Loader2 } from 'lucide-react';
 
 export default function TeacherDashboard() {
   const { data: session, status } = useSession();
@@ -57,21 +56,6 @@ export default function TeacherDashboard() {
     },
   ];
 
-  const renderCurrentView = () => {
-    switch (currentView) {
-      case 'overview':
-        return <TeacherOverviewTab />;
-      case 'classes':
-        return <TeacherClassesTab />;
-      case 'assignments':
-        return <TeacherAssignmentsTab />;
-      case 'profile':
-        return <TeacherProfileTab />;
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="flex h-screen">
       <div className="w-64 border-r bg-background">
@@ -104,7 +88,7 @@ export default function TeacherDashboard() {
           </div>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2"
+            className="w-full justify-start gap-2 text-red-600"
             onClick={async () => {
               await signOut({
                 redirect: true,
@@ -127,7 +111,10 @@ export default function TeacherDashboard() {
           </div>
 
           <div className="space-y-4">
-            {renderCurrentView()}
+            {currentView === 'overview' && <TeacherOverviewTab />}
+            {currentView === 'classes' && <TeacherClassesTab />}
+            {currentView === 'assignments' && <TeacherAssignmentsTab />}
+            {currentView === 'profile' && <TeacherProfileTab />}
           </div>
         </div>
       </div>

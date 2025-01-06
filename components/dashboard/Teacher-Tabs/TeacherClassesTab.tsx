@@ -23,7 +23,7 @@ interface Class {
   };
 }
 
-export default function TeacherClassesTab() {
+function TeacherClassesTab() {
   const { data: session } = useSession();
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,3 +156,5 @@ export default function TeacherClassesTab() {
     </div>
   );
 }
+
+export default TeacherClassesTab;

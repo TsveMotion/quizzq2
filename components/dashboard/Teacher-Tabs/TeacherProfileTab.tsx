@@ -67,7 +67,7 @@ const languageOptions = [
   { label: 'Chinese', value: 'zh' },
 ];
 
-export default function TeacherProfileTab() {
+function TeacherProfileTab() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const router = useRouter();
@@ -531,3 +531,5 @@ export default function TeacherProfileTab() {
     </div>
   );
 }
+
+export default TeacherProfileTab;
