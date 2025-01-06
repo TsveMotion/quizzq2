@@ -2,11 +2,14 @@ services:
   - type: web
     name: quizzq2
     env: node
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    plan: free
+    buildCommand: npm install && prisma generate && npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 3000
       - key: NEXTAUTH_URL
         fromService:
           type: web
@@ -16,3 +19,4 @@ services:
         sync: false
     healthCheckPath: /
     autoDeploy: true
+    branch: main
