@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,23 +41,21 @@ export function AssignmentsTab() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchAssignments();
-  }, []);
-
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     try {
-      const response = await fetch('/api/students/assignments');
+      const response = await fetch('/api/student/assignments');
+      if (!response.ok) throw new Error('Failed to fetch assignments');
       const data = await response.json();
       setAssignments(data);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch assignments',
-        variant: 'destructive',
-      });
+      console.error('Error fetching assignments:', error);
+      toast.error('Failed to fetch assignments');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAssignments();
+  }, [fetchAssignments]);
 
   return (
     <div className="space-y-4">

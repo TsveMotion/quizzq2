@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -73,32 +73,24 @@ export function ViewStudentClassDetailsModal({
   const [classDetails, setClassDetails] = useState<ClassDetails | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    if (open && classId) {
-      fetchClassDetails();
-    }
-  }, [open, classId]);
-
-  const fetchClassDetails = async () => {
+  const fetchClassDetails = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await fetch(`/api/classes/${classId}/details`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch class details');
-      }
+      if (!classId) return;
+      const response = await fetch(`/api/classes/${classId}`);
+      if (!response.ok) throw new Error('Failed to fetch class details');
       const data = await response.json();
       setClassDetails(data);
     } catch (error) {
       console.error('Error fetching class details:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load class details. Please try again later.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
+      toast.error('Failed to fetch class details');
     }
-  };
+  }, [classId]);
+
+  useEffect(() => {
+    if (open && classId) {
+      fetchClassDetails();
+    }
+  }, [open, classId, fetchClassDetails]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

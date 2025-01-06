@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, BookOpen, Trophy } from 'lucide-react';
@@ -21,26 +21,22 @@ export default function StudentGradesTab() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchGrades();
-  }, []);
-
-  const fetchGrades = async () => {
+  const fetchGrades = useCallback(async () => {
     try {
-      const response = await fetch('/api/students/grades');
+      if (!session?.user?.id) return;
+      const response = await fetch(`/api/student/${session.user.id}/grades`);
       if (!response.ok) throw new Error('Failed to fetch grades');
       const data = await response.json();
       setGrades(data);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load grades',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching grades:', error);
+      toast.error('Failed to fetch grades');
     }
-  };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    fetchGrades();
+  }, [fetchGrades]);
 
   const getGradeColor = (grade: number) => {
     if (grade >= 90) return 'text-green-500';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import {
@@ -64,27 +64,21 @@ function SuperAdminContactsTab() {
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchContacts();
-  }, []);
-
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
     try {
-      const response = await fetch('/api/contact');
+      const response = await fetch('/api/admin/contacts');
       if (!response.ok) throw new Error('Failed to fetch contacts');
       const data = await response.json();
       setContacts(data);
     } catch (error) {
       console.error('Error fetching contacts:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load contacts",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      toast.error('Failed to fetch contacts');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {

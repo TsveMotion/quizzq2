@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -77,11 +77,7 @@ function TeacherProfileTab() {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/teachers/profile');
@@ -110,7 +106,11 @@ function TeacherProfileTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const handleSave = async () => {
     if (!profileData) return;
@@ -228,28 +228,24 @@ function TeacherProfileTab() {
                 </Avatar>
                 <div className="space-y-2">
                   {isEditing ? (
-                    <>
-                      <Input
-                        value={profileData.name}
-                        onChange={(e) =>
-                          setProfileData({ ...profileData, name: e.target.value })
-                        }
-                        className="max-w-[300px]"
-                      />
-                      <Input
-                        value={profileData.avatar || ''}
-                        onChange={(e) =>
-                          setProfileData({ ...profileData, avatar: e.target.value })
-                        }
-                        placeholder="Avatar URL"
-                        className="max-w-[300px]"
-                      />
-                    </>
+                    <><Input
+                      value={profileData.name}
+                      onChange={(e) =>
+                        setProfileData({ ...profileData, name: e.target.value })
+                      }
+                      className="max-w-[300px]"
+                    />
+                    <Input
+                      value={profileData.avatar || ''}
+                      onChange={(e) =>
+                        setProfileData({ ...profileData, avatar: e.target.value })
+                      }
+                      placeholder="Avatar URL"
+                      className="max-w-[300px]"
+                    /></>
                   ) : (
-                    <>
-                      <h3 className="text-2xl font-semibold">{profileData.name}</h3>
-                      <p className="text-sm text-muted-foreground">{profileData.email}</p>
-                    </>
+                    <><h3 className="text-2xl font-semibold">{profileData.name}</h3>
+                    <p className="text-sm text-muted-foreground">{profileData.email}</p></>
                   )}
                 </div>
               </div>

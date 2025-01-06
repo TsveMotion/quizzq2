@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -50,28 +50,24 @@ export default function StudentAssignmentsTab() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'submitted' | 'graded' | 'upcoming' | 'past-due'>('all');
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchAssignments();
-  }, [session]);
-
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     try {
       if (!session?.user?.id) return;
-      const response = await fetch('/api/students/assignments');
+      const response = await fetch(`/api/student/${session.user.id}/assignments`);
       if (!response.ok) throw new Error('Failed to fetch assignments');
       const data = await response.json();
       setAssignments(data);
     } catch (error) {
-      console.error('Error in fetchAssignments:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load assignments',
-        variant: 'destructive',
-      });
+      console.error('Error fetching assignments:', error);
+      toast.error('Failed to fetch assignments');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id, toast]);
+
+  useEffect(() => {
+    fetchAssignments();
+  }, [fetchAssignments]);
 
   const getStatusBadgeVariant = (status: Assignment['status'], isPastDue: boolean) => {
     if (isPastDue && status === 'pending') return 'destructive';

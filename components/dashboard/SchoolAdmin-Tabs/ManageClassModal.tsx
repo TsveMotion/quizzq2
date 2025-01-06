@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -85,25 +85,8 @@ export function ManageClassModal({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Fetch class data when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      fetchClassData();
-    }
-  }, [isOpen]);
-
-  // Initialize available teachers when teachers prop changes
-  useEffect(() => {
-    const teacherIds = new Set(classTeachers.map(t => t.id));
-    setAvailableTeachers(teachers.filter(t => !teacherIds.has(t.id)));
-  }, [teachers, classTeachers]);
-
-  // Initialize available students when students prop changes
-  useEffect(() => {
-    const studentIds = new Set(classStudents.map(s => s.id));
-    setAvailableStudents(students.filter(s => !studentIds.has(s.id)));
-  }, [students, classStudents]);
-
-  const fetchClassData = async () => {
+  const fetchClassData = useCallback(async () => {
+    if (!classData.id) return;
     try {
       const [studentsRes, teachersRes] = await Promise.all([
         fetch(`/api/admin/classes/${classData.id}/students`),
@@ -129,7 +112,25 @@ export function ManageClassModal({
         variant: "destructive",
       });
     }
-  };
+  }, [classData.id]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchClassData();
+    }
+  }, [isOpen, fetchClassData]);
+
+  // Initialize available teachers when teachers prop changes
+  useEffect(() => {
+    const teacherIds = new Set(classTeachers.map(t => t.id));
+    setAvailableTeachers(teachers.filter(t => !teacherIds.has(t.id)));
+  }, [teachers, classTeachers]);
+
+  // Initialize available students when students prop changes
+  useEffect(() => {
+    const studentIds = new Set(classStudents.map(s => s.id));
+    setAvailableStudents(students.filter(s => !studentIds.has(s.id)));
+  }, [students, classStudents]);
 
   const handleUpdateClass = async () => {
     setIsLoading(true);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, BookOpen, Calendar, Clock, GraduationCap } from 'lucide-react';
@@ -32,26 +32,22 @@ export default function StudentClassesTab() {
   const [filter, setFilter] = useState<string>('all');
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchClasses();
-  }, []);
-
-  const fetchClasses = async () => {
+  const fetchClasses = useCallback(async () => {
     try {
-      const response = await fetch('/api/students/classes');
+      if (!session?.user?.id) return;
+      const response = await fetch(`/api/student/${session.user.id}/classes`);
       if (!response.ok) throw new Error('Failed to fetch classes');
       const data = await response.json();
       setClasses(data);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load classes',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching classes:', error);
+      toast.error('Failed to fetch classes');
     }
-  };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    fetchClasses();
+  }, [fetchClasses]);
 
   const filteredClasses = classes.filter(cls => {
     if (filter === 'all') return true;

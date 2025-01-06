@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,26 +29,24 @@ export default function StudentProfileTab() {
   const { data: session } = useSession();
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
-      const response = await fetch('/api/students/profile');
+      if (!session?.user?.id) return;
+      const response = await fetch(`/api/student/${session.user.id}/profile`);
       if (!response.ok) throw new Error('Failed to fetch profile');
       const data = await response.json();
       setProfileData(data);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load profile data',
-        variant: 'destructive',
-      });
+      console.error('Error fetching profile:', error);
+      toast.error('Failed to fetch profile');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.id, setProfileData, setIsLoading, toast]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const handleSave = async () => {
     if (!profileData) return;
