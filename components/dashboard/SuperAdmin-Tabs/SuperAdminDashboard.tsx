@@ -207,7 +207,10 @@ export default function SuperAdminDashboard() {
   }, []);
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/" });
+    await signOut({ 
+      redirect: true,
+      callbackUrl: 'http://localhost:3000/'
+    });
   };
 
   return (
@@ -249,27 +252,21 @@ export default function SuperAdminDashboard() {
           {/* Fixed bottom section */}
           <div className="shrink-0 border-t bg-background px-4 py-4">
             <div className="space-y-2">
+              {bottomNavItems.map((item) => (
+                <Button
+                  key={item.value}
+                  variant="ghost"
+                  className="w-full justify-start gap-2"
+                  onClick={() => setActiveTab(item.value)}
+                  disabled={item.disabled}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.title}
+                </Button>
+              ))}
               <Button
                 variant="ghost"
-                className="w-full justify-start gap-2"
-                onClick={() => setActiveTab('settings')}
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </Button>
-
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2"
-                onClick={() => window.open('/docs', '_blank')}
-              >
-                <HelpCircle className="h-4 w-4" />
-                Help
-              </Button>
-
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                className="w-full justify-start gap-2 text-red-600"
                 onClick={handleSignOut}
               >
                 <LogOut className="h-4 w-4" />

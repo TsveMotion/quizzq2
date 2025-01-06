@@ -105,7 +105,12 @@ export default function TeacherDashboard() {
           <Button
             variant="ghost"
             className="w-full justify-start gap-2"
-            onClick={() => signOut()}
+            onClick={async () => {
+              await signOut({
+                redirect: true,
+                callbackUrl: 'http://localhost:3000/'
+              });
+            }}
           >
             <LogOut className="h-4 w-4" />
             Sign Out

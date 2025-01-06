@@ -15,7 +15,9 @@ import {
   ScrollText,
   LineChart,
   Menu,
+  LogOut,
 } from 'lucide-react';
+import { signOut, useSession } from 'next-auth/react';
 
 export default function StudentDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -86,6 +88,21 @@ export default function StudentDashboard() {
             );
           })}
         </nav>
+        <div className="mt-auto p-4 border-t">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 text-red-600"
+            onClick={async () => {
+              await signOut({
+                redirect: true,
+                callbackUrl: 'http://localhost:3000/'
+              });
+            }}
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </Button>
+        </div>
       </div>
 
       {/* Main Content */}

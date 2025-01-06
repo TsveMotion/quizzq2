@@ -155,8 +155,13 @@ export function SchoolAdminDashboard({ school }: SchoolAdminDashboardProps) {
           </div>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2"
-            onClick={() => signOut()}
+            className="w-full justify-start gap-2 text-red-600"
+            onClick={async () => {
+              await signOut({
+                redirect: true,
+                callbackUrl: 'http://localhost:3000/'
+              });
+            }}
           >
             <LogOut className="h-4 w-4" />
             Sign Out

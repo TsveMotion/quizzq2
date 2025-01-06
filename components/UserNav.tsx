@@ -55,7 +55,12 @@ export function UserNav() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => signOut({ callbackUrl: "/signin" })}
+          onClick={async () => {
+            await signOut({
+              redirect: true,
+              callbackUrl: 'http://localhost:3000/'
+            });
+          }}
           className="text-red-600"
         >
           <LogOut className="mr-2 h-4 w-4" />
