@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function PATCH(
-  req: Request,
+  req: NextRequest,
   { params }: { params: { classId: string } }
 ) {
   try {
@@ -67,27 +67,35 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { classId: string } }
-): Promise<Response> {
+  request: NextRequest,
+  context: { params: { classId: string } }
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return new Response('Unauthorized', { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const classId = params.classId;
-    if (!classId) {
-      return new Response('Class ID is required', { status: 400 });
-    }
-
-    await prisma.class.delete({
-      where: { id: classId },
+    // Check if class exists
+    const classExists = await prisma.class.findUnique({
+      where: { id: context.params.classId },
     });
 
-    return new Response(null, { status: 204 });
+    if (!classExists) {
+      return NextResponse.json({ error: 'Class not found' }, { status: 404 });
+    }
+
+    // Delete the class
+    await prisma.class.delete({
+      where: { id: context.params.classId },
+    });
+
+    return NextResponse.json({ message: 'Class deleted successfully' });
   } catch (error) {
     console.error('Error deleting class:', error);
-    return new Response('Internal Server Error', { status: 500 });
+    return NextResponse.json(
+      { error: 'Error deleting class' },
+      { status: 500 }
+    );
   }
 }

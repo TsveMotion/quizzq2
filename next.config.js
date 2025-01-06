@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverExternalPackages: ['@prisma/client', 'bcrypt']
+    serverActions: true
   },
   webpack: (config) => {
     config.externals = [...config.externals, 'bcrypt'];
