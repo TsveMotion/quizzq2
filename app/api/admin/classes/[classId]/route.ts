@@ -4,8 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function PATCH(
-  req: Request,
-  { params }: { params: { classId: string } }
+  request: Request,
+  context: { params: { classId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -13,12 +13,12 @@ export async function PATCH(
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const classId = params.classId;
+    const classId = context.params.classId;
     if (!classId) {
       return new NextResponse('Class ID is required', { status: 400 });
     }
 
-    const body = await req.json();
+    const body = await request.json();
     const { name, description } = body;
 
     if (!name) {
@@ -67,8 +67,8 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  req: Request,
-  { params }: { params: { classId: string } }
+  request: Request,
+  context: { params: { classId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -76,7 +76,7 @@ export async function DELETE(
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const classId = params.classId;
+    const classId = context.params.classId;
     if (!classId) {
       return new NextResponse('Class ID is required', { status: 400 });
     }
