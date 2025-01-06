@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-config';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
@@ -49,33 +49,72 @@ export async function POST(request: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { title, content, classId, dueDate } = await request.json();
+    const formData = await request.formData();
+    const title = formData.get("title") as string;
+    const description = formData.get("description") as string;
+    const dueDate = new Date(formData.get("dueDate") as string);
+    const classId = formData.get("classId") as string;
+    const questionsJson = formData.get("questions") as string;
+    
+    if (!questionsJson) {
+      return new NextResponse("Questions are required", { status: 400 });
+    }
 
+    let questions;
+    try {
+      questions = JSON.parse(questionsJson);
+      if (!Array.isArray(questions)) {
+        return new NextResponse("Questions must be an array", { status: 400 });
+      }
+    } catch (error) {
+      return new NextResponse("Invalid questions format", { status: 400 });
+    }
+
+    // Create the assignment
     const assignment = await prisma.assignment.create({
       data: {
         title,
-        content,
-        dueDate: new Date(dueDate),
-        teacherId: session.user.id,
+        description,
+        dueDate,
         classId,
-      },
-      include: {
-        class: {
-          select: {
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            submissions: true,
-          },
-        },
+        teacherId: session.user.id,
+        weight: 100, // Default total weight
       },
     });
 
-    return NextResponse.json(assignment);
+    // Create questions with marks
+    let totalMarks = 0;
+    for (const question of questions) {
+      const marks = question.marks || 10; // Default 10 marks per question if not specified
+      totalMarks += marks;
+      
+      await prisma.quizQuestion.create({
+        data: {
+          question: question.question,
+          options: JSON.stringify(question.options),
+          correctAnswerIndex: question.correctAnswerIndex,
+          explanation: question.explanation || "",
+          marks: marks,
+          assignmentId: assignment.id,
+        },
+      });
+    }
+
+    // Update assignment with calculated total marks
+    await prisma.assignment.update({
+      where: { id: assignment.id },
+      data: { totalMarks }
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: assignment,
+    });
   } catch (error) {
-    console.error("[ASSIGNMENT_CREATE]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    console.error("[CREATE_ASSIGNMENT]", error);
+    return new NextResponse(
+      error instanceof Error ? error.message : "Internal server error",
+      { status: 500 }
+    );
   }
 }

@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-config';
-import OpenAI from 'openai';
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -22,92 +22,91 @@ interface GeneratedAssignment {
   questions: Question[];
 }
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session || session.user.role !== 'TEACHER') {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { topic, questionTypes, difficulty, numberOfQuestions } = await request.json();
+    const { topic, difficulty, numberOfQuestions, gradeLevel, totalMarks } = await req.json();
 
-    // Simplified prompt for GPT-3.5-turbo
-    const prompt = `Create an educational assignment about "${topic}" with ${numberOfQuestions} questions.
-Include a mix of these types: ${questionTypes.join(', ')}. Difficulty: ${difficulty}.
-
-Return a JSON object with this structure:
-{
-  "title": "Brief, engaging title",
-  "description": "1-2 sentence description",
-  "questions": [
-    // Multiple choice example
-    {
-      "type": "multiple-choice",
-      "prompt": "Clear question text",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": "Option A",
-      "points": 5
-    },
-    // Match-up example
-    {
-      "type": "match-up",
-      "prompt": "Match the items",
-      "options": ["Left 1", "Left 2", "Left 3"],
-      "correctAnswer": ["Right 1", "Right 2", "Right 3"],
-      "points": 10
-    },
-    // Essay example
-    {
-      "type": "essay",
-      "prompt": "Essay question",
-      "points": 20,
-      "rubric": "Key points to include: 1..., 2..., 3..."
-    },
-    // Short answer example
-    {
-      "type": "short-answer",
-      "prompt": "Short question",
-      "correctAnswer": "Expected answer",
-      "points": 5
+    if (!topic || !difficulty || !numberOfQuestions || !gradeLevel) {
+      return new NextResponse("Missing required fields", { status: 400 });
     }
-  ]
-}
 
-Make the questions appropriate for ${difficulty} level and ensure JSON is valid.`;
+    const marksPerQuestion = Math.floor((totalMarks || 100) / numberOfQuestions);
+
+    const prompt = `Generate ${numberOfQuestions} multiple-choice questions about ${topic} for grade ${gradeLevel} students. 
+    The difficulty level should be ${difficulty}. Each question is worth ${marksPerQuestion} marks.
+
+    Format the response as a JSON object with this exact structure:
+    {
+      "title": "Assignment title",
+      "description": "Brief description of the assignment",
+      "questions": [
+        {
+          "question": "The question text",
+          "options": ["A) First option", "B) Second option", "C) Third option", "D) Fourth option"],
+          "correctAnswerIndex": 0,
+          "explanation": "Explanation of why this answer is correct",
+          "marks": ${marksPerQuestion}
+        }
+      ]
+    }
+
+    Requirements:
+    1. Each question must have exactly 4 options
+    2. Options must be prefixed with A), B), C), D)
+    3. correctAnswerIndex must be 0-3 corresponding to the correct option
+    4. Include a clear explanation for the correct answer
+    5. Questions should be grade-appropriate and engaging
+    6. Questions should test understanding, not just memorization
+    7. Format must match the exact JSON structure shown above
+    8. Each question is worth exactly ${marksPerQuestion} marks
+    9. The options array must be a proper JSON array, not a string
+
+    Example question:
+    {
+      "question": "What is the sum of the angles in a triangle?",
+      "options": ["A) 90 degrees", "B) 180 degrees", "C) 270 degrees", "D) 360 degrees"],
+      "correctAnswerIndex": 1,
+      "explanation": "The sum of angles in a triangle is always 180 degrees. This is a fundamental property of triangles that can be proven using parallel lines and corresponding angles.",
+      "marks": ${marksPerQuestion}
+    }`;
 
     const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
-          content: "You are a helpful teacher creating an educational assignment. Return only valid JSON matching the specified format.",
+          content: "You are a helpful AI that generates high-quality educational content. Always format your responses exactly as requested.",
         },
         {
           role: "user",
           content: prompt,
         },
       ],
-      model: "gpt-3.5-turbo",
       temperature: 0.7,
-      max_tokens: 1000
+      response_format: { type: "json_object" }
     });
 
-    const generatedText = completion.choices[0].message.content;
-    if (!generatedText) {
-      throw new Error('Failed to generate assignment');
+    const response = completion.choices[0].message?.content;
+    if (!response) {
+      throw new Error("No response from OpenAI");
     }
 
     try {
-      const parsedAssignment = JSON.parse(generatedText.trim()) as GeneratedAssignment;
-      return NextResponse.json(parsedAssignment);
-    } catch (parseError) {
-      console.error("Failed to parse OpenAI response:", parseError);
-      throw new Error('Invalid assignment format returned from AI');
+      const parsedResponse = JSON.parse(response);
+      return NextResponse.json(parsedResponse);
+    } catch (error) {
+      console.error("Failed to parse OpenAI response:", response);
+      throw new Error("Invalid response format from OpenAI");
     }
   } catch (error) {
     console.error("[ASSIGNMENT_GENERATE]", error);
     return new NextResponse(
-      error instanceof Error ? error.message : "Failed to generate assignment",
+      error instanceof Error ? error.message : "Internal server error",
       { status: 500 }
     );
   }

@@ -1,94 +1,99 @@
 'use client';
 
 import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
-import { StudentProfileTab } from './StudentProfileTab';
-import { StudentClassesTab } from './StudentClassesTab';
-import { StudentAssignmentsTab } from './StudentAssignmentsTab';
-import { StudentGradesTab } from './StudentGradesTab';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { useSession, signOut } from 'next-auth/react';
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
+  LayoutDashboard,
+  BookOpen,
+  ClipboardList,
   UserCircle,
-  GraduationCap,
-  ScrollText,
-  LineChart,
-  Menu,
   LogOut,
-} from 'lucide-react';
-import { signOut, useSession } from 'next-auth/react';
+  Loader2,
+  GraduationCap,
+  LineChart
+} from "lucide-react";
+import StudentOverviewTab from './StudentOverviewTab';
+import StudentProfileTab from './StudentProfileTab';
+import StudentClassesTab from './StudentClassesTab';
+import StudentAssignmentsTab from './StudentAssignmentsTab';
+import StudentGradesTab from './StudentGradesTab';
 
 export default function StudentDashboard() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('assignments');
+  const { data: session, status } = useSession();
+  const [currentView, setCurrentView] = useState('overview');
 
-  const tabs = [
+  if (status === 'loading') {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return null;
+  }
+
+  const navItems = [
     {
-      value: 'assignments',
-      label: 'Assignments',
-      icon: ScrollText,
-      content: <StudentAssignmentsTab />,
+      title: "Overview",
+      value: "overview",
+      icon: LayoutDashboard,
     },
     {
-      value: 'classes',
-      label: 'Classes',
-      icon: GraduationCap,
-      content: <StudentClassesTab />,
+      title: "My Classes",
+      value: "classes",
+      icon: BookOpen,
     },
     {
-      value: 'profile',
-      label: 'Profile',
-      icon: UserCircle,
-      content: <StudentProfileTab />,
+      title: "Assignments",
+      value: "assignments",
+      icon: ClipboardList,
     },
     {
-      value: 'grades',
-      label: 'Grades',
+      title: "Grades",
+      value: "grades",
       icon: LineChart,
-      content: <StudentGradesTab />,
+    },
+    {
+      title: "Profile",
+      value: "profile",
+      icon: UserCircle,
     },
   ];
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Sidebar Toggle Button (Mobile) */}
-      <Button
-        variant="ghost"
-        className="absolute top-4 left-4 md:hidden z-50"
-        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-      >
-        <Menu className="h-4 w-4" />
-      </Button>
-
-      {/* Sidebar */}
-      <div
-        className={cn(
-          'w-64 border-r bg-gray-100/40 dark:bg-gray-800/40 flex flex-col transition-all duration-300',
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          'md:translate-x-0' // Always show on desktop
-        )}
-      >
-        <div className="p-6">
-          <h1 className="text-2xl font-bold tracking-tight">Student Dashboard</h1>
+    <div className="flex h-screen">
+      <div className="w-64 border-r bg-background">
+        <div className="flex h-16 items-center border-b px-6">
+          <h2 className="text-lg font-semibold">Student Dashboard</h2>
         </div>
-        <nav className="flex-1 p-4 space-y-2">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
+        <div className="space-y-1 p-4">
+          {navItems.map((item) => {
+            const Icon = item.icon;
             return (
               <Button
-                key={tab.value}
-                variant={activeTab === tab.value ? 'secondary' : 'ghost'}
-                className="w-full justify-start gap-2"
-                onClick={() => setActiveTab(tab.value)}
+                key={item.value}
+                variant="ghost"
+                className={cn(
+                  "w-full justify-start gap-2 px-2",
+                  currentView === item.value && "bg-muted"
+                )}
+                onClick={() => setCurrentView(item.value)}
               >
                 <Icon className="h-4 w-4" />
-                {tab.label}
+                {item.title}
               </Button>
             );
           })}
-        </nav>
-        <div className="mt-auto p-4 border-t">
+        </div>
+        <div className="absolute bottom-0 w-64 border-t p-4">
+          <div className="mb-2">
+            <div className="text-sm font-semibold">{session.user.name || 'Student'}</div>
+            <div className="text-xs text-muted-foreground">{session.user.email}</div>
+          </div>
           <Button
             variant="ghost"
             className="w-full justify-start gap-2 text-red-600"
@@ -105,10 +110,21 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        <div className="h-full p-8">
-          {tabs.find((tab) => tab.value === activeTab)?.content}
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+          <div className="flex items-center justify-between space-y-2">
+            <h2 className="text-3xl font-bold tracking-tight">
+              {session.user.name}'s Dashboard
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            {currentView === 'overview' && <StudentOverviewTab />}
+            {currentView === 'classes' && <StudentClassesTab />}
+            {currentView === 'assignments' && <StudentAssignmentsTab />}
+            {currentView === 'grades' && <StudentGradesTab />}
+            {currentView === 'profile' && <StudentProfileTab />}
+          </div>
         </div>
       </div>
     </div>

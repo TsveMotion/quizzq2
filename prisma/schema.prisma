@@ -96,6 +96,7 @@ model Assignment {
   classId     String
   teacherId   String
   weight      Int         @default(100)  // Assignment weight for grade calculation
+  totalMarks  Int         @default(100)  // Total marks for the assignment
   class       Class        @relation("ClassAssignments", fields: [classId], references: [id])
   teacher     User         @relation("TeacherAssignments", fields: [teacherId], references: [id])
   submissions HomeworkSubmission[]
@@ -124,6 +125,7 @@ model QuizQuestion {
   options           String     // JSON array of options
   correctAnswerIndex Int
   explanation       String
+  marks           Int          @default(10)  // Marks for this question
   assignmentId      String
   assignment        Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   submissions       QuestionSubmission[]

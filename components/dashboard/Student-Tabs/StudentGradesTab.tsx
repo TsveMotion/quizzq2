@@ -16,7 +16,7 @@ interface Grade {
   }[];
 }
 
-export function StudentGradesTab() {
+export default function StudentGradesTab() {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();

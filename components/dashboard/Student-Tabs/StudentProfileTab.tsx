@@ -22,7 +22,7 @@ interface StudentProfile {
   subjects: string[] | null;
 }
 
-export function StudentProfileTab() {
+export default function StudentProfileTab() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [profileData, setProfileData] = useState<StudentProfile | null>(null);
