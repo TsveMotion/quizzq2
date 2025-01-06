@@ -10,6 +10,14 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata = {
   title: 'QuizzQ',
   description: 'A modern quiz platform for schools',
+  icons: {
+    icon: [
+      {
+        url: '/favicon.svg',
+        type: 'image/svg+xml',
+      }
+    ],
+  },
 };
 
 export default function RootLayout({

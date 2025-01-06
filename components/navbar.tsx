@@ -1,7 +1,6 @@
 'use client';
 
 import { 
-  Brain, 
   Home,
   Info,
   Mail,
@@ -11,6 +10,7 @@ import {
   LogIn,
   UserPlus
 } from "lucide-react";
+import { BrainIcon } from "@/components/icons/brain-icon";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
@@ -38,8 +38,8 @@ export function Navbar() {
           {/* Logo */}
           <div className="flex-shrink-0 flex items-center gap-2">
             <Link href="/" className="flex items-center space-x-2">
-              <Brain className="h-8 w-8 text-primary" />
-              <span className="hidden font-bold sm:inline-block">
+              <BrainIcon className="h-8 w-8 stroke-primary stroke-[1.91px] fill-none" />
+              <span className="hidden font-bold text-xl sm:inline-block bg-gradient-to-r from-purple-600 to-blue-600 text-transparent bg-clip-text">
                 QUIZZQ
               </span>
             </Link>
