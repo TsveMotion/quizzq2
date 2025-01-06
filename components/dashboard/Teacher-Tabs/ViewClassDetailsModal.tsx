@@ -161,28 +161,51 @@ export function ViewClassDetailsModal({
             </div>
           ) : (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden">
-              <TabsList className="grid grid-cols-5 gap-4 h-auto p-2">
-                <TabsTrigger value="overview" className="flex items-center gap-2 py-2">
-                  <LineChart className="h-4 w-4" />
-                  Overview
-                </TabsTrigger>
-                <TabsTrigger value="students" className="flex items-center gap-2 py-2">
-                  <GraduationCap className="h-4 w-4" />
-                  Students
-                </TabsTrigger>
-                <TabsTrigger value="assignments" className="flex items-center gap-2 py-2">
-                  <BookOpen className="h-4 w-4" />
-                  Assignments
-                </TabsTrigger>
-                <TabsTrigger value="communication" className="flex items-center gap-2 py-2">
-                  <Mail className="h-4 w-4" />
-                  Communication
-                </TabsTrigger>
-                <TabsTrigger value="settings" className="flex items-center gap-2 py-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </TabsTrigger>
-              </TabsList>
+              <div className="border-b">
+                <TabsList className="inline-flex h-14 items-center justify-center rounded-none bg-transparent p-0">
+                  <TabsTrigger
+                    value="overview"
+                    className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background relative h-14 rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
+                  >
+                    <LineChart className="mr-2 h-4 w-4" />
+                    <span>Overview</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="students"
+                    className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background relative h-14 rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
+                  >
+                    <GraduationCap className="mr-2 h-4 w-4" />
+                    <span>Students</span>
+                    <Badge variant="secondary" className="ml-2 h-5">
+                      {classDetails?.students?.length || 0}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="assignments"
+                    className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background relative h-14 rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
+                  >
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    <span>Assignments</span>
+                    <Badge variant="secondary" className="ml-2 h-5">
+                      {classDetails?.assignments?.length || 0}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="communication"
+                    className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background relative h-14 rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    <span>Communication</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="settings"
+                    className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background relative h-14 rounded-none border-b-2 border-transparent data-[state=active]:border-primary hover:text-primary"
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="overview" className="flex-1 overflow-hidden mt-4">
                 <ScrollArea className="h-[500px] pr-4">
