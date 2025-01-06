@@ -23,8 +23,9 @@ export default function StudentGradesTab() {
 
   const fetchGrades = useCallback(async () => {
     try {
-      if (!session?.user?.id) return;
-      const response = await fetch(`/api/student/${session.user.id}/grades`);
+      const userId = session?.user?.id;
+      if (!userId) return;
+      const response = await fetch(`/api/student/${userId}/grades`);
       if (!response.ok) throw new Error('Failed to fetch grades');
       const data = await response.json();
       setGrades(data);
@@ -32,7 +33,7 @@ export default function StudentGradesTab() {
       console.error('Error fetching grades:', error);
       toast.error('Failed to fetch grades');
     }
-  }, [session?.user?.id, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchGrades();

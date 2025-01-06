@@ -73,22 +73,21 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new Response('Unauthorized', { status: 401 });
     }
 
     const classId = params.classId;
     if (!classId) {
-      return new NextResponse('Class ID is required', { status: 400 });
+      return new Response('Class ID is required', { status: 400 });
     }
 
-    // Delete class
     await prisma.class.delete({
       where: { id: classId },
     });
 
-    return new NextResponse(null, { status: 204 });
+    return new Response(null, { status: 204 });
   } catch (error) {
-    console.error('[CLASS_DELETE]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    console.error('Error deleting class:', error);
+    return new Response('Internal Server Error', { status: 500 });
   }
 }

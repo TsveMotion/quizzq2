@@ -34,8 +34,9 @@ export default function StudentClassesTab() {
 
   const fetchClasses = useCallback(async () => {
     try {
-      if (!session?.user?.id) return;
-      const response = await fetch(`/api/student/${session.user.id}/classes`);
+      const userId = session?.user?.id;
+      if (!userId) return;
+      const response = await fetch(`/api/student/${userId}/classes`);
       if (!response.ok) throw new Error('Failed to fetch classes');
       const data = await response.json();
       setClasses(data);
@@ -43,7 +44,7 @@ export default function StudentClassesTab() {
       console.error('Error fetching classes:', error);
       toast.error('Failed to fetch classes');
     }
-  }, [session?.user?.id, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchClasses();
