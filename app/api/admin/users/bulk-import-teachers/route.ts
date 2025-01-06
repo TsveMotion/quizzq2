@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../lib/auth-config';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 import * as XLSX from 'xlsx';
-import { generatePassword } from '@/lib/utils';
 
 // Helper to validate email format
 const isValidEmail = (email: string) => {
@@ -39,8 +38,7 @@ export async function POST(req: Request) {
     const data = XLSX.utils.sheet_to_json(worksheet) as Array<{
       Name: string;
       Email: string;
-      Password?: string;
-      Subject?: string;
+      Subjects?: string;
     }>;
 
     // Validate data length
@@ -98,8 +96,16 @@ export async function POST(req: Request) {
       teachers.push({
         name: row.Name.trim(),
         email: row.Email.trim().toLowerCase(),
-        password: row.Password?.trim() || generatePassword(),
-        subject: row.Subject?.trim() || null,
+        password: row.Email.trim().toLowerCase(), // Use email as password
+        subjects: row.Subjects ? JSON.stringify(row.Subjects.split(',').map(s => s.trim())) : null,
+      });
+    }
+
+    // Check for validation errors
+    if (errors.length > 0) {
+      return new NextResponse(JSON.stringify({ errors }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
@@ -114,41 +120,51 @@ export async function POST(req: Request) {
     });
 
     if (existingUsers.length > 0) {
-      const existingEmails = existingUsers.map(u => u.email);
-      errors.push(`The following emails already exist: ${existingEmails.join(', ')}`);
-    }
-
-    // If there are any errors, return them
-    if (errors.length > 0) {
-      return NextResponse.json(
-        { errors },
-        { status: 400 }
+      return new NextResponse(
+        JSON.stringify({
+          errors: existingUsers.map(u => `Email already exists: ${u.email}`),
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
       );
     }
 
-    // Create all teachers
+    // Create teachers
     const createdTeachers = await prisma.$transaction(
-      teachers.map(teacher => 
+      teachers.map(teacher =>
         prisma.user.create({
           data: {
             ...teacher,
             role: 'TEACHER',
-            school: {
-              connect: { id: schoolId },
-            },
+            schoolId: schoolId,
           },
         })
       )
     );
 
-    // TODO: Send welcome emails to teachers with their credentials
-
-    return NextResponse.json({
-      message: 'Teachers imported successfully',
-      count: createdTeachers.length,
-    });
+    return new NextResponse(
+      JSON.stringify({
+        message: `Successfully created ${createdTeachers.length} teachers`,
+        teachers: createdTeachers,
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    console.error('[BULK_IMPORT_TEACHERS]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    console.error('Error importing teachers:', error);
+    return new NextResponse(
+      JSON.stringify({
+        error: 'Failed to import teachers',
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }

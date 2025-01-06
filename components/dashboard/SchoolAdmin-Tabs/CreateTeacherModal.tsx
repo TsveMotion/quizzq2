@@ -320,7 +320,7 @@ export function CreateTeacherModal({
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
                     Make sure your Excel file follows the required format.{' '}
-                    <Link href="/docs/teacher-import" className="font-medium underline">
+                    <Link href="/docs/user-management/bulk-import" className="font-medium underline hover:text-primary">
                       View documentation
                     </Link>
                   </AlertDescription>
