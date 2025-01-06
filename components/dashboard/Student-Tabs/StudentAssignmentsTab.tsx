@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { AssignmentDialog } from './AssignmentDialog';
+import { useSession } from 'next-auth/react';
 
 interface Assignment {
   id: string;
@@ -42,6 +43,7 @@ interface Assignment {
 }
 
 export function StudentAssignmentsTab() {
+  const { data: session } = useSession();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
@@ -49,16 +51,30 @@ export function StudentAssignmentsTab() {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('Current session:', session);
     fetchAssignments();
-  }, []);
+  }, [session]);
 
   const fetchAssignments = async () => {
     try {
+      if (!session?.user?.id) {
+        console.log('No user session found');
+        return;
+      }
+
+      console.log('Fetching assignments for user:', session.user.id);
       const response = await fetch('/api/students/assignments');
-      if (!response.ok) throw new Error('Failed to fetch assignments');
+      if (!response.ok) {
+        console.error('Failed to fetch assignments:', response.status, response.statusText);
+        const text = await response.text();
+        console.error('Response text:', text);
+        throw new Error('Failed to fetch assignments');
+      }
       const data = await response.json();
+      console.log('Assignments received:', data);
       setAssignments(data);
     } catch (error) {
+      console.error('Error in fetchAssignments:', error);
       toast({
         title: 'Error',
         description: 'Failed to load assignments',

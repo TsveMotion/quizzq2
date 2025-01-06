@@ -29,9 +29,21 @@ export async function GET(req: Request) {
             email: true,
           },
         },
+        classTeachers: {
+          include: {
+            teacher: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              }
+            }
+          }
+        },
         _count: {
           select: {
             students: true,
+            classTeachers: true,
           },
         },
       },
@@ -40,7 +52,17 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.json(classes);
+    // Transform the data to include teachers array
+    const transformedClasses = classes.map(classObj => ({
+      ...classObj,
+      teachers: classObj.classTeachers.map(ct => ct.teacher),
+      _count: {
+        ...classObj._count,
+        teachers: classObj._count.classTeachers
+      }
+    }));
+
+    return NextResponse.json(transformedClasses);
   } catch (error) {
     console.error('[CLASSES_GET]', error);
     return new NextResponse('Internal error', { status: 500 });
@@ -54,38 +76,26 @@ export async function POST(req: Request) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const body = await req.json();
-    const { name, description, teacherId, schoolId } = body;
+    const json = await req.json();
+    const { name, description, schoolId, teacherId, teacherIds = [] } = json;
 
-    if (!name || !teacherId || !schoolId) {
-      return new NextResponse('Name, teacher ID, and school ID are required', { status: 400 });
+    if (!name || !schoolId || !teacherId) {
+      return new NextResponse('Missing required fields', { status: 400 });
     }
 
-    // Create the class with the primary teacher
     const newClass = await prisma.class.create({
       data: {
         name,
         description,
-        school: {
-          connect: { id: schoolId },
-        },
-        teacher: {
-          connect: { id: teacherId },
-        },
+        schoolId,
+        teacherId,
+        classTeachers: {
+          create: [
+            { teacherId },
+            ...teacherIds.filter((id: string) => id !== teacherId).map((id: string) => ({ teacherId: id }))
+          ]
+        }
       },
-    });
-
-    // Add the teacher as a class teacher as well
-    await prisma.classTeacher.create({
-      data: {
-        classId: newClass.id,
-        teacherId: teacherId,
-      },
-    });
-
-    // Get the created class with all its relations
-    const classWithRelations = await prisma.class.findUnique({
-      where: { id: newClass.id },
       include: {
         teacher: {
           select: {
@@ -101,9 +111,9 @@ export async function POST(req: Request) {
                 id: true,
                 name: true,
                 email: true,
-              },
-            },
-          },
+              }
+            }
+          }
         },
         _count: {
           select: {
@@ -114,7 +124,17 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json(classWithRelations);
+    // Transform the response
+    const transformedClass = {
+      ...newClass,
+      teachers: newClass.classTeachers.map(ct => ct.teacher),
+      _count: {
+        ...newClass._count,
+        teachers: newClass._count.classTeachers
+      }
+    };
+
+    return NextResponse.json(transformedClass);
   } catch (error) {
     console.error('[CLASSES_POST]', error);
     return new NextResponse('Internal error', { status: 500 });

@@ -15,20 +15,44 @@ export async function POST(
 
     const formData = await request.formData();
     const content = formData.get('content') as string;
-    const files = formData.getAll('files') as File[];
+    const answersJson = formData.get('answers') as string;
+    const answers = JSON.parse(answersJson);
 
-    // Here you would handle file uploads to your storage service
-    // For now, we'll just store the content
-    const submission = await prisma.submission.create({
+    // Create the submission
+    const submission = await prisma.homeworkSubmission.create({
       data: {
         content,
+        status: 'submitted',
         studentId: session.user.id,
         assignmentId: params.assignmentId,
-        submittedAt: new Date(),
+        files: '[]', // Initialize with empty array
       },
     });
 
-    return NextResponse.json(submission);
+    // Create question submissions
+    const questionSubmissions = await Promise.all(
+      Object.entries(answers).map(async ([questionId, answer]) => {
+        // Get the question to check if the answer is correct
+        const question = await prisma.quizQuestion.findUnique({
+          where: { id: questionId },
+        });
+
+        return prisma.questionSubmission.create({
+          data: {
+            questionId,
+            submissionId: submission.id,
+            answer: answer as number,
+            isCorrect: question?.correctAnswerIndex === answer,
+          },
+        });
+      })
+    );
+
+    // Return the submission with its answers
+    return NextResponse.json({
+      ...submission,
+      answers: questionSubmissions,
+    });
   } catch (error) {
     console.error('Error submitting assignment:', error);
     return new NextResponse('Internal Server Error', { status: 500 });

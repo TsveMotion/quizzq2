@@ -67,11 +67,33 @@ export async function POST(
     const body = await request.json();
     const { name, email, password } = body;
 
-    if (!name || !email || !password) {
+    if (!name || !email) {
       return new NextResponse("Missing required fields", { status: 400 });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return new NextResponse("User with this email already exists", { status: 400 });
+    }
+
+    // Set default password as email if not provided
+    const passwordToUse = password || email;
+    
+    // Log the data we're about to use
+    console.log('Creating student with data:', {
+      name,
+      email,
+      schoolId,
+      role: 'STUDENT',
+      status: 'ACTIVE',
+      powerLevel: 1
+    });
+    
+    const hashedPassword = await bcrypt.hash(passwordToUse, 10);
 
     const student = await prisma.user.create({
       data: {
@@ -80,13 +102,34 @@ export async function POST(
         password: hashedPassword,
         role: 'STUDENT',
         schoolId,
+        status: 'ACTIVE', 
+        powerLevel: 1,
       },
     });
 
-    return NextResponse.json(student);
+    // Verify the created student
+    const verifyStudent = await prisma.user.findUnique({
+      where: { id: student.id }
+    });
+
+    console.log('Verification of created student:', {
+      id: verifyStudent?.id,
+      email: verifyStudent?.email,
+      role: verifyStudent?.role,
+      status: verifyStudent?.status,
+      powerLevel: verifyStudent?.powerLevel
+    });
+
+    // Remove password from response
+    const { password: _, ...studentWithoutPassword } = student;
+
+    return NextResponse.json(studentWithoutPassword);
   } catch (error) {
     console.error("[STUDENTS_POST]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    return new NextResponse(
+      error instanceof Error ? error.message : "Internal error",
+      { status: 500 }
+    );
   }
 }
 

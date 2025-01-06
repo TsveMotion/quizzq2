@@ -13,16 +13,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { PlusCircle, MoreHorizontal, Search, School as SchoolIcon } from 'lucide-react';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { PlusCircle, MoreHorizontal, Search, School as SchoolIcon, Trash2, Edit } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { SchoolModal } from './SchoolModal';
+import { format } from 'date-fns';
+import { toast } from "sonner";
 
 interface School {
   id: string;
@@ -38,31 +42,33 @@ interface School {
 interface SuperAdminSchoolsTabProps {
   schools: School[];
   onAddSchool: () => void;
-  onDeleteSchool: (id: string) => void;
   onEditSchool: (school: School) => void;
   onSaveSchool: (school: School) => Promise<void>;
   selectedSchool: School | null;
   isSchoolModalOpen: boolean;
   setIsSchoolModalOpen: (open: boolean) => void;
   isLoading?: boolean;
+  onSchoolsChange: () => void;
 }
 
-export function SuperAdminSchoolsTab({
+function SuperAdminSchoolsTab({
   schools,
   onAddSchool,
-  onDeleteSchool,
   onEditSchool,
   onSaveSchool,
   selectedSchool,
   isSchoolModalOpen,
   setIsSchoolModalOpen,
   isLoading = false,
+  onSchoolsChange,
 }: SuperAdminSchoolsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
     key: keyof School;
     direction: 'asc' | 'desc';
   }>({ key: 'name', direction: 'asc' });
+  const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Filter schools based on search term
   const filteredSchools = Array.isArray(schools) ? schools.filter((school) =>
@@ -87,6 +93,36 @@ export function SuperAdminSchoolsTab({
     }));
   };
 
+  const handleDeleteClick = (school: School) => {
+    setSchoolToDelete(school);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!schoolToDelete) return;
+
+    try {
+      const response = await fetch(`/api/schools?id=${schoolToDelete.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Failed to delete school');
+      }
+
+      toast.success('School deleted successfully');
+      onSchoolsChange(); // Refresh the schools list
+    } catch (error) {
+      console.error('Error deleting school:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete school');
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setSchoolToDelete(null);
+    }
+  };
+
   // Statistics cards
   const stats = {
     totalSchools: Array.isArray(schools) ? schools.length : 0,
@@ -104,10 +140,6 @@ export function SuperAdminSchoolsTab({
             Manage and monitor all schools in the system
           </p>
         </div>
-        <Button onClick={onAddSchool}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add School
-        </Button>
       </div>
 
       {/* Statistics cards */}
@@ -121,6 +153,7 @@ export function SuperAdminSchoolsTab({
             <div className="text-2xl font-bold">{stats.totalSchools}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -130,6 +163,7 @@ export function SuperAdminSchoolsTab({
             <div className="text-2xl font-bold">{stats.totalStudents}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Teachers</CardTitle>
@@ -141,9 +175,9 @@ export function SuperAdminSchoolsTab({
         </Card>
       </div>
 
-      {/* Search and filter section */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
+      {/* Search and add school */}
+      <div className="flex items-center justify-between">
+        <div className="relative w-72">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search schools..."
@@ -152,6 +186,10 @@ export function SuperAdminSchoolsTab({
             className="pl-8"
           />
         </div>
+        <Button onClick={onAddSchool} className="ml-auto">
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add School
+        </Button>
       </div>
 
       {/* Schools table */}
@@ -170,59 +208,67 @@ export function SuperAdminSchoolsTab({
                   </span>
                 )}
               </TableHead>
+              <TableHead>Description</TableHead>
               <TableHead>Students</TableHead>
               <TableHead>Teachers</TableHead>
+              <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {sortedSchools.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center">
-                  Loading schools...
-                </TableCell>
-              </TableRow>
-            ) : sortedSchools.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center">
-                  No schools found
+                <TableCell colSpan={6} className="h-24 text-center">
+                  {searchTerm ? (
+                    <div className="flex flex-col items-center justify-center text-sm text-muted-foreground">
+                      <Search className="h-8 w-8 mb-2" />
+                      <p>No schools found matching "{searchTerm}"</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-sm text-muted-foreground">
+                      <SchoolIcon className="h-8 w-8 mb-2" />
+                      <p>No schools added yet</p>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
               sortedSchools.map((school) => (
                 <TableRow key={school.id}>
                   <TableCell className="font-medium">{school.name}</TableCell>
+                  <TableCell>{school.description || '-'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">
-                      {school.studentCount || 0} Students
+                      {school.studentCount || 0} students
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">
-                      {school.teacherCount || 0} Teachers
+                      {school.teacherCount || 0} teachers
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {school.createdAt ? format(new Date(school.createdAt), 'PP') : '-'}
                   </TableCell>
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onEditSchool(school)}>
-                          Edit School
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-red-600"
-                          onClick={() => onDeleteSchool(school.id)}
-                        >
-                          Delete School
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEditSchool(school)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteClick(school)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -230,13 +276,40 @@ export function SuperAdminSchoolsTab({
           </TableBody>
         </Table>
       </div>
-      <SchoolModal 
-        isOpen={isSchoolModalOpen}
-        setIsOpen={setIsSchoolModalOpen}
-        selectedSchool={selectedSchool}
-        onSaveSchool={onSaveSchool}
-        isLoading={isLoading}
-      />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the school &quot;{schoolToDelete?.name}&quot; and all associated data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* School Modal */}
+      {isSchoolModalOpen && (
+        <SchoolModal
+          isOpen={isSchoolModalOpen}
+          setIsOpen={setIsSchoolModalOpen}
+          selectedSchool={selectedSchool}
+          onSaveSchool={onSaveSchool}
+          isLoading={isLoading}
+        />
+      )}
     </div>
   );
 }
+
+export { SuperAdminSchoolsTab as SchoolsTab };
+export default SuperAdminSchoolsTab;

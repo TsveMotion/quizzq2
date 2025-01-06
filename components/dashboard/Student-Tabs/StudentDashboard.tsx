@@ -19,14 +19,14 @@ import {
 
 export default function StudentDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState('assignments');
 
   const tabs = [
     {
-      value: 'profile',
-      label: 'Profile',
-      icon: UserCircle,
-      content: <StudentProfileTab />,
+      value: 'assignments',
+      label: 'Assignments',
+      icon: ScrollText,
+      content: <StudentAssignmentsTab />,
     },
     {
       value: 'classes',
@@ -35,10 +35,10 @@ export default function StudentDashboard() {
       content: <StudentClassesTab />,
     },
     {
-      value: 'assignments',
-      label: 'Assignments',
-      icon: ScrollText,
-      content: <StudentAssignmentsTab />,
+      value: 'profile',
+      label: 'Profile',
+      icon: UserCircle,
+      content: <StudentProfileTab />,
     },
     {
       value: 'grades',

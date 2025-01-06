@@ -67,22 +67,22 @@ export function ManageClassModal({
   onClose,
   onSuccess,
   classData,
-  teachers,
-  students,
+  teachers = [],
+  students = [],
   schoolId,
 }: ManageClassModalProps) {
-  const { toast } = useToast();
+  const [name, setName] = useState(classData?.name || '');
+  const [description, setDescription] = useState(classData?.description || '');
   const [isLoading, setIsLoading] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
+  const [classTeachers, setClassTeachers] = useState<Teacher[]>(classData?.teachers || []);
   const [classStudents, setClassStudents] = useState<Student[]>([]);
-  const [classTeachers, setClassTeachers] = useState<Teacher[]>([]);
   const [availableStudents, setAvailableStudents] = useState<Student[]>([]);
-  const [availableTeachers, setAvailableTeachers] = useState<Teacher[]>([]);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({
-    name: classData.name,
-    description: classData.description || '',
-  });
+  const [availableTeachers, setAvailableTeachers] = useState<Teacher[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Fetch class data when modal opens
   useEffect(() => {
@@ -139,7 +139,7 @@ export function ManageClassModal({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ name, description }),
       });
 
       if (!response.ok) throw new Error('Failed to update class');
@@ -352,16 +352,16 @@ export function ManageClassModal({
                 <Label htmlFor="name">Class Name</Label>
                 <Input
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
               <div className="flex justify-between">

@@ -22,6 +22,7 @@ import { AnimatedStatsCard } from "@/components/animated-stats-card";
 import { FloatingIcons } from "@/components/floating-icons";
 import { AnimatedStepCard } from "@/components/animated-step-card";
 import { AnimatedFeature } from "@/components/animated-feature";
+import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -47,6 +48,7 @@ const itemVariants = {
 export default function Home() {
   return (
     <>
+      <MaintenanceBanner />
       {/* Hero Section with Animated Background */}
       <section className="hero-gradient relative overflow-hidden py-32">
         <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px] animate-grid" />

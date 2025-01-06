@@ -54,22 +54,24 @@ export function CreateStudentModal({
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
+          password: formData.password || formData.email, // Use email as default password if none provided
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to create student');
+        throw new Error(error.message || 'Failed to create student');
       }
 
       toast({
         title: "Success",
-        description: "Student created successfully. They can login using their email as password.",
+        description: `Student created successfully. They can login using their ${formData.password ? 'provided password' : 'email as password'}.`,
       });
       onSuccess();
       onClose();
       setFormData({ name: '', email: '', password: '' });
     } catch (error) {
+      console.error('Error creating student:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create student",
@@ -169,7 +171,7 @@ export function CreateStudentModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Add New Students</DialogTitle>
           <DialogDescription>
@@ -177,7 +179,7 @@ export function CreateStudentModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="manual" className="w-full">
+        <Tabs defaultValue="manual" className="flex-1">
           <TabsList className="w-full justify-start border-b mb-4 bg-transparent">
             <TabsTrigger
               value="manual"
@@ -195,67 +197,68 @@ export function CreateStudentModal({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="manual">
-            <form onSubmit={handleManualSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="John Doe"
-                    disabled={isLoading}
-                    required
-                  />
+          <div className="flex-1 overflow-y-auto pr-2">
+            <TabsContent value="manual" className="mt-0">
+              <form onSubmit={handleManualSubmit} className="space-y-4">
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="John Doe"
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="john.doe@example.com"
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="password">
+                      Password (Optional - will be auto-generated if empty)
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Enter password"
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="john.doe@example.com"
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="password">
-                    Password (Optional - will be auto-generated if empty)
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Enter password"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={onClose} type="button">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create Student'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </TabsContent>
 
-          <TabsContent value="import">
-            <form onSubmit={handleBulkImport}>
-              <div className="space-y-4">
+                <div className="flex justify-between items-center pt-4 border-t">
+                  <Button variant="outline" onClick={onClose} type="button">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create Student'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="import" className="mt-0">
+              <form onSubmit={handleBulkImport} className="space-y-4">
                 <div
                   className={`border-2 border-dashed rounded-lg p-8 text-center ${
                     dragActive ? 'border-primary bg-primary/10' : 'border-muted-foreground/25'
@@ -314,7 +317,7 @@ export function CreateStudentModal({
                   </AlertDescription>
                 </Alert>
 
-                <DialogFooter>
+                <div className="flex justify-between items-center pt-4 border-t">
                   <Button variant="outline" onClick={onClose} type="button">
                     Cancel
                   </Button>
@@ -331,10 +334,10 @@ export function CreateStudentModal({
                       'Import Students'
                     )}
                   </Button>
-                </DialogFooter>
-              </div>
-            </form>
-          </TabsContent>
+                </div>
+              </form>
+            </TabsContent>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>

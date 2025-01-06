@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import Link from 'next/link';
+import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -52,60 +53,63 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="mx-auto w-full max-w-md space-y-6 p-6">
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold">Create an Account</h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            Enter your details to create your account
-          </p>
+    <>
+      <MaintenanceBanner />
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="mx-auto w-full max-w-md space-y-6 p-6">
+          <div className="space-y-2 text-center">
+            <h1 className="text-3xl font-bold">Create an Account</h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              Enter your details to create your account
+            </p>
+          </div>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Input
+                id="name"
+                name="name"
+                placeholder="Full Name"
+                required
+                type="text"
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Input
+                id="email"
+                name="email"
+                placeholder="Email"
+                required
+                type="email"
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Input
+                id="password"
+                name="password"
+                placeholder="Password"
+                required
+                type="password"
+                disabled={isLoading}
+              />
+            </div>
+            <Button
+              className="w-full"
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Creating Account...' : 'Create Account'}
+            </Button>
+            <div className="text-center text-sm">
+              Already have an account?{' '}
+              <Link href="/signin" className="text-primary hover:underline">
+                Sign In
+              </Link>
+            </div>
+          </form>
         </div>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Input
-              id="name"
-              name="name"
-              placeholder="Full Name"
-              required
-              type="text"
-              disabled={isLoading}
-            />
-          </div>
-          <div className="space-y-2">
-            <Input
-              id="email"
-              name="email"
-              placeholder="Email"
-              required
-              type="email"
-              disabled={isLoading}
-            />
-          </div>
-          <div className="space-y-2">
-            <Input
-              id="password"
-              name="password"
-              placeholder="Password"
-              required
-              type="password"
-              disabled={isLoading}
-            />
-          </div>
-          <Button
-            className="w-full"
-            type="submit"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Creating Account...' : 'Create Account'}
-          </Button>
-          <div className="text-center text-sm">
-            Already have an account?{' '}
-            <Link href="/signin" className="text-primary hover:underline">
-              Sign In
-            </Link>
-          </div>
-        </form>
       </div>
-    </div>
+    </>
   );
 }

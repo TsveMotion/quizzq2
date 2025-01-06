@@ -74,10 +74,11 @@ export function SchoolModal({
 
     try {
       await onSaveSchool({
-        id: selectedSchool?.id,
-        name: formData.name || '',
-        description: formData.description || '',
-      });
+        ...(selectedSchool || {}),
+        ...formData,
+        name: formData.name?.trim() || '',
+        description: formData.description?.trim(),
+      } as School);
       setIsOpen(false);
     } catch (error) {
       console.error('Error saving school:', error);
@@ -98,58 +99,57 @@ export function SchoolModal({
           <DialogDescription>
             {selectedSchool 
               ? `Editing school ${selectedSchool.name}`
-              : 'Create a new school by filling out the information below.'
-            }
+              : 'Create a new school by filling out the information below.'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name" className="flex items-center gap-2">
-                <SchoolIcon className="h-4 w-4" />
-                School Name
-              </Label>
-              <Input
-                id="name"
-                value={formData.name || ''}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter school name"
-                className={cn(
-                  "transition-colors",
-                  errors.name ? 'border-red-500 focus-visible:ring-red-500' : ''
-                )}
-              />
-              {errors.name && (
-                <p className="text-sm text-red-500">{errors.name}</p>
-              )}
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="description" className="flex items-center gap-2">
-                <SchoolIcon className="h-4 w-4" />
-                Description
-              </Label>
-              <Input
-                id="description"
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Enter school description"
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">School Name</Label>
+            <Input
+              id="name"
+              value={formData.name || ''}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Enter school name"
+              className={cn(errors.name && "border-red-500")}
+            />
+            {errors.name && (
+              <p className="text-sm text-red-500">{errors.name}</p>
+            )}
           </div>
-          
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Input
+              id="description"
+              value={formData.description || ''}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Enter school description"
+            />
+          </div>
+
+          {errors.submit && (
+            <p className="text-sm text-red-500">{errors.submit}</p>
+          )}
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              disabled={isLoading}
+            >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={isLoading}
-              className="min-w-[100px]"
-            >
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {selectedSchool ? 'Save Changes' : 'Create School'}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save School'
+              )}
             </Button>
           </DialogFooter>
         </form>

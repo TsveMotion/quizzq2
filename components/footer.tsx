@@ -87,9 +87,14 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 pt-8 border-t flex justify-between items-center text-sm text-muted-foreground">
-          <div> {new Date().getFullYear()} QUIZZQ. All rights reserved.</div>
-          <ModeToggle />
+        <div className="mt-8 pt-8 border-t flex flex-col gap-4">
+          <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-sm py-1 px-3 rounded-md text-center">
+            🚧 Website under development - Some features may not be available 🚧
+          </div>
+          <div className="flex justify-between items-center text-sm text-muted-foreground">
+            <div> {new Date().getFullYear()} QUIZZQ. All rights reserved.</div>
+            <ModeToggle />
+          </div>
         </div>
       </div>
     </footer>

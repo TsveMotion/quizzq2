@@ -1,62 +1,38 @@
-import { NextAuthOptions } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
-import { prisma } from './prisma';
+import { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { prisma } from "@/lib/prisma";
+import { compare } from "bcrypt";
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Missing credentials');
+          return null;
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-          include: {
-            school: {
-              include: {
-                classes: true,
-                users: {
-                  where: {
-                    OR: [
-                      { role: "TEACHER" },
-                      { role: "STUDENT" }
-                    ]
-                  }
-                }
-              }
-            },
-            enrolledClasses: {
-              include: {
-                teacher: true,
-                classTeachers: {
-                  include: {
-                    teacher: true
-                  }
-                }
-              }
-            },
-            teachingClasses: true,
+          where: {
+            email: credentials.email
           }
         });
 
         if (!user) {
-          throw new Error('Invalid email or password');
+          return null;
         }
 
-        const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) {
-          throw new Error('Invalid email or password');
-        }
+        const isPasswordValid = await compare(
+          credentials.password,
+          user.password
+        );
 
-        if (user.status !== 'ACTIVE') {
-          throw new Error('Your account is not active. Please contact support.');
+        if (!isPasswordValid) {
+          return null;
         }
 
         return {
@@ -64,60 +40,32 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
-          powerLevel: user.powerLevel,
-          schoolId: user.schoolId,
-          school: user.school,
-          status: user.status,
-          enrolledClasses: user.enrolledClasses,
-          teachingClasses: user.teachingClasses,
         };
       }
     })
   ],
   pages: {
     signIn: '/auth/signin',
-    error: '/auth/signin',
+    error: '/auth/error',
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          powerLevel: user.powerLevel,
-          schoolId: user.schoolId,
-          school: user.school,
-          status: user.status,
-          enrolledClasses: user.enrolledClasses,
-          teachingClasses: user.teachingClasses,
-        };
+        token.role = user.role;
+        token.id = user.id;
       }
       return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          role: token.role,
-          powerLevel: token.powerLevel,
-          schoolId: token.schoolId,
-          school: token.school,
-          status: token.status,
-          enrolledClasses: token.enrolledClasses,
-          teachingClasses: token.teachingClasses,
-        }
-      };
+      if (session?.user) {
+        session.user.role = token.role as string;
+        session.user.id = token.id as string;
+      }
+      return session;
     }
   },
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NEXTAUTH_DEBUG === 'true',
 };

@@ -20,6 +20,11 @@ interface AssignmentDialogProps {
     status: 'pending' | 'submitted' | 'graded';
     grade?: number;
     attachments?: string[];
+    questions: {
+      id: string;
+      question: string;
+      options: string;
+    }[];
     submission?: {
       content: string;
       files: string[];
@@ -35,6 +40,7 @@ export function AssignmentDialog({ assignment, isOpen, onClose }: AssignmentDial
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionContent, setSubmissionContent] = useState(assignment.submission?.content || '');
   const [files, setFiles] = useState<File[]>([]);
+  const [answers, setAnswers] = useState<{[key: string]: number}>({});
   const { toast } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,14 +55,28 @@ export function AssignmentDialog({ assignment, isOpen, onClose }: AssignmentDial
 
       const formData = new FormData();
       formData.append('content', submissionContent);
-      files.forEach(file => formData.append('files', file));
+      formData.append('answers', JSON.stringify(answers));
+      
+      // Log the submission data for debugging
+      console.log('Submitting assignment:', {
+        assignmentId: assignment.id,
+        content: submissionContent,
+        answers
+      });
 
       const response = await fetch(`/api/students/assignments/${assignment.id}/submit`, {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Failed to submit assignment');
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Submission failed:', text);
+        throw new Error('Failed to submit assignment');
+      }
+
+      const data = await response.json();
+      console.log('Submission successful:', data);
 
       toast({
         title: 'Success',
@@ -65,6 +85,7 @@ export function AssignmentDialog({ assignment, isOpen, onClose }: AssignmentDial
 
       onClose();
     } catch (error) {
+      console.error('Error in handleSubmit:', error);
       toast({
         title: 'Error',
         description: 'Failed to submit assignment',
@@ -80,17 +101,14 @@ export function AssignmentDialog({ assignment, isOpen, onClose }: AssignmentDial
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b">
           <DialogTitle>{assignment.title}</DialogTitle>
           <DialogDescription>
             {assignment.className} • Due {format(new Date(assignment.dueDate), 'PPP')}
           </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6">
           {/* Assignment Status */}
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm mt-2">
             {assignment.status === 'graded' ? (
               <>
                 <CheckCircle className="h-4 w-4 text-green-500" />
@@ -98,131 +116,150 @@ export function AssignmentDialog({ assignment, isOpen, onClose }: AssignmentDial
               </>
             ) : assignment.status === 'submitted' ? (
               <>
-                <CheckCircle className="h-4 w-4 text-blue-500" />
-                <span>Submitted</span>
+                <Clock className="h-4 w-4 text-yellow-500" />
+                <span>Submitted • Awaiting Grade</span>
               </>
             ) : isPastDue ? (
               <>
                 <Clock className="h-4 w-4 text-red-500" />
-                <span className="text-red-500">Past Due</span>
+                <span>Past Due</span>
               </>
             ) : (
               <>
-                <Clock className="h-4 w-4 text-yellow-500" />
+                <Clock className="h-4 w-4 text-blue-500" />
                 <span>Due {format(new Date(assignment.dueDate), 'PPP')}</span>
               </>
             )}
           </div>
+        </DialogHeader>
 
-          {/* Assignment Description */}
-          <div className="space-y-2">
-            <Label>Description</Label>
-            <div className="rounded-lg bg-muted p-4">
-              <p className="whitespace-pre-wrap">{assignment.description}</p>
+        <div className="space-y-6 py-4">
+          {/* Description */}
+          <div>
+            <h3 className="font-medium mb-2">Description</h3>
+            <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {assignment.description}
             </div>
           </div>
 
-          {/* Assignment Attachments */}
-          {assignment.attachments && assignment.attachments.length > 0 && (
-            <div className="space-y-2">
-              <Label>Assignment Files</Label>
-              <div className="space-y-2">
-                {assignment.attachments.map((file, index) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    className="w-full justify-start gap-2"
-                    onClick={() => window.open(file, '_blank')}
-                  >
-                    <FileText className="h-4 w-4" />
-                    {file.split('/').pop()}
-                    <Download className="h-4 w-4 ml-auto" />
-                  </Button>
-                ))}
+          {/* Questions */}
+          {assignment.questions.length > 0 && (
+            <div>
+              <h3 className="font-medium mb-4">Questions</h3>
+              <div className="space-y-6">
+                {assignment.questions.map((question, index) => {
+                  const options = JSON.parse(question.options);
+                  return (
+                    <div key={question.id} className="space-y-3">
+                      <Label>
+                        {index + 1}. {question.question}
+                      </Label>
+                      <div className="grid gap-2">
+                        {options.map((option: string, optionIndex: number) => (
+                          <div key={optionIndex} className="flex items-center">
+                            <input
+                              type="radio"
+                              id={`${question.id}-${optionIndex}`}
+                              name={question.id}
+                              value={optionIndex}
+                              checked={answers[question.id] === optionIndex}
+                              onChange={() => setAnswers({...answers, [question.id]: optionIndex})}
+                              className="mr-2"
+                              disabled={assignment.status !== 'pending' || isPastDue}
+                            />
+                            <Label htmlFor={`${question.id}-${optionIndex}`}>{option}</Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Submission Section */}
-          {canSubmit && (
-            <div className="space-y-4">
-              <Label>Your Work</Label>
-              <Textarea
-                placeholder="Enter your work here..."
-                value={submissionContent}
-                onChange={(e) => setSubmissionContent(e.target.value)}
-                className="min-h-[200px]"
-              />
+          {/* Additional Comments */}
+          <div>
+            <Label htmlFor="comments">Additional Comments (Optional)</Label>
+            <Textarea
+              id="comments"
+              value={submissionContent}
+              onChange={(e) => setSubmissionContent(e.target.value)}
+              placeholder="Add any comments or notes..."
+              className="mt-2"
+              disabled={assignment.status !== 'pending' || isPastDue}
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label>Attach Files</Label>
+          {/* File Attachments */}
+          <div>
+            <Label>Attachments</Label>
+            {canSubmit && (
+              <div className="mt-2">
                 <Input
                   type="file"
-                  multiple
                   onChange={handleFileChange}
-                  className="cursor-pointer"
+                  multiple
+                  accept=".pdf,.doc,.docx,.txt"
                 />
-                {files.length > 0 && (
-                  <div className="text-sm text-muted-foreground">
-                    {files.length} file(s) selected
-                  </div>
-                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Accepted file types: PDF, DOC, DOCX, TXT
+                </p>
               </div>
-
-              <Button
-                className="w-full gap-2"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                Submit Assignment
-              </Button>
-            </div>
-          )}
-
-          {/* Previous Submission */}
-          {assignment.submission && (
-            <div className="space-y-2">
-              <Label>Your Submission</Label>
-              <div className="rounded-lg bg-muted p-4 space-y-4">
-                <p className="whitespace-pre-wrap">{assignment.submission.content}</p>
-                {assignment.submission.files && assignment.submission.files.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Submitted Files</Label>
-                    {assignment.submission.files.map((file, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        className="w-full justify-start gap-2"
-                        onClick={() => window.open(file, '_blank')}
-                      >
-                        <FileText className="h-4 w-4" />
-                        {file.split('/').pop()}
-                        <Download className="h-4 w-4 ml-auto" />
-                      </Button>
-                    ))}
+            )}
+            {assignment.submission?.files && assignment.submission.files.length > 0 && (
+              <div className="mt-2 space-y-2">
+                <h4 className="text-sm font-medium">Submitted Files:</h4>
+                {assignment.submission.files.map((file, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    <FileText className="h-4 w-4" />
+                    <a href={file} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                      {file.split('/').pop()}
+                    </a>
                   </div>
-                )}
-                <div className="text-sm text-muted-foreground">
-                  Submitted on {format(new Date(assignment.submission.submittedAt), 'PPP')}
-                </div>
+                ))}
               </div>
+            )}
+          </div>
 
-              {assignment.submission.feedback && (
-                <div className="space-y-2">
-                  <Label>Teacher Feedback</Label>
-                  <div className="rounded-lg bg-muted p-4">
-                    <p className="whitespace-pre-wrap">{assignment.submission.feedback}</p>
-                  </div>
-                </div>
-              )}
+          {/* Teacher Feedback */}
+          {assignment.status === 'graded' && assignment.submission?.feedback && (
+            <div>
+              <h3 className="font-medium mb-2">Teacher Feedback</h3>
+              <div className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
+                {assignment.submission.feedback}
+              </div>
             </div>
           )}
         </div>
+
+        {/* Submit Button */}
+        {canSubmit && (
+          <div className="sticky bottom-0 bg-background pt-4 border-t">
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || Object.keys(answers).length !== assignment.questions.length}
+              className="w-full"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Submit Assignment
+                </>
+              )}
+            </Button>
+            {Object.keys(answers).length !== assignment.questions.length && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Answer all questions to submit ({Object.keys(answers).length}/{assignment.questions.length})
+              </p>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

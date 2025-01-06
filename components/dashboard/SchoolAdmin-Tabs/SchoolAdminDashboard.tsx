@@ -41,7 +41,7 @@ export function SchoolAdminDashboard({ school }: SchoolAdminDashboardProps) {
   });
 
   const fetchData = useCallback(async () => {
-    if (!session?.user?.schoolId) {
+    if (!school?.id) {
       toast({
         title: "Error",
         description: "No school associated with this account",
@@ -53,9 +53,9 @@ export function SchoolAdminDashboard({ school }: SchoolAdminDashboardProps) {
     try {
       setIsLoading(true);
       const [teachersRes, studentsRes, classesRes] = await Promise.all([
-        fetch(`/api/schools/${session.user.schoolId}/teachers`),
-        fetch(`/api/schools/${session.user.schoolId}/students`),
-        fetch(`/api/schools/${session.user.schoolId}/classes`)
+        fetch(`/api/schools/${school.id}/teachers`),
+        fetch(`/api/schools/${school.id}/students`),
+        fetch(`/api/schools/${school.id}/classes`)
       ]);
 
       if (!teachersRes.ok || !studentsRes.ok || !classesRes.ok) {
@@ -74,6 +74,7 @@ export function SchoolAdminDashboard({ school }: SchoolAdminDashboardProps) {
         classes: classesData
       });
     } catch (error) {
+      console.error('Error fetching data:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to fetch data",
@@ -82,13 +83,13 @@ export function SchoolAdminDashboard({ school }: SchoolAdminDashboardProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.user?.schoolId, toast]);
+  }, [school?.id, toast]);
 
   useEffect(() => {
-    if (session?.user?.schoolId) {
+    if (school?.id) {
       fetchData();
     }
-  }, [fetchData, session?.user?.schoolId]);
+  }, [fetchData, school?.id]);
 
   if (!session?.user) {
     return <div>Please sign in to access the dashboard</div>;

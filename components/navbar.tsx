@@ -1,149 +1,147 @@
 'use client';
 
-import { 
-  Home,
-  Info,
-  Mail,
-  BookOpen,
-  LayoutDashboard,
-  LogOut,
-  LogIn,
-  UserPlus
-} from "lucide-react";
-import { BrainIcon } from "@/components/icons/brain-icon";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { useSession, signOut } from "next-auth/react";
+import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { ModeToggle } from "@/components/mode-toggle";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 export function Navbar() {
+  const { data: session } = useSession();
   const pathname = usePathname();
-  const router = useRouter();
-  const { data: session, status } = useSession();
+  const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  const handleLogout = async () => {
-    await signOut({ 
-      redirect: false
-    });
-    router.push('/');
+  // Handle scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Close mobile menu on navigation
+  useEffect(() => {
+    setIsOpen(false);
+  }, [pathname]);
+
+  const NavLink = ({ href, children }: { href: string; children: React.ReactNode }) => {
+    const isActive = pathname === href;
+    return (
+      <Link
+        href={href}
+        className={cn(
+          "relative px-3 py-1.5 text-sm transition-colors hover:text-primary",
+          isActive && "text-primary font-medium",
+          "group"
+        )}
+      >
+        {children}
+        {isActive && (
+          <motion.div
+            layoutId="activeNav"
+            className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+            initial={false}
+            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+          />
+        )}
+        <span className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-primary/60 scale-x-0 group-hover:scale-x-100 transition-transform" />
+      </Link>
+    );
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto">
-        <div className="flex h-16 items-center">
+    <header 
+      className={cn(
+        "sticky top-0 z-50 w-full transition-all duration-300",
+        scrolled ? "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b" : "bg-transparent"
+      )}
+    >
+      <div className="container mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <div className="flex-shrink-0 flex items-center gap-2">
-            <Link href="/" className="flex items-center space-x-2">
-              <BrainIcon className="h-8 w-8 stroke-primary stroke-[1.91px] fill-none" />
-              <span className="hidden font-bold text-xl sm:inline-block bg-gradient-to-r from-purple-600 to-blue-600 text-transparent bg-clip-text">
-                QUIZZQ
-              </span>
-            </Link>
-          </div>
+          <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+            <Image
+              src="/favicon.svg"
+              alt="QuizzQ Logo"
+              width={32}
+              height={32}
+              className="w-8 h-8"
+            />
+            <span className="font-bold text-lg">QuizzQ</span>
+          </Link>
 
-          {/* Navigation Links - Center */}
-          <nav className="flex-1 flex items-center justify-center space-x-4 lg:space-x-6">
-            <Link
-              href="/"
-              className={cn(
-                "transition-colors hover:text-foreground/80 text-sm font-medium flex items-center space-x-2",
-                pathname === "/" ? "text-foreground" : "text-foreground/60"
-              )}
-            >
-              <Home className="h-4 w-4" />
-              <span>Home</span>
-            </Link>
-            <Link
-              href="/about"
-              className={cn(
-                "transition-colors hover:text-foreground/80 text-sm font-medium flex items-center space-x-2",
-                pathname === "/about" ? "text-foreground" : "text-foreground/60"
-              )}
-            >
-              <Info className="h-4 w-4" />
-              <span>About</span>
-            </Link>
-            <Link
-              href="/contact"
-              className={cn(
-                "transition-colors hover:text-foreground/80 text-sm font-medium flex items-center space-x-2",
-                pathname === "/contact" ? "text-foreground" : "text-foreground/60"
-              )}
-            >
-              <Mail className="h-4 w-4" />
-              <span>Contact</span>
-            </Link>
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center justify-center space-x-1">
+            <NavLink href="/">Home</NavLink>
+            <NavLink href="/about">About</NavLink>
+            <NavLink href="/contact">Contact</NavLink>
           </nav>
 
-          {/* Right Side - Auth Buttons */}
-          <div className="flex-shrink-0 flex items-center space-x-4">
+          {/* Right Section */}
+          <div className="flex items-center space-x-4">
             <ModeToggle />
-            {status === 'loading' ? (
-              <div className="h-9 w-9 animate-pulse rounded-md bg-muted" />
-            ) : session?.user ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className={cn(
-                    "transition-colors hover:text-foreground/80",
-                    pathname.startsWith("/dashboard") ? "text-foreground" : "text-foreground/60"
-                  )}
-                >
-                  <Link href="/dashboard">
-                    <LayoutDashboard className="h-4 w-4 mr-2" />
-                    Dashboard
-                  </Link>
+            {session ? (
+              <div className="flex items-center space-x-4">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/dashboard">Dashboard</Link>
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="text-foreground/60 hover:text-foreground/80"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </>
+                {session.user.role === 'SUPERADMIN' && (
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/dashboard/superadmin">SA</Link>
+                  </Button>
+                )}
+              </div>
             ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className={cn(
-                    "text-sm font-medium transition-colors hover:text-foreground/80",
-                    pathname === "/signin" ? "text-foreground" : "text-foreground/60"
-                  )}
-                >
-                  <Link href="/signin">
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Sign In
-                  </Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className={cn(
-                    "transition-colors hover:text-foreground/80",
-                    pathname === "/signup" ? "text-foreground" : "text-foreground/60"
-                  )}
-                >
-                  <Link href="/signup">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Sign Up
-                  </Link>
-                </Button>
-              </>
+              <Button size="sm" asChild>
+                <Link href="/signin">Sign In</Link>
+              </Button>
             )}
+            
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="md:hidden p-2 -mr-2 hover:bg-accent rounded-md transition-colors"
+              aria-label="Toggle menu"
+            >
+              {isOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.nav
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden overflow-hidden border-t"
+            >
+              <motion.div
+                initial={{ y: -10 }}
+                animate={{ y: 0 }}
+                exit={{ y: -10 }}
+                className="py-4 space-y-4 flex flex-col items-center"
+              >
+                <NavLink href="/">Home</NavLink>
+                <NavLink href="/about">About</NavLink>
+                <NavLink href="/contact">Contact</NavLink>
+              </motion.div>
+            </motion.nav>
+          )}
+        </AnimatePresence>
       </div>
     </header>
   );

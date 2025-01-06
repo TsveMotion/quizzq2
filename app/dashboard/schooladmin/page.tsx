@@ -25,11 +25,35 @@ export default async function SchoolAdminPage() {
     include: {
       classes: {
         include: {
-          teacher: true,
-          students: true,
+          teacher: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          students: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
           classTeachers: {
             include: {
-              teacher: true
+              teacher: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              }
+            }
+          },
+          _count: {
+            select: {
+              students: true,
+              classTeachers: true
             }
           }
         }
@@ -40,6 +64,20 @@ export default async function SchoolAdminPage() {
             { role: "TEACHER" },
             { role: "STUDENT" }
           ]
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          status: true,
+          createdAt: true
+        }
+      },
+      _count: {
+        select: {
+          users: true,
+          classes: true
         }
       }
     }

@@ -9,20 +9,12 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session || session.user.role !== 'TEACHER') {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (!session?.user?.email) {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const teacherId = session.user.id;
-    const assignmentId = params.assignmentId;
-
-    // Fetch assignment details with related data
     const assignment = await prisma.assignment.findUnique({
-      where: {
-        id: assignmentId,
-        teacherId: teacherId, // Ensure the teacher owns this assignment
-      },
+      where: { id: params.assignmentId },
       include: {
         class: {
           select: {
@@ -32,54 +24,58 @@ export async function GET(
                 id: true,
                 name: true,
                 email: true,
-                submissions: {
-                  where: {
-                    assignmentId: assignmentId,
-                  },
-                  select: {
-                    id: true,
-                    createdAt: true,
-                    status: true,
-                    grade: true,
-                  },
-                  take: 1,
-                },
-              },
-              orderBy: {
-                name: 'asc',
               },
             },
           },
         },
-        _count: {
+        questions: {
           select: {
-            submissions: true,
+            id: true,
+            question: true,
+            options: true,
+            correctAnswerIndex: true,
+            explanation: true,
+          },
+        },
+        submissions: {
+          include: {
+            answers: true,
           },
         },
       },
     });
 
     if (!assignment) {
-      return new NextResponse("Assignment not found", { status: 404 });
+      return new NextResponse('Assignment not found', { status: 404 });
     }
 
-    // Transform the data to include submission info directly in student object
-    const transformedAssignment = {
-      ...assignment,
-      class: {
-        ...assignment.class,
-        students: assignment.class.students.map(student => ({
-          ...student,
-          submission: student.submissions[0],
-          submissions: undefined,
+    // Format the response
+    const formattedAssignment = {
+      id: assignment.id,
+      title: assignment.title,
+      description: assignment.description || '',
+      dueDate: assignment.dueDate,
+      className: assignment.class.name,
+      questions: assignment.questions,
+      submissions: assignment.submissions.map(sub => ({
+        id: sub.id,
+        studentId: sub.studentId,
+        content: sub.content,
+        grade: sub.grade,
+        status: sub.status,
+        submittedAt: sub.submittedAt,
+        answers: sub.answers.map(ans => ({
+          questionId: ans.questionId,
+          answer: ans.answer,
+          isCorrect: ans.isCorrect,
         })),
-      },
+      })),
     };
 
-    return NextResponse.json(transformedAssignment);
+    return NextResponse.json(formattedAssignment);
   } catch (error) {
-    console.error("[ASSIGNMENT_GET]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    console.error('Error fetching assignment:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 

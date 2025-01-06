@@ -65,6 +65,7 @@ export function StudentsTab({
     try {
       const response = await fetch(`/api/schools/${schoolId}/students/${studentId}`, {
         method: "DELETE",
+        credentials: "include",
       });
 
       if (!response.ok) {

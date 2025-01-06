@@ -42,6 +42,7 @@ export async function GET() {
           take: 1,
         },
         attachments: true,
+        questions: true, // Include questions
       },
       orderBy: {
         dueDate: 'asc',
@@ -63,6 +64,11 @@ export async function GET() {
         : 'pending',
       grade: assignment.submissions[0]?.grade,
       attachments: assignment.attachments.map(att => att.url),
+      questions: assignment.questions.map(q => ({
+        id: q.id,
+        question: q.question,
+        options: q.options
+      })),
       submission: assignment.submissions[0]
         ? {
             content: assignment.submissions[0].content || '',

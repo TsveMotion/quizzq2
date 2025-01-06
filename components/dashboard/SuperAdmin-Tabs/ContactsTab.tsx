@@ -56,7 +56,7 @@ interface Contact {
   updatedAt: string;
 }
 
-function ContactsTab() {
+function SuperAdminContactsTab() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -310,4 +310,5 @@ function ContactsTab() {
   );
 }
 
-export default ContactsTab;
+export { SuperAdminContactsTab as ContactsTab };
+export default SuperAdminContactsTab;
