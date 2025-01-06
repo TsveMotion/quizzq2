@@ -121,6 +121,8 @@ export default function TeacherAssignmentsTab() {
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<string[]>([]);
   const [topic, setTopic] = useState("");
   const [difficulty, setDifficulty] = useState("");
+  const [ageGroup, setAgeGroup] = useState<string>("");
+  const [gradeLevel, setGradeLevel] = useState<string>("");
   const [numberOfQuestions, setNumberOfQuestions] = useState(1);
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -169,9 +171,19 @@ export default function TeacherAssignmentsTab() {
           questionTypes: selectedQuestionTypes,
           difficulty,
           numberOfQuestions,
+          ageGroup,
+          gradeLevel,
           model: "gpt-3.5-turbo",
           temperature: 0.7,
-          max_tokens: 1000,
+          max_tokens: 1500,
+          systemPrompt: `You are an expert ${ageGroup === 'ks3' ? 'Key Stage 3' : 'GCSE'} teacher. Create questions that are appropriate for ${ageGroup === 'ks3' ? 'Key Stage 3' : 'GCSE'} students targeting grade ${gradeLevel}. The questions should:
+1. Follow the UK National Curriculum standards
+2. Use appropriate language and complexity for the age group
+3. Include proper mark schemes and grade boundaries
+4. For KS4, align with GCSE examination style questions
+5. Incorporate real-world applications where possible
+6. Include proper mathematical notation and diagrams where needed
+Topic: ${topic}`
         }),
       });
 
@@ -183,16 +195,21 @@ export default function TeacherAssignmentsTab() {
       setGeneratedAssignment(data);
     } catch (error) {
       console.error('Error generating assignment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate assignment. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleCreateAssignment = async () => {
-    if (!selectedClass || generatedAssignment.questions.length === 0 || !dueDate) {
+    if (!selectedClass || generatedAssignment.questions.length === 0 || !dueDate || !ageGroup || !gradeLevel) {
       toast({
         title: "Error",
-        description: "Please select a class, generate questions, and set a due date.",
+        description: "Please select a class, generate questions, set a due date, select an age group, and select a grade level.",
         variant: "destructive",
       });
       return;
@@ -273,6 +290,8 @@ export default function TeacherAssignmentsTab() {
     setSelectedQuestionTypes([]);
     setTopic("");
     setDifficulty("");
+    setAgeGroup("");
+    setGradeLevel("");
     setNumberOfQuestions(1);
     setDueDate(undefined);
   };
@@ -428,21 +447,24 @@ export default function TeacherAssignmentsTab() {
       </ScrollArea>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Create AI-Powered Assignment</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden bg-background">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <Wand2 className="h-6 w-6 text-primary" />
+              Create AI-Powered Assignment
+            </DialogTitle>
+            <DialogDescription className="text-base">
               Let AI help you create engaging assignments for your students.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto">
-            <div className="grid gap-6 py-4">
+          <div className="flex-1 overflow-y-auto px-6">
+            <div className="grid gap-6 py-6">
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="class">Class</Label>
+                  <Label htmlFor="class" className="text-sm font-semibold">Class</Label>
                   <Select value={selectedClass} onValueChange={setSelectedClass}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10">
                       <SelectValue placeholder="Select a class" />
                     </SelectTrigger>
                     <SelectContent>
@@ -456,19 +478,21 @@ export default function TeacherAssignmentsTab() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="dueDate">Due Date</Label>
+                  <Label htmlFor="dueDate" className="text-sm font-semibold">Due Date</Label>
                   <Input
                     type="datetime-local"
                     id="dueDate"
+                    className="h-10"
                     value={dueDate ? dueDate.toISOString().slice(0, 16) : ''}
                     onChange={(e) => setDueDate(e.target.value ? new Date(e.target.value) : undefined)}
                   />
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="topic">Topic</Label>
+                  <Label htmlFor="topic" className="text-sm font-semibold">Topic</Label>
                   <Input
                     id="topic"
+                    className="h-10"
                     placeholder="e.g., World War II, Photosynthesis, Quadratic Equations"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
@@ -476,7 +500,50 @@ export default function TeacherAssignmentsTab() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label>Question Types</Label>
+                  <Label htmlFor="ageGroup" className="text-sm font-semibold">Age Group</Label>
+                  <Select value={ageGroup} onValueChange={setAgeGroup}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select age group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ks3">Key Stage 3 (11-14)</SelectItem>
+                      <SelectItem value="ks4">Key Stage 4 (14-16)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="gradeLevel" className="text-sm font-semibold">Target Grade Level</Label>
+                  <Select value={gradeLevel} onValueChange={setGradeLevel}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select target grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ageGroup === 'ks3' ? (
+                        <>
+                          <SelectItem value="developing">Developing (1-3)</SelectItem>
+                          <SelectItem value="secure">Secure (4-6)</SelectItem>
+                          <SelectItem value="extending">Extending (7-9)</SelectItem>
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem value="9">Grade 9</SelectItem>
+                          <SelectItem value="8">Grade 8</SelectItem>
+                          <SelectItem value="7">Grade 7</SelectItem>
+                          <SelectItem value="6">Grade 6</SelectItem>
+                          <SelectItem value="5">Grade 5</SelectItem>
+                          <SelectItem value="4">Grade 4</SelectItem>
+                          <SelectItem value="3">Grade 3</SelectItem>
+                          <SelectItem value="2">Grade 2</SelectItem>
+                          <SelectItem value="1">Grade 1</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-sm font-semibold">Question Types</Label>
                   <div className="flex flex-wrap gap-2">
                     {['multiple-choice', 'match-up', 'essay', 'short-answer'].map((type) => (
                       <Button
@@ -490,7 +557,10 @@ export default function TeacherAssignmentsTab() {
                               : [...prev, type]
                           );
                         }}
-                        className="capitalize"
+                        className={cn(
+                          "capitalize transition-all",
+                          selectedQuestionTypes.includes(type) && "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                        )}
                       >
                         {type.replace('-', ' ')}
                       </Button>
@@ -500,9 +570,9 @@ export default function TeacherAssignmentsTab() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="difficulty">Difficulty</Label>
+                    <Label htmlFor="difficulty" className="text-sm font-semibold">Difficulty</Label>
                     <Select value={difficulty} onValueChange={setDifficulty}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue placeholder="Select difficulty" />
                       </SelectTrigger>
                       <SelectContent>
@@ -514,12 +584,13 @@ export default function TeacherAssignmentsTab() {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="numberOfQuestions">Number of Questions</Label>
+                    <Label htmlFor="numberOfQuestions" className="text-sm font-semibold">Number of Questions</Label>
                     <Input
                       id="numberOfQuestions"
                       type="number"
                       min="1"
                       max="10"
+                      className="h-10"
                       value={numberOfQuestions}
                       onChange={(e) => setNumberOfQuestions(Number(e.target.value))}
                     />
@@ -528,93 +599,101 @@ export default function TeacherAssignmentsTab() {
 
                 <Button
                   onClick={handleGenerateAssignment}
-                  disabled={isGenerating || !topic || selectedQuestionTypes.length === 0}
-                  className="w-full"
-                  variant="secondary"
+                  disabled={isGenerating || !topic || selectedQuestionTypes.length === 0 || !ageGroup || !gradeLevel}
+                  className="w-full h-12 mt-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                  variant="default"
                 >
                   {isGenerating ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                       Generating Assignment...
                     </>
                   ) : (
                     <>
-                      <Wand2 className="mr-2 h-4 w-4" />
+                      <Wand2 className="mr-2 h-5 w-5" />
                       Generate Assignment
                     </>
                   )}
                 </Button>
 
                 {generatedAssignment.questions.length > 0 && (
-                  <div className="border rounded-lg p-4 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">{generatedAssignment.title}</h3>
-                      <p className="text-sm text-muted-foreground">Total Points: {generatedAssignment.questions.reduce((sum, q) => sum + q.points, 0)}</p>
+                  <div className="border rounded-xl p-6 space-y-6 bg-card">
+                    <div className="flex justify-between items-center pb-4 border-b">
+                      <div>
+                        <h3 className="text-xl font-semibold">{generatedAssignment.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">{generatedAssignment.description}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-sm px-3 py-1">
+                          {generatedAssignment.questions.length} Questions
+                        </Badge>
+                        <Badge variant="secondary" className="text-sm px-3 py-1">
+                          {generatedAssignment.questions.reduce((sum, q) => sum + q.points, 0)} Points
+                        </Badge>
+                      </div>
                     </div>
-                    
-                    <p className="text-sm text-muted-foreground">{generatedAssignment.description}</p>
 
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {generatedAssignment.questions.map((question, index) => (
-                        <Card key={index}>
-                          <CardHeader>
+                        <Card key={index} className="border-none shadow-none bg-accent/30">
+                          <CardHeader className="pb-3">
                             <CardTitle className="text-base flex items-center justify-between">
-                              <span>Question {index + 1} ({question.points} points)</span>
-                              <Badge>{question.type.replace('-', ' ')}</Badge>
+                              <span className="flex items-center gap-2">
+                                Question {index + 1}
+                                <Badge variant="outline" className="ml-2">
+                                  {question.points} points
+                                </Badge>
+                              </span>
+                              <Badge className="capitalize bg-primary/10 text-primary hover:bg-primary/20">
+                                {question.type.replace('-', ' ')}
+                              </Badge>
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
-                            <div className="space-y-2">
-                              <p>{question.prompt}</p>
-                              
-                              {question.type === 'multiple-choice' && (
-                                <div className="grid gap-2">
-                                  {question.options?.map((option, i) => (
-                                    <div
-                                      key={i}
-                                      className={cn(
-                                        "p-2 rounded-lg border",
-                                        option === question.correctAnswer && "border-green-500 bg-green-50"
-                                      )}
-                                    >
-                                      {option}
+                          <CardContent className="space-y-4">
+                            <p className="text-sm font-medium">{question.prompt}</p>
+                            
+                            {question.type === 'multiple-choice' && (
+                              <div className="grid gap-2">
+                                {question.options?.map((option, i) => (
+                                  <div
+                                    key={i}
+                                    className={cn(
+                                      "p-3 rounded-lg border text-sm transition-colors",
+                                      option === question.correctAnswer
+                                        ? "border-green-500/50 bg-green-50/50 text-green-900"
+                                        : "hover:bg-accent"
+                                    )}
+                                  >
+                                    {option}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {question.type === 'match-up' && (
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  {question.options?.map((item, i) => (
+                                    <div key={i} className="p-3 rounded-lg border text-sm hover:bg-accent">
+                                      {item}
                                     </div>
                                   ))}
                                 </div>
-                              )}
-
-                              {question.type === 'match-up' && (
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    {question.options?.map((item, i) => (
-                                      <div key={i} className="p-2 rounded-lg border">
-                                        {item}
-                                      </div>
-                                    ))}
-                                  </div>
-                                  <div className="space-y-2">
-                                    {(question.correctAnswer as string[])?.map((answer, i) => (
-                                      <div key={i} className="p-2 rounded-lg border border-green-500 bg-green-50">
-                                        {answer}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {question.type === 'essay' && (
                                 <div className="space-y-2">
-                                  <p className="text-sm text-muted-foreground">Rubric:</p>
-                                  <p className="text-sm">{question.rubric}</p>
+                                  {(question.correctAnswer as string[])?.map((answer, i) => (
+                                    <div key={i} className="p-3 rounded-lg border border-green-500/50 bg-green-50/50 text-green-900 text-sm">
+                                      {answer}
+                                    </div>
+                                  ))}
                                 </div>
-                              )}
+                              </div>
+                            )}
 
-                              {question.type === 'short-answer' && (
-                                <div className="p-2 rounded-lg border border-green-500 bg-green-50">
-                                  <p className="text-sm">Sample Answer: {question.correctAnswer}</p>
-                                </div>
-                              )}
-                            </div>
+                            {(question.type === 'essay' || question.type === 'short-answer') && (
+                              <div className="p-3 rounded-lg border border-green-500/50 bg-green-50/50 text-green-900 text-sm">
+                                Sample Answer: {question.correctAnswer}
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       ))}
@@ -625,20 +704,16 @@ export default function TeacherAssignmentsTab() {
             </div>
           </div>
 
-          <div className="flex justify-between items-center pt-4 mt-4 border-t">
-            <Button variant="outline" onClick={() => {
-              setIsCreateOpen(false);
-              resetForm();
-            }}>
-              Cancel
-            </Button>
+          <DialogFooter className="px-6 py-4 border-t bg-muted/30">
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
             <Button
               onClick={handleCreateAssignment}
-              disabled={!selectedClass || generatedAssignment.questions.length === 0 || !dueDate}
+              disabled={!selectedClass || generatedAssignment.questions.length === 0 || !dueDate || !ageGroup || !gradeLevel}
+              className="gap-2"
             >
               Create Assignment
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
