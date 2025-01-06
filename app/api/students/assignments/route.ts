@@ -52,7 +52,7 @@ export async function GET() {
     const formattedAssignments = assignments.map((assignment) => ({
       id: assignment.id,
       title: assignment.title,
-      description: assignment.description,
+      description: assignment.description || '', // Ensure description is never undefined
       dueDate: assignment.dueDate.toISOString(),
       className: assignment.class.name,
       teacherName: assignment.class.teacher.name,
@@ -65,8 +65,8 @@ export async function GET() {
       attachments: assignment.attachments.map(att => att.url),
       submission: assignment.submissions[0]
         ? {
-            content: assignment.submissions[0].content,
-            files: assignment.submissions[0].files || [],
+            content: assignment.submissions[0].content || '',
+            files: assignment.submissions[0].files ? JSON.parse(assignment.submissions[0].files) : [],
             submittedAt: assignment.submissions[0].submittedAt.toISOString(),
             feedback: assignment.submissions[0].feedback,
           }

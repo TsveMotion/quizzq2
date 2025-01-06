@@ -89,7 +89,7 @@ model ClassTeacher {
 model Assignment {
   id          String       @id @default(cuid())
   title       String
-  description String       // Assignment description
+  description String?      // Assignment description (optional)
   content     String       @default("") // Original AI response if needed
   dueDate     DateTime
   classId     String

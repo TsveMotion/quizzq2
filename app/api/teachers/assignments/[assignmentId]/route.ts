@@ -82,3 +82,43 @@ export async function GET(
     return new NextResponse("Internal error", { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { assignmentId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || session.user.role !== 'TEACHER') {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const teacherId = session.user.id;
+    const assignmentId = params.assignmentId;
+
+    // First verify the teacher owns this assignment
+    const assignment = await prisma.assignment.findUnique({
+      where: {
+        id: assignmentId,
+        teacherId: teacherId,
+      },
+    });
+
+    if (!assignment) {
+      return new NextResponse("Assignment not found", { status: 404 });
+    }
+
+    // Delete the assignment and all related data (submissions, attachments)
+    await prisma.assignment.delete({
+      where: {
+        id: assignmentId,
+      },
+    });
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    console.error("[ASSIGNMENT_DELETE]", error);
+    return new NextResponse("Internal error", { status: 500 });
+  }
+}

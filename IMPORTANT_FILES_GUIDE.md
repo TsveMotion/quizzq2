@@ -46,6 +46,27 @@ This document outlines the key files and directories in the QUIZZQ project. Use 
   - POST: Create new assignment
   - PUT: Update assignment
   - DELETE: Delete assignment
+- `/app/api/teachers/assignments/route.ts` - Teacher assignments
+  - GET: List all assignments for teacher
+  - POST: Create new assignment
+- `/app/api/teachers/assignments/[assignmentId]/route.ts` - Individual assignment management
+  - GET: Get assignment details with submissions
+  - PUT: Update assignment
+  - DELETE: Delete assignment
+- `/app/api/teachers/assignments/generate/route.ts` - AI assignment generation
+  - POST: Generate assignment content
+
+### Student Routes
+- `/app/api/students/classes/route.ts` - Student's classes
+  - GET: List all classes for logged-in student
+- `/app/api/students/classes/[classId]/assignments/route.ts` - Class assignments
+  - GET: List class assignments
+- `/app/api/students/assignments/route.ts` - Student assignments
+  - GET: List all assignments for student
+- `/app/api/students/assignments/[assignmentId]/route.ts` - Student assignment details
+  - GET: Get assignment details
+  - POST: Submit assignment
+  - PUT: Update submission
 
 ### School Routes
 - `/app/api/schools/[schoolId]/settings/route.ts` - School settings

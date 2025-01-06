@@ -31,6 +31,7 @@ interface AssignmentDetails {
   id: string;
   title: string;
   content: string;
+  description: string;
   dueDate: string;
   class: {
     name: string;
@@ -42,15 +43,13 @@ interface AssignmentDetails {
 }
 
 interface ViewAssignmentModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   assignmentId: string;
+  onClose: () => void;
 }
 
 export function ViewAssignmentModal({
-  isOpen,
-  onClose,
   assignmentId,
+  onClose,
 }: ViewAssignmentModalProps) {
   const [loading, setLoading] = useState(true);
   const [assignment, setAssignment] = useState<AssignmentDetails | null>(null);
@@ -72,20 +71,16 @@ export function ViewAssignmentModal({
       }
     };
 
-    if (isOpen) {
-      fetchAssignmentDetails();
-    }
-  }, [isOpen, assignmentId]);
-
-  if (!isOpen) return null;
+    fetchAssignmentDetails();
+  }, [assignmentId]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{assignment?.title || 'Assignment Details'}</DialogTitle>
           <DialogDescription>
-            {assignment?.class.name} • Due {assignment?.dueDate ? format(new Date(assignment.dueDate), 'MMM d, yyyy') : ''}
+            {assignment?.class.name} • Due {assignment?.dueDate ? format(new Date(assignment.dueDate), 'PPP') : ''}
           </DialogDescription>
         </DialogHeader>
 
@@ -96,9 +91,20 @@ export function ViewAssignmentModal({
         ) : (
           <ScrollArea className="flex-1">
             <div className="space-y-6 p-4">
+              {/* Assignment Description */}
+              <Card>
+                <CardContent className="pt-6">
+                  <h3 className="font-semibold mb-2">Description</h3>
+                  <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+                    {assignment?.description}
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Assignment Content */}
               <Card>
                 <CardContent className="pt-6">
+                  <h3 className="font-semibold mb-2">Content</h3>
                   <div className="prose prose-sm max-w-none whitespace-pre-wrap">
                     {assignment?.content}
                   </div>
@@ -117,7 +123,7 @@ export function ViewAssignmentModal({
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">
-                      Due {assignment?.dueDate ? format(new Date(assignment.dueDate), 'MMM d, yyyy') : ''}
+                      Due {assignment?.dueDate ? format(new Date(assignment.dueDate), 'PPP') : ''}
                     </span>
                   </div>
                 </div>
@@ -141,7 +147,7 @@ export function ViewAssignmentModal({
                         {student.submission ? (
                           <>
                             <span className="text-sm text-muted-foreground">
-                              Submitted {format(new Date(student.submission.createdAt), 'MMM d, yyyy')}
+                              Submitted {format(new Date(student.submission.createdAt), 'PPP')}
                             </span>
                             <Button variant="outline" size="sm">View</Button>
                           </>
