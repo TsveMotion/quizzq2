@@ -89,16 +89,32 @@ model ClassTeacher {
 model Assignment {
   id          String       @id @default(cuid())
   title       String
+  description String       // Assignment description
   content     String       @default("") // Original AI response if needed
   dueDate     DateTime
   classId     String
   teacherId   String
+  weight      Int         @default(100)  // Assignment weight for grade calculation
   class       Class        @relation("ClassAssignments", fields: [classId], references: [id])
   teacher     User         @relation("TeacherAssignments", fields: [teacherId], references: [id])
   submissions HomeworkSubmission[]
   questions   QuizQuestion[]
+  attachments AssignmentAttachment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+model AssignmentAttachment {
+  id           String     @id @default(cuid())
+  fileName     String
+  fileType     String
+  url          String
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([assignmentId])
 }
 
 model QuizQuestion {
@@ -134,11 +150,13 @@ model HomeworkSubmission {
   content     String?     // Optional general comments
   grade       Int?        // Optional grade (0-100)
   feedback    String?     // Teacher's feedback
+  files       String?     // JSON array of file URLs
   studentId   String
   student     User        @relation("StudentSubmissions", fields: [studentId], references: [id])
   assignmentId String
   assignment  Assignment  @relation(fields: [assignmentId], references: [id])
   answers     QuestionSubmission[]
+  submittedAt DateTime    @default(now())
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
