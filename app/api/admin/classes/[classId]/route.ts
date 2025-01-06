@@ -67,8 +67,8 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: NextRequest,
-  context: { params: { classId: string } }
+  req: NextRequest,
+  { params }: { params: { classId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -78,7 +78,7 @@ export async function DELETE(
 
     // Check if class exists
     const classExists = await prisma.class.findUnique({
-      where: { id: context.params.classId },
+      where: { id: params.classId },
     });
 
     if (!classExists) {
@@ -87,7 +87,7 @@ export async function DELETE(
 
     // Delete the class
     await prisma.class.delete({
-      where: { id: context.params.classId },
+      where: { id: params.classId },
     });
 
     return NextResponse.json({ message: 'Class deleted successfully' });
