@@ -1,7 +1,8 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, FileText, Users, Shield } from "lucide-react";
+import { BookOpen, FileText, Users, Shield, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface FeatureCard {
   title: string;
@@ -46,6 +47,15 @@ export default function DocsPage() {
           Everything you need to know about QUIZZQ
         </p>
       </div>
+
+      <Alert variant="warning" className="bg-yellow-50 dark:bg-yellow-900/10">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Beta Testing</AlertTitle>
+        <AlertDescription>
+          QUIZZQ is currently in Beta Testing and Development. Some features may be incomplete or not functioning as expected.
+          We appreciate your patience and feedback as we continue to improve the platform.
+        </AlertDescription>
+      </Alert>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {features.map((feature) => (
