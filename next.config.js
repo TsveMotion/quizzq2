@@ -7,13 +7,15 @@ const nextConfig = {
         hostname: '**',
       },
     ],
-    unoptimized: true, // Disable image optimization if having issues
+    unoptimized: true,
   },
   experimental: {
-    serverActions: true,
+    serverActions: {
+      bodySizeLimit: '2mb'
+    }
   },
-  reactStrictMode: true,
-  swcMinify: true,
+  serverExternalPackages: ['@prisma/client', 'bcrypt'],
+  reactStrictMode: true
 }
 
 module.exports = nextConfig
