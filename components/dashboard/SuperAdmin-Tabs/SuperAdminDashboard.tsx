@@ -1,182 +1,156 @@
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { useToast } from "@/components/ui/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { SuperAdminOverviewTab } from "./OverviewTab";
 import { SuperAdminUsersTab } from "./UsersTab";
 import { SuperAdminSchoolsTab } from "./SchoolsTab";
+import ContactsTab from "./ContactsTab";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, School } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  Users, 
+  School, 
+  MessageSquare,
+  LogOut,
+  Settings,
+  HelpCircle
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { signOut } from "next-auth/react";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  schoolId: string | null;
-  school: { name: string } | null;
-  createdAt: Date;
-  status?: 'ACTIVE' | 'INACTIVE';
-  powerLevel?: number;
+interface NavItem {
+  title: string;
+  value: string;
+  icon: any;
+  disabled?: boolean;
 }
 
-interface School {
-  id: string;
-  name: string;
-  description?: string;
-  roleNumber?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-  _count?: {
-    users: number;
-  };
-  users?: {
-    id: string;
-    name: string;
-    role: string;
-  }[];
-}
+const mainNavItems: NavItem[] = [
+  {
+    title: "Overview",
+    value: "overview",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Users",
+    value: "users",
+    icon: Users,
+  },
+  {
+    title: "Schools",
+    value: "schools",
+    icon: School,
+  },
+  {
+    title: "Contact Messages",
+    value: "contacts",
+    icon: MessageSquare,
+  },
+];
+
+const bottomNavItems: NavItem[] = [
+  {
+    title: "Settings",
+    value: "settings",
+    icon: Settings,
+    disabled: true,
+  },
+  {
+    title: "Help",
+    value: "help",
+    icon: HelpCircle,
+    disabled: true,
+  },
+];
 
 export default function SuperAdminDashboard() {
-  const { toast } = useToast();
-  const [users, setUsers] = useState<User[]>([]);
-  const [schools, setSchools] = useState<School[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      const response = await fetch('/api/admin/users');
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
-      const data = await response.json();
-      setUsers(data);
-      return data;
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch users",
-        variant: "destructive",
-      });
-      return [];
-    }
-  }, [toast]);
-
-  const fetchSchools = useCallback(async () => {
-    try {
-      const response = await fetch('/api/admin/schools');
-      if (!response.ok) {
-        throw new Error('Failed to fetch schools');
-      }
-      const data = await response.json();
-      setSchools(data);
-      return data;
-    } catch (error) {
-      console.error('Error fetching schools:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch schools",
-        variant: "destructive",
-      });
-      return [];
-    }
-  }, [toast]);
-
-  const handleDataChange = useCallback(() => {
-    setIsLoading(true);
-    Promise.all([fetchUsers(), fetchSchools()]).finally(() => {
-      setIsLoading(false);
-    });
-  }, [fetchUsers, fetchSchools]);
-
-  useEffect(() => {
-    handleDataChange();
-  }, [handleDataChange]);
-
-  const navItems = [
-    {
-      title: "Overview",
-      value: "overview",
-      icon: LayoutDashboard,
-    },
-    {
-      title: "Users",
-      value: "users",
-      icon: Users,
-    },
-    {
-      title: "Schools",
-      value: "schools",
-      icon: School,
-    },
-  ];
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: "/" });
+  };
 
   return (
     <div className="flex h-screen">
-      <div className="w-64 border-r bg-background">
-        <div className="flex h-16 items-center border-b px-6">
-          <h2 className="text-lg font-semibold">Super Admin</h2>
+      {/* Sidebar */}
+      <div className="w-64 bg-background border-r flex flex-col">
+        <div className="p-6 border-b">
+          <h1 className="text-lg font-semibold">QUIZZQ Admin</h1>
+          <p className="text-sm text-muted-foreground">Super Administrator</p>
         </div>
-        <div className="space-y-1 p-4">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
+        
+        <div className="flex-1 flex flex-col justify-between py-4">
+          {/* Main Navigation */}
+          <nav className="px-4 space-y-2">
+            {mainNavItems.map((item) => (
+              <Button
+                key={item.value}
+                variant={activeTab === item.value ? "secondary" : "ghost"}
+                className={cn(
+                  "w-full justify-start gap-2",
+                  activeTab === item.value && "bg-secondary"
+                )}
+                onClick={() => setActiveTab(item.value)}
+                disabled={item.disabled}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.title}
+              </Button>
+            ))}
+          </nav>
+
+          {/* Bottom Navigation */}
+          <div className="px-4 space-y-2">
+            {bottomNavItems.map((item) => (
               <Button
                 key={item.value}
                 variant="ghost"
-                className={cn(
-                  "w-full justify-start gap-2 px-2",
-                  activeTab === item.value && "bg-muted"
-                )}
-                onClick={() => setActiveTab(item.value)}
+                className="w-full justify-start gap-2"
+                disabled={item.disabled}
               >
-                <Icon className="h-4 w-4" />
+                <item.icon className="h-4 w-4" />
                 {item.title}
               </Button>
-            );
-          })}
+            ))}
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </div>
-      <div className="flex-1">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-          <TabsContent value="overview" className="m-0 h-full">
-            <div className="h-full p-8">
-              <SuperAdminOverviewTab 
-                users={users}
-                schools={schools}
-                isLoading={isLoading}
-              />
-            </div>
-          </TabsContent>
-          <TabsContent value="users" className="m-0 h-full">
-            <div className="h-full p-8">
-              <SuperAdminUsersTab 
-                users={users}
-                schools={schools}
-                isLoading={isLoading}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                onUsersChange={handleDataChange}
-              />
-            </div>
-          </TabsContent>
-          <TabsContent value="schools" className="m-0 h-full">
-            <div className="h-full p-8">
-              <SuperAdminSchoolsTab 
-                schools={schools}
-                isLoading={isLoading}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                onSchoolCreated={handleDataChange}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="h-full px-8 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">{mainNavItems.find(item => item.value === activeTab)?.title}</h2>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-auto">
+          <div className="container mx-auto p-8">
+            <Tabs value={activeTab} className="h-full space-y-6">
+              <TabsContent value="overview" className="m-0">
+                <SuperAdminOverviewTab />
+              </TabsContent>
+              <TabsContent value="users" className="m-0">
+                <SuperAdminUsersTab />
+              </TabsContent>
+              <TabsContent value="schools" className="m-0">
+                <SuperAdminSchoolsTab />
+              </TabsContent>
+              <TabsContent value="contacts" className="m-0">
+                <ContactsTab />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </main>
       </div>
     </div>
   );
