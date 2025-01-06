@@ -77,7 +77,7 @@ export async function GET() {
       questions: assignment.questions.map(q => ({
         id: q.id,
         question: q.question,
-        options: JSON.parse(q.options),
+        options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
         explanation: q.explanation,
       })),
       submission: assignment.submissions[0]

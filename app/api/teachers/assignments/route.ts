@@ -20,6 +20,7 @@ export async function GET(request: Request) {
       include: {
         class: {
           select: {
+            id: true,
             name: true,
           },
         },

@@ -1,30 +1,45 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Text, Badge, Group, Stack, Modal, Textarea, FileInput } from '@mantine/core';
 import { useSession } from 'next-auth/react';
-import { notifications } from '@mantine/notifications';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { AssignmentDialog } from './AssignmentDialog';
 import { formatDistanceToNow } from 'date-fns';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Assignment {
   id: string;
   title: string;
   description: string;
-  dueDate: Date;
-  submissions: any[];
+  dueDate: string;
+  className: string;
+  status: 'pending' | 'submitted' | 'graded';
+  grade?: number;
+  attachments?: {
+    id: string;
+    fileName: string;
+    url: string;
+  }[];
   questions: {
     id: string;
     question: string;
     options: string;
   }[];
+  submission?: {
+    content: string;
+    files: string[];
+    submittedAt: string;
+    feedback?: string;
+    answers?: { [key: string]: number };
+  };
 }
 
 export function AssignmentsTab() {
   const { data: session } = useSession();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
-  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
-  const [answers, setAnswers] = useState<{[key: string]: number}>({});
-  const [comment, setComment] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchAssignments();
@@ -36,154 +51,60 @@ export function AssignmentsTab() {
       const data = await response.json();
       setAssignments(data);
     } catch (error) {
-      notifications.show({
+      toast({
         title: 'Error',
-        message: 'Failed to fetch assignments',
-        color: 'red'
+        description: 'Failed to fetch assignments',
+        variant: 'destructive',
       });
     }
-  };
-
-  const handleSubmit = async () => {
-    try {
-      const formData = new FormData();
-      formData.append('assignmentId', selectedAssignment!.id);
-      formData.append('answers', JSON.stringify(answers));
-      formData.append('comment', comment);
-      files.forEach(file => formData.append('files', file));
-
-      const response = await fetch('/api/students/assignments/submit', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (response.ok) {
-        notifications.show({
-          title: 'Success',
-          message: 'Assignment submitted successfully',
-          color: 'green'
-        });
-        setIsSubmitModalOpen(false);
-        fetchAssignments();
-      } else {
-        throw new Error('Failed to submit assignment');
-      }
-    } catch (error) {
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to submit assignment',
-        color: 'red'
-      });
-    }
-  };
-
-  const getSubmissionStatus = (assignment: Assignment) => {
-    const submission = assignment.submissions.find(
-      sub => sub.studentId === session?.user?.id
-    );
-    return submission?.status || 'Not submitted';
-  };
-
-  const getSubmissionGrade = (assignment: Assignment) => {
-    const submission = assignment.submissions.find(
-      sub => sub.studentId === session?.user?.id
-    );
-    return submission?.grade;
   };
 
   return (
-    <Stack spacing="md">
+    <div className="space-y-4">
       {assignments.map((assignment) => (
-        <Card key={assignment.id} shadow="sm" p="lg">
-          <Group position="apart" mb="xs">
-            <Text weight={500}>{assignment.title}</Text>
-            <Badge color={getSubmissionStatus(assignment) === 'Not submitted' ? 'red' : 'green'}>
-              {getSubmissionStatus(assignment)}
-            </Badge>
-          </Group>
-          
-          <Text size="sm" color="dimmed" mb="md">
-            Due {formatDistanceToNow(new Date(assignment.dueDate), { addSuffix: true })}
-          </Text>
-          
-          <Text size="sm" mb="md">
-            {assignment.description}
-          </Text>
-
-          {getSubmissionStatus(assignment) === 'graded' && (
-            <Text size="sm" weight={500} color="blue" mb="md">
-              Grade: {getSubmissionGrade(assignment)}/100
-            </Text>
-          )}
-
-          <Button
-            variant="light"
-            color="blue"
-            fullWidth
-            mt="md"
-            radius="md"
-            disabled={getSubmissionStatus(assignment) === 'graded'}
-            onClick={() => {
-              setSelectedAssignment(assignment);
-              setIsSubmitModalOpen(true);
-            }}
-          >
-            {getSubmissionStatus(assignment) === 'Not submitted' ? 'Submit Assignment' : 'View Submission'}
-          </Button>
+        <Card key={assignment.id}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>{assignment.title}</CardTitle>
+              <Badge variant={assignment.status === 'pending' ? 'destructive' : 'default'}>
+                {assignment.status === 'pending' ? 'Not Submitted' : 
+                 assignment.status === 'submitted' ? 'Submitted' : 
+                 `Graded: ${assignment.grade}%`}
+              </Badge>
+            </div>
+            <CardDescription>
+              Due {formatDistanceToNow(new Date(assignment.dueDate), { addSuffix: true })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              {assignment.description}
+            </p>
+            <Button 
+              onClick={() => {
+                setSelectedAssignment(assignment);
+                setIsDialogOpen(true);
+              }}
+              variant="outline"
+              className="w-full"
+            >
+              {assignment.status === 'pending' ? 'Submit Assignment' : 'View Submission'}
+            </Button>
+          </CardContent>
         </Card>
       ))}
 
-      <Modal
-        opened={isSubmitModalOpen}
-        onClose={() => setIsSubmitModalOpen(false)}
-        title="Submit Assignment"
-        size="lg"
-      >
-        {selectedAssignment && (
-          <Stack spacing="md">
-            <Text weight={500} size="lg">{selectedAssignment.title}</Text>
-            
-            {selectedAssignment.questions.map((question, index) => {
-              const options = JSON.parse(question.options);
-              return (
-                <Card key={question.id} shadow="sm" p="md">
-                  <Text weight={500} mb="xs">Question {index + 1}: {question.question}</Text>
-                  <Stack spacing="xs">
-                    {options.map((option: string, optionIndex: number) => (
-                      <Button
-                        key={optionIndex}
-                        variant={answers[question.id] === optionIndex ? "filled" : "light"}
-                        onClick={() => setAnswers({...answers, [question.id]: optionIndex})}
-                        fullWidth
-                      >
-                        {option}
-                      </Button>
-                    ))}
-                  </Stack>
-                </Card>
-              );
-            })}
-
-            <Textarea
-              label="Additional Comments"
-              value={comment}
-              onChange={(e) => setComment(e.currentTarget.value)}
-              minRows={3}
-            />
-
-            <FileInput
-              label="Attach Files"
-              placeholder="Upload files"
-              multiple
-              onChange={setFiles}
-            />
-
-            <Button onClick={handleSubmit} fullWidth>
-              Submit Assignment
-            </Button>
-          </Stack>
-        )}
-      </Modal>
-    </Stack>
+      {selectedAssignment && (
+        <AssignmentDialog
+          assignment={selectedAssignment}
+          isOpen={isDialogOpen}
+          onClose={() => {
+            setIsDialogOpen(false);
+            setSelectedAssignment(null);
+            fetchAssignments();
+          }}
+        />
+      )}
+    </div>
   );
 }

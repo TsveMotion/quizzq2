@@ -184,10 +184,11 @@ export function AssignmentDialog({ assignment, isOpen, onClose }: AssignmentDial
           <div className="space-y-4">
             <h3 className="font-medium">Questions</h3>
             {assignment.questions?.map((question, index) => {
-              // Handle both string and array formats for options
-              const options = typeof question.options === 'string' 
-                ? (question.options.startsWith('[') ? JSON.parse(question.options) : question.options.split(','))
-                : question.options;
+              const options = Array.isArray(question.options) 
+                ? question.options 
+                : typeof question.options === 'string'
+                  ? JSON.parse(question.options)
+                  : [];
                 
               const isAnswered = answers[question.id] !== undefined;
               return (
@@ -207,23 +208,25 @@ export function AssignmentDialog({ assignment, isOpen, onClose }: AssignmentDial
                       )}
                     </div>
                     <p className="text-sm font-medium">{question.question}</p>
-                    <RadioGroup
-                      value={answers[question.id]?.toString()}
-                      onValueChange={(value) => 
-                        setAnswers({...answers, [question.id]: parseInt(value)})
-                      }
-                      disabled={assignment.status !== 'pending' || isPastDue}
-                      className="space-y-2"
-                    >
-                      {options.map((option: string, optionIndex: number) => (
-                        <div key={optionIndex} className="flex items-center space-x-2">
-                          <RadioGroupItem value={optionIndex.toString()} id={`q${question.id}-${optionIndex}`} />
-                          <Label htmlFor={`q${question.id}-${optionIndex}`} className="text-sm">
-                            {option}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
+                    {options.length > 0 && (
+                      <RadioGroup
+                        value={answers[question.id]?.toString()}
+                        onValueChange={(value) => 
+                          setAnswers({...answers, [question.id]: parseInt(value)})
+                        }
+                        disabled={assignment.status !== 'pending' || isPastDue}
+                        className="space-y-2"
+                      >
+                        {options.map((option: string, optionIndex: number) => (
+                          <div key={optionIndex} className="flex items-center space-x-2">
+                            <RadioGroupItem value={optionIndex.toString()} id={`q${question.id}-${optionIndex}`} />
+                            <Label htmlFor={`q${question.id}-${optionIndex}`} className="text-sm">
+                              {option}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    )}
                   </div>
                 </Card>
               );
