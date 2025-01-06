@@ -8,23 +8,30 @@ const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'superadmin@quizzq.com'
 const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'admin123';
 
 async function main() {
-  // Create superadmin if not exists
-  const existingSuperadmin = await prisma.user.findFirst({
-    where: { email: SUPERADMIN_EMAIL }
+  // Create superadmin user
+  const hashedPassword = await bcryptjs.hash(SUPERADMIN_PASSWORD, 10);
+  
+  const superadmin = await prisma.user.upsert({
+    where: {
+      email: SUPERADMIN_EMAIL,
+    },
+    update: {
+      password: hashedPassword,
+      role: 'SUPERADMIN',
+      powerLevel: 100,
+      status: 'ACTIVE',
+    },
+    create: {
+      email: SUPERADMIN_EMAIL,
+      password: hashedPassword,
+      name: 'Super Admin',
+      role: 'SUPERADMIN',
+      powerLevel: 100,
+      status: 'ACTIVE',
+    },
   });
-  if (!existingSuperadmin) {
-    const hashedPassword = await bcryptjs.hash(SUPERADMIN_PASSWORD, 10);
-    await prisma.user.create({
-      data: {
-        email: SUPERADMIN_EMAIL,
-        password: hashedPassword,
-        name: "Super Admin",
-        role: "SUPERADMIN",
-        powerLevel: 5,
-        status: "ACTIVE"
-      }
-    });
-  }
+
+  console.log('Seeded superadmin user:', superadmin);
 
   // Create a school if not exists
   const existingSchool = await prisma.school.findFirst();
@@ -128,6 +135,9 @@ async function main() {
 
 Show all your work and explain your reasoning for each step.`,
       dueDate: new Date('2025-01-12'),
+      content: '',
+      weight: 100,
+      totalMarks: 100,
       class: {
         connect: {
           id: classObj?.id
@@ -137,18 +147,10 @@ Show all your work and explain your reasoning for each step.`,
         connect: {
           id: teacher?.id
         }
-      },
-      attachments: {
-        create: [
-          {
-            fileName: 'puzzle_guide.pdf',
-            fileType: 'application/pdf',
-            url: 'https://example.com/files/puzzle_guide.pdf'
-          }
-        ]
       }
     },
     update: {
+      title: 'Algebraic Puzzles Challenge',
       description: `Solve the following algebraic puzzles:
 
 1. Find the value of x: 2x + 5 = 13
@@ -156,7 +158,10 @@ Show all your work and explain your reasoning for each step.`,
 3. If a + b = 10 and a - b = 4, find a and b
 
 Show all your work and explain your reasoning for each step.`,
-      dueDate: new Date('2025-01-12')
+      dueDate: new Date('2025-01-12'),
+      content: '',
+      weight: 100,
+      totalMarks: 100
     }
   });
 

@@ -1,18 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverActions: {
-      allowedOrigins: ["*"]
-    }
+    serverExternalPackages: ['@prisma/client', 'bcrypt']
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
+  webpack: (config) => {
+    config.externals = [...config.externals, 'bcrypt'];
+    return config;
   },
 }
 
-module.exports = nextConfig
+module.exports = nextConfig;
