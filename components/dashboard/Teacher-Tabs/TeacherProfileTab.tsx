@@ -80,7 +80,8 @@ function TeacherProfileTab() {
   const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/teachers/profile');
+      if (!session?.user?.id) return;
+      const response = await fetch(`/api/teachers/profile`);
       if (!response.ok) {
         const error = await response.text();
         throw new Error(error || 'Failed to fetch profile');
@@ -106,7 +107,7 @@ function TeacherProfileTab() {
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, toast]);
 
   useEffect(() => {
     fetchProfile();

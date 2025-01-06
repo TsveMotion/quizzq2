@@ -32,7 +32,7 @@ export default function StudentGradesTab() {
       console.error('Error fetching grades:', error);
       toast.error('Failed to fetch grades');
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, toast]);
 
   useEffect(() => {
     fetchGrades();

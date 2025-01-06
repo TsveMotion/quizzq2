@@ -112,7 +112,7 @@ export function ManageClassModal({
         variant: "destructive",
       });
     }
-  }, [classData.id]);
+  }, [classData.id, toast]);
 
   useEffect(() => {
     if (isOpen) {

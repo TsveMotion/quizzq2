@@ -84,7 +84,7 @@ export function ViewStudentClassDetailsModal({
       console.error('Error fetching class details:', error);
       toast.error('Failed to fetch class details');
     }
-  }, [classId]);
+  }, [classId, toast]);
 
   useEffect(() => {
     if (open && classId) {

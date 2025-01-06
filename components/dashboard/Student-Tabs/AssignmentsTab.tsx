@@ -51,7 +51,7 @@ export function AssignmentsTab() {
       console.error('Error fetching assignments:', error);
       toast.error('Failed to fetch assignments');
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchAssignments();

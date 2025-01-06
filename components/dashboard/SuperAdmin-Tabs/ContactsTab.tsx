@@ -74,7 +74,7 @@ function SuperAdminContactsTab() {
       console.error('Error fetching contacts:', error);
       toast.error('Failed to fetch contacts');
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchContacts();

@@ -43,7 +43,7 @@ export default function StudentClassesTab() {
       console.error('Error fetching classes:', error);
       toast.error('Failed to fetch classes');
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, toast]);
 
   useEffect(() => {
     fetchClasses();
