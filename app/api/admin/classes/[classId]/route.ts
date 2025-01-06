@@ -1,28 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import prisma from '@/lib/prisma';
+
+type RouteContext = {
+  params: {
+    classId: string;
+  };
+};
 
 export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { classId: string } }
+  request: NextRequest,
+  { params }: RouteContext
 ) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const classId = params.classId;
     if (!classId) {
-      return new NextResponse('Class ID is required', { status: 400 });
+      return NextResponse.json({ error: 'Class ID is required' }, { status: 400 });
     }
 
-    const body = await req.json();
+    const body = await request.json();
     const { name, description } = body;
 
     if (!name) {
-      return new NextResponse('Name is required', { status: 400 });
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
     const updatedClass = await prisma.class.update({
@@ -62,14 +68,14 @@ export async function PATCH(
     return NextResponse.json(updatedClass);
   } catch (error) {
     console.error('[CLASS_UPDATE]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
 
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { classId: string } }
-) {
+  request: NextRequest,
+  { params }: RouteContext
+): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
