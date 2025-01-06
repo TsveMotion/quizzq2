@@ -3,15 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
 
-type RouteContext = {
-  params: {
-    classId: string;
-  };
-};
-
-export async function PATCH(
+export async function GET(
   request: NextRequest,
-  { params }: RouteContext
+  { params }: { params: { classId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -19,63 +13,58 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const classId = params.classId;
-    if (!classId) {
-      return NextResponse.json({ error: 'Class ID is required' }, { status: 400 });
-    }
-
-    const body = await request.json();
-    const { name, description } = body;
-
-    if (!name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
-    }
-
-    const updatedClass = await prisma.class.update({
-      where: { id: classId },
-      data: {
-        name,
-        description,
-      },
+    const classData = await prisma.class.findUnique({
+      where: { id: params.classId },
       include: {
-        teacher: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        classTeachers: {
-          include: {
-            teacher: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            students: true,
-            classTeachers: true,
-          },
-        },
+        students: true,
+        teacher: true,
       },
+    });
+
+    if (!classData) {
+      return NextResponse.json({ error: 'Class not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(classData);
+  } catch (error) {
+    console.error('Error fetching class:', error);
+    return NextResponse.json(
+      { error: 'Error fetching class' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { classId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const data = await request.json();
+    const updatedClass = await prisma.class.update({
+      where: { id: params.classId },
+      data,
     });
 
     return NextResponse.json(updatedClass);
   } catch (error) {
-    console.error('[CLASS_UPDATE]', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    console.error('Error updating class:', error);
+    return NextResponse.json(
+      { error: 'Error updating class' },
+      { status: 500 }
+    );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: RouteContext
-): Promise<NextResponse> {
+  { params }: { params: { classId: string } }
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
