@@ -12,13 +12,32 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Users, BookOpen, Calendar } from "lucide-react";
+import { 
+  Loader2, 
+  Users, 
+  BookOpen, 
+  Calendar,
+  GraduationCap,
+  LineChart,
+  Settings,
+  Mail,
+  Download,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle
+} from "lucide-react";
 import { format } from 'date-fns';
+import { ViewAssignmentModal } from './ViewAssignmentModal';
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 interface Student {
   id: string;
   name: string;
   email: string;
+  submissionRate?: number;
+  averageGrade?: number;
 }
 
 interface Assignment {
@@ -27,16 +46,24 @@ interface Assignment {
   dueDate: string;
   createdAt: string;
   submissionCount: number;
+  status: 'upcoming' | 'active' | 'past';
 }
 
 interface ClassDetails {
   id: string;
   name: string;
+  description?: string;
   createdAt: string;
   students: Student[];
   assignments: Assignment[];
   school: {
     name: string;
+  };
+  stats?: {
+    averageGrade: number;
+    submissionRate: number;
+    activeAssignments: number;
+    upcomingAssignments: number;
   };
 }
 
@@ -53,7 +80,8 @@ export function ViewClassDetailsModal({
 }: ViewClassDetailsModalProps) {
   const [loading, setLoading] = useState(true);
   const [classDetails, setClassDetails] = useState<ClassDetails | null>(null);
-  const [activeTab, setActiveTab] = useState("students");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchClassDetails = async () => {
@@ -77,11 +105,26 @@ export function ViewClassDetailsModal({
     }
   }, [isOpen, classId]);
 
+  const getAssignmentStatusBadge = (assignment: Assignment) => {
+    const dueDate = new Date(assignment.dueDate);
+    const now = new Date();
+    const isUpcoming = dueDate > now;
+    const isPast = dueDate < now;
+
+    if (isUpcoming) {
+      return <Badge variant="outline" className="bg-blue-50">Upcoming</Badge>;
+    } else if (isPast) {
+      return <Badge variant="outline" className="bg-gray-50">Past</Badge>;
+    } else {
+      return <Badge variant="outline" className="bg-green-50">Active</Badge>;
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{classDetails?.name || 'Class Details'}</DialogTitle>
           <DialogDescription>
@@ -95,75 +138,229 @@ export function ViewClassDetailsModal({
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden">
-            <TabsList>
-              <TabsTrigger value="students" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Students ({classDetails?.students.length || 0})
+            <TabsList className="grid grid-cols-5 gap-4 h-auto p-2">
+              <TabsTrigger value="overview" className="flex items-center gap-2 py-2">
+                <LineChart className="h-4 w-4" />
+                Overview
               </TabsTrigger>
-              <TabsTrigger value="assignments" className="flex items-center gap-2">
+              <TabsTrigger value="students" className="flex items-center gap-2 py-2">
+                <GraduationCap className="h-4 w-4" />
+                Students
+              </TabsTrigger>
+              <TabsTrigger value="assignments" className="flex items-center gap-2 py-2">
                 <BookOpen className="h-4 w-4" />
-                Assignments ({classDetails?.assignments.length || 0})
+                Assignments
+              </TabsTrigger>
+              <TabsTrigger value="communication" className="flex items-center gap-2 py-2">
+                <Mail className="h-4 w-4" />
+                Communication
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center gap-2 py-2">
+                <Settings className="h-4 w-4" />
+                Settings
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="students" className="flex-1 overflow-hidden">
-              <ScrollArea className="h-[400px] pr-4">
+            <TabsContent value="overview" className="flex-1 overflow-hidden mt-4">
+              <ScrollArea className="h-[500px] pr-4">
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm font-medium">Class Statistics</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-muted-foreground">Average Grade</span>
+                            <span className="font-medium">{classDetails?.stats?.averageGrade || 0}%</span>
+                          </div>
+                          <Progress value={classDetails?.stats?.averageGrade || 0} />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-muted-foreground">Submission Rate</span>
+                            <span className="font-medium">{classDetails?.stats?.submissionRate || 0}%</span>
+                          </div>
+                          <Progress value={classDetails?.stats?.submissionRate || 0} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm font-medium">Assignment Status</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-blue-500" />
+                            <span className="text-sm">Upcoming</span>
+                          </div>
+                          <Badge variant="outline" className="bg-blue-50">
+                            {classDetails?.stats?.upcomingAssignments || 0}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-green-500" />
+                            <span className="text-sm">Active</span>
+                          </div>
+                          <Badge variant="outline" className="bg-green-50">
+                            {classDetails?.stats?.activeAssignments || 0}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {classDetails?.assignments.slice(0, 3).map((assignment) => (
+                        <div key={assignment.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+                          <div>
+                            <p className="font-medium">{assignment.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Due {format(new Date(assignment.dueDate), 'MMM d, yyyy')}
+                            </p>
+                          </div>
+                          {getAssignmentStatusBadge(assignment)}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="students" className="flex-1 overflow-hidden mt-4">
+              <ScrollArea className="h-[500px] pr-4">
                 <div className="space-y-4">
                   {classDetails?.students.map((student) => (
                     <Card key={student.id}>
                       <CardContent className="flex items-center justify-between p-4">
-                        <div>
-                          <p className="font-medium">{student.name}</p>
-                          <p className="text-sm text-muted-foreground">{student.email}</p>
+                        <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <GraduationCap className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{student.name}</p>
+                            <p className="text-sm text-muted-foreground">{student.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Submission Rate</p>
+                            <p className="font-medium">{student.submissionRate || 0}%</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Average Grade</p>
+                            <p className="font-medium">{student.averageGrade || 0}%</p>
+                          </div>
+                          <Button variant="outline" size="sm">View Progress</Button>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
-                  {classDetails?.students.length === 0 && (
-                    <div className="text-center text-muted-foreground py-8">
-                      No students enrolled in this class yet.
-                    </div>
-                  )}
                 </div>
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="assignments" className="flex-1 overflow-hidden">
-              <ScrollArea className="h-[400px] pr-4">
+            <TabsContent value="assignments" className="flex-1 overflow-hidden mt-4">
+              <ScrollArea className="h-[500px] pr-4">
                 <div className="space-y-4">
                   {classDetails?.assignments.map((assignment) => (
                     <Card key={assignment.id}>
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{assignment.title}</p>
-                            <div className="flex items-center gap-4 mt-1">
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Calendar className="h-4 w-4" />
-                                Due {format(new Date(assignment.dueDate), 'MMM d, yyyy')}
-                              </div>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Users className="h-4 w-4" />
-                                {assignment.submissionCount} submissions
+                          <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <BookOpen className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{assignment.title}</p>
+                              <div className="flex items-center gap-4 mt-1">
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Calendar className="h-4 w-4" />
+                                  Due {format(new Date(assignment.dueDate), 'MMM d, yyyy')}
+                                </div>
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Users className="h-4 w-4" />
+                                  {assignment.submissionCount} submissions
+                                </div>
                               </div>
                             </div>
                           </div>
-                          <Button variant="outline" size="sm">
-                            View Details
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            {getAssignmentStatusBadge(assignment)}
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setSelectedAssignmentId(assignment.id)}
+                            >
+                              View Details
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
-                  {classDetails?.assignments.length === 0 && (
-                    <div className="text-center text-muted-foreground py-8">
-                      No assignments created for this class yet.
-                    </div>
-                  )}
                 </div>
               </ScrollArea>
             </TabsContent>
+
+            <TabsContent value="communication" className="flex-1 overflow-hidden mt-4">
+              <ScrollArea className="h-[500px] pr-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Class Communication</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">Communication features coming soon...</p>
+                      <div className="flex gap-2">
+                        <Button variant="outline" disabled>Send Announcement</Button>
+                        <Button variant="outline" disabled>Message Students</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="settings" className="flex-1 overflow-hidden mt-4">
+              <ScrollArea className="h-[500px] pr-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Class Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">Class settings and configuration options coming soon...</p>
+                      <div className="flex gap-2">
+                        <Button variant="outline" disabled>Edit Class Details</Button>
+                        <Button variant="outline" disabled>Manage Access</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </ScrollArea>
+            </TabsContent>
           </Tabs>
+        )}
+
+        {selectedAssignmentId && (
+          <ViewAssignmentModal
+            isOpen={!!selectedAssignmentId}
+            onClose={() => setSelectedAssignmentId(null)}
+            assignmentId={selectedAssignmentId}
+          />
         )}
       </DialogContent>
     </Dialog>

@@ -10,9 +10,7 @@ import {
   ClipboardList,
   UserCircle,
   LogOut,
-  ChevronLeft,
 } from "lucide-react";
-import Link from "next/link";
 import { signOut } from "next-auth/react";
 import TeacherClassesTab from './TeacherClassesTab';
 import TeacherOverviewTab from './TeacherOverviewTab';
@@ -36,26 +34,26 @@ export default function TeacherDashboard() {
     return null;
   }
 
-  const sidebarItems = [
+  const navItems = [
     {
-      name: "Overview",
-      icon: LayoutDashboard,
+      title: "Overview",
       value: "overview",
+      icon: LayoutDashboard,
     },
     {
-      name: "My Classes",
-      icon: BookOpen,
+      title: "My Classes",
       value: "classes",
+      icon: BookOpen,
     },
     {
-      name: "Assignments",
-      icon: ClipboardList,
+      title: "Assignments",
       value: "assignments",
+      icon: ClipboardList,
     },
     {
-      name: "Profile",
-      icon: UserCircle,
+      title: "Profile",
       value: "profile",
+      icon: UserCircle,
     },
   ];
 
@@ -75,51 +73,58 @@ export default function TeacherDashboard() {
   };
 
   return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <div className="hidden w-64 flex-col bg-gray-900 p-4 md:flex">
-        <div className="flex items-center gap-2 py-4">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="text-white">
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <span className="text-lg font-semibold text-white">Teacher Dashboard</span>
+    <div className="flex h-screen">
+      <div className="w-64 border-r bg-background">
+        <div className="flex h-16 items-center border-b px-6">
+          <h2 className="text-lg font-semibold">Teacher Dashboard</h2>
         </div>
-        <nav className="flex-1 space-y-2">
-          {sidebarItems.map((item) => {
+        <div className="space-y-1 p-4">
+          {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <Button
                 key={item.value}
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start gap-2 text-gray-300 hover:text-white",
-                  currentView === item.value && "bg-gray-800 text-white"
+                  "w-full justify-start gap-2 px-2",
+                  currentView === item.value && "bg-muted"
                 )}
                 onClick={() => setCurrentView(item.value)}
               >
-                <Icon className="h-5 w-5" />
-                {item.name}
+                <Icon className="h-4 w-4" />
+                {item.title}
               </Button>
             );
           })}
-        </nav>
-        <div className="border-t border-gray-800 pt-4">
+        </div>
+        <div className="absolute bottom-0 w-64 border-t p-4">
+          <div className="mb-2">
+            <div className="text-sm font-semibold">{session.user.name || 'Teacher'}</div>
+            <div className="text-xs text-muted-foreground">{session.user.email}</div>
+          </div>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2 text-gray-300 hover:text-white"
+            className="w-full justify-start gap-2"
             onClick={() => signOut()}
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-4 w-4" />
             Sign Out
           </Button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto bg-background p-8">
-        {renderCurrentView()}
+      <div className="flex-1 overflow-auto">
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+          <div className="flex items-center justify-between space-y-2">
+            <h2 className="text-3xl font-bold tracking-tight">
+              {session.user.name}'s Dashboard
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            {renderCurrentView()}
+          </div>
+        </div>
       </div>
     </div>
   );

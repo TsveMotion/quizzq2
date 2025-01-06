@@ -38,7 +38,7 @@ export async function GET(
                   },
                   select: {
                     id: true,
-                    submittedAt: true,
+                    createdAt: true,
                     status: true,
                     grade: true,
                   },

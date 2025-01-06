@@ -21,7 +21,7 @@ interface Student {
   email: string;
   submission?: {
     id: string;
-    submittedAt: string;
+    createdAt: string;
     status: string;
     grade?: number;
   };
@@ -141,7 +141,7 @@ export function ViewAssignmentModal({
                         {student.submission ? (
                           <>
                             <span className="text-sm text-muted-foreground">
-                              Submitted {format(new Date(student.submission.submittedAt), 'MMM d, yyyy')}
+                              Submitted {format(new Date(student.submission.createdAt), 'MMM d, yyyy')}
                             </span>
                             <Button variant="outline" size="sm">View</Button>
                           </>
