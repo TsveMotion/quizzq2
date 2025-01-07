@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { getSession } from "next-auth/react";
 import { prisma } from "@/lib/prisma";
 import { gradeAnswer } from "@/lib/openai";
+
+interface Question {
+  id: string;
+  text: string;
+  type: string;
+  options: any;
+  points: number;
+  correctAnswer: string | null;
+}
+
+interface QuestionSubmission {
+  id: string;
+  questionId: string;
+  submissionId: string;
+  answer: string;
+  isCorrect: boolean | null;
+  points: number | null;
+  score: number | null;
+  feedback: string | null;
+}
 
 export async function POST(
   req: NextRequest,
@@ -9,12 +29,9 @@ export async function POST(
 ) {
   try {
     // Authenticate user
-    const token = await getToken({ req });
-    if (!token?.sub) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
+    const session = await getSession();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Parse form data
@@ -32,7 +49,10 @@ export async function POST(
 
     let answers;
     try {
-      answers = JSON.parse(answersJson);
+      answers = JSON.parse(answersJson) as Array<{
+        questionId: string;
+        answer: string;
+      }>;
     } catch {
       return NextResponse.json(
         { success: false, error: "Invalid answers format" },
@@ -56,106 +76,66 @@ export async function POST(
       );
     }
 
-    // Check for existing submission
-    const existingSubmission = await prisma.homeworkSubmission.findFirst({
-      where: {
-        studentId: token.sub,
-        assignmentId: params.assignmentId,
-      },
-    });
-
-    // Grade answers
-    let totalGrade = 0;
+    const studentId = session.user.id;
     const gradedAnswers = await Promise.all(
-      Object.entries(answers).map(async ([questionId, answer]) => {
-        const question = assignment.questions.find((q: { id: string; question: string; correctAnswerIndex: number; marks: number }) => q.id === questionId);
-        if (!question) return null;
+      answers.map(async ({ questionId, answer }) => {
+        const question = await prisma.question.findUnique({
+          where: { id: questionId }
+        });
 
-        const result = await gradeAnswer(
-          question.question,
-          parseInt(answer as string),
-          question.correctAnswerIndex,
-          question.marks
-        );
+        if (!question) {
+          return {
+            questionId,
+            answer,
+            isCorrect: false,
+            score: 0
+          };
+        }
 
-        totalGrade += result.score;
+        const isCorrect = answer === question.correctAnswer;
+        const score = isCorrect ? question.points : 0;
+
         return {
           questionId,
-          answer: answer as string,
-          isCorrect: result.isCorrect,
-          score: result.score,
+          answer,
+          isCorrect,
+          score
         };
       })
     );
 
-    // Save submission
-    let submission;
-    if (existingSubmission) {
-      submission = await prisma.homeworkSubmission.update({
-        where: { id: existingSubmission.id },
-        data: {
-          content,
-          files: filesJson,
-          status: "graded",
-          submittedAt: new Date(),
-        },
-      });
-    } else {
-      submission = await prisma.homeworkSubmission.create({
-        data: {
-          content,
-          files: filesJson,
-          status: "graded",
-          studentId: token.sub,
-          assignmentId: params.assignmentId,
-          submittedAt: new Date(),
-        },
-      });
-    }
+    const existingSubmission = await prisma.homeworkSubmission.findFirst({
+      where: {
+        assignmentId: params.assignmentId,
+        studentId,
+      },
+    });
 
-    // Create or update question submissions in a transaction
-    await prisma.$transaction(async (tx) => {
-      for (const answer of gradedAnswers) {
-        if (!answer) continue;
+    const submissionData = {
+      content,
+      files: filesJson,
+      status: 'submitted',
+      submittedAt: new Date(),
+    };
 
-        const existingSubmission = await tx.questionSubmission.findFirst({
-          where: {
-            submissionId: submission.id,
-            questionId: answer.questionId,
+    const submission = existingSubmission
+      ? await prisma.homeworkSubmission.update({
+          where: { id: existingSubmission.id },
+          data: submissionData,
+        })
+      : await prisma.homeworkSubmission.create({
+          data: {
+            ...submissionData,
+            assignmentId: params.assignmentId,
+            studentId,
           },
         });
 
-        if (existingSubmission) {
-          // Update existing submission
-          await tx.questionSubmission.update({
-            where: { id: existingSubmission.id },
-            data: {
-              answer: String(answer.answer),
-              isCorrect: answer.isCorrect,
-              submittedAt: new Date(),
-            },
-          });
-        } else {
-          // Create new submission
-          await tx.questionSubmission.create({
-            data: {
-              submission: { connect: { id: submission.id } },
-              question: { connect: { id: answer.questionId } },
-              answer: String(answer.answer),
-              isCorrect: answer.isCorrect,
-              submittedAt: new Date(),
-            },
-          });
-        }
-      }
-    });
-
-    // Return response
     return NextResponse.json({
       success: true,
       data: {
         submission,
-        grade: totalGrade,
+        grade: gradedAnswers.reduce((total, ans) => total + ans.score, 0),
         answers: gradedAnswers,
       },
     });

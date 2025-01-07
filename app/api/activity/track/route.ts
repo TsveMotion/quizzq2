@@ -15,8 +15,10 @@ export async function POST(req: Request) {
     const activity = await prisma.userActivity.create({
       data: {
         userId: session.user.id,
-        action,
-      },
+        action: action,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
     });
 
     return NextResponse.json(activity);

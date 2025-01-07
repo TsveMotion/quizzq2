@@ -101,13 +101,13 @@ export async function GET(request: Request) {
 
     // Calculate assignment completion stats
     const now = new Date();
-    const assignmentStatus = classes.flatMap((cls: {
-      assignments: Array<{
-        id: string;
-        dueDate: Date;
-        submissions: Array<any>;
-      }>;
-    }) => cls.assignments).reduce(
+    const assignmentStatus = classes.flatMap((cls) => 
+      cls.assignments.map(assignment => ({
+        id: assignment.id,
+        dueDate: assignment.dueDate || new Date(),
+        submissions: assignment.submissions
+      }))
+    ).reduce(
       (acc: { completed: number; pending: number; overdue: number }, 
        assignment: {
          id: string;

@@ -37,7 +37,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt" as const
   },
   pages: {
-    signIn: '/login',
+    signIn: '/signin',
   },
   providers: [
     CredentialsProvider({
@@ -51,7 +51,7 @@ export const authOptions: NextAuthOptions = {
         req: Pick<RequestInternal, "body" | "query" | "headers" | "method">
       ): Promise<User | null> {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error("Please provide both email and password");
         }
 
         const user = await prisma.user.findUnique({
@@ -73,7 +73,7 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user) {
-          return null;
+          throw new Error("No user found with this email");
         }
 
         const isPasswordValid = await compare(
@@ -82,7 +82,11 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isPasswordValid) {
-          return null;
+          throw new Error("Invalid password");
+        }
+
+        if (user.status !== 'ACTIVE') {
+          throw new Error("Your account is not active. Please contact support.");
         }
 
         // Return type matches the User interface

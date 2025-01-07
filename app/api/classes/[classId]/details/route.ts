@@ -90,17 +90,11 @@ export async function GET(
       teacherEmail: classDetails.teacher.email,
       schedule: 'Schedule not set', // Add this field to Class model if needed
       subject: 'Subject not set', // Add this field to Class model if needed
-      assignments: classDetails.assignments.map((assignment: { 
-        id: string;
-        title: string;
-        description: string | null;
-        dueDate: Date;
-        submissions: Array<{ status: string }>;
-      }) => ({
+      assignments: classDetails.assignments.map((assignment) => ({
         id: assignment.id,
         title: assignment.title,
-        description: assignment.description || '',
-        dueDate: assignment.dueDate,
+        description: assignment.description,
+        dueDate: assignment.dueDate || new Date(), // Provide default date if null
         status: assignment.submissions[0]?.status || 'pending',
       })),
       students: classDetails.students

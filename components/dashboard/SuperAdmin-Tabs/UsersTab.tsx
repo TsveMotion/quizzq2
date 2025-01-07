@@ -87,10 +87,13 @@ function SuperAdminUsersTab({
       const response = await fetch(`/api/users?id=${userToDelete.id}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
+        const error = await response.json();
         throw new Error(error.error || 'Failed to delete user');
       }
 
@@ -117,7 +120,7 @@ function SuperAdminUsersTab({
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
+        const error = await response.json();
         throw new Error(error.error || 'Failed to update user');
       }
 

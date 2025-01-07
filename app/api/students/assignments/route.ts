@@ -23,80 +23,77 @@ export async function GET() {
           }
         }
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        status: true,
+        dueDate: true,
+        totalMarks: true,
         class: {
           select: {
+            id: true,
             name: true,
             teacher: {
               select: {
+                id: true,
                 name: true,
-              },
-            },
-          },
+                email: true
+              }
+            }
+          }
         },
         submissions: {
           where: {
-            studentId: session.user.id,
+            studentId: session.user.id
           },
-          orderBy: {
-            submittedAt: 'desc',
-          },
-          take: 1,
-          include: {
-            answers: true,
-          },
+          select: {
+            id: true,
+            status: true,
+            grade: true,
+            submittedAt: true,
+            answers: {
+              select: {
+                id: true,
+                answer: true,
+                isCorrect: true,
+                score: true
+              }
+            }
+          }
         },
-        attachments: true,
         questions: {
           select: {
             id: true,
-            question: true,
+            text: true,
+            type: true,
             options: true,
-            explanation: true,
-          },
-        },
+            points: true,
+            marks: true
+          }
+        }
       },
       orderBy: {
-        dueDate: 'asc',
-      },
+        createdAt: 'desc'
+      }
     });
 
-    // Transform the data to match the frontend expectations
-    const formattedAssignments = assignments.map((assignment) => {
-      const submission = assignment.submissions.find(
-        (sub) => sub.studentId === session.user.id
-      );
-
-      return {
+    return NextResponse.json(
+      assignments.map((assignment) => ({
         id: assignment.id,
         title: assignment.title,
         description: assignment.description,
         dueDate: assignment.dueDate,
+        totalMarks: assignment.totalMarks,
         class: {
+          id: assignment.class.id,
           name: assignment.class.name,
-          teacher: {
-            name: assignment.class.teacher?.name || "Unknown",
-          },
+          teacher: assignment.class.teacher
         },
-        submission: submission
-          ? {
-              id: submission.id,
-              status: submission.status,
-              grade: submission.grade,
-              content: submission.content,
-              files: submission.files,
-              submittedAt: submission.submittedAt,
-              feedback: submission.feedback,
-              answers: submission.answers.map((ans) => ({
-                questionId: ans.questionId,
-                answer: parseInt(ans.answer),
-              })),
-            }
-          : undefined,
-      };
-    });
-
-    return NextResponse.json(formattedAssignments);
+        submission: assignment.submissions[0],
+        questions: assignment.questions
+      }))
+    );
   } catch (error) {
     console.error('Error fetching student assignments:', error);
     return new NextResponse('Internal Server Error', { status: 500 });

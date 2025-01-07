@@ -37,44 +37,39 @@ export async function GET(req: Request) {
     // Get the last 6 months of activity
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const startDate = sixMonthsAgo;
+    const endDate = new Date();
 
     // Get monthly activity counts
     const monthlyActivity = await prisma.userActivity.groupBy({
-      by: ['timestamp'],
+      by: ['createdAt'],
+      _count: {
+        id: true
+      },
       where: {
-        timestamp: {
-          gte: sixMonthsAgo
+        createdAt: {
+          gte: startDate,
+          lte: endDate
         },
         ...schoolFilter,
         userId: session.user.id,
       },
-      _count: {
-        id: true
-      }
     });
 
     // Process the data into monthly counts
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthlyData = new Array(6).fill(0);
-    const currentMonth = new Date().getMonth();
-
-    monthlyActivity.forEach((activity: { timestamp: Date | string; _count: { id: number } }) => {
-      const activityMonth = new Date(activity.timestamp).getMonth();
-      const monthIndex = (activityMonth - currentMonth + 12) % 12;
-      if (monthIndex < 6) {
-        monthlyData[5 - monthIndex] = activity._count.id;
-      }
+    const activityByDay: { [key: string]: number } = {};
+    monthlyActivity.forEach((activity: { createdAt: Date; _count: { id: number } }) => {
+      const date = activity.createdAt.toISOString().split('T')[0];
+      activityByDay[date] = (activityByDay[date] || 0) + activity._count.id;
     });
 
     // Get the labels for the last 6 months
-    const labels = Array.from({ length: 6 }, (_, i) => {
-      const monthIndex = (currentMonth - 5 + i + 12) % 12;
-      return months[monthIndex];
-    });
+    const labels = Object.keys(activityByDay);
+    const data = Object.values(activityByDay);
 
     return NextResponse.json({
       labels,
-      data: monthlyData
+      data
     });
   } catch (error) {
     console.error('Error fetching activity stats:', error);

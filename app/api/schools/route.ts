@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 
@@ -7,27 +7,21 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    // Check if user is superadmin
-    const user = await prisma.user.findFirst({
-      where: {
-        email: session.user.email,
-        role: 'SUPERADMIN'
-      }
-    });
-
-    if (!user) {
-      return new NextResponse('Forbidden', { status: 403 });
+    if (!session?.user?.id || session?.user?.role !== 'SUPERADMIN') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized - Requires SUPERADMIN role' }), 
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     const body = await req.json();
     const { name, description } = body;
 
     if (!name) {
-      return new NextResponse('Name is required', { status: 400 });
+      return new NextResponse(
+        JSON.stringify({ error: 'Name is required' }), 
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // Generate a unique role number
@@ -37,19 +31,24 @@ export async function POST(req: Request) {
       data: {
         name,
         description,
-        roleNumber, // Add the required roleNumber field
+        roleNumber,
       },
     });
 
     return NextResponse.json(school);
   } catch (error) {
     console.error('Error creating school:', error);
-    // Return more specific error message
     const err = error as { code?: string };
     if (err.code === 'P2002') {
-      return new NextResponse('A school with this role number already exists. Please try again.', { status: 400 });
+      return new NextResponse(
+        JSON.stringify({ error: 'A school with this role number already exists. Please try again.' }), 
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new NextResponse(
+      JSON.stringify({ error: 'Internal Server Error' }), 
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 
@@ -57,20 +56,11 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    // Check if user is superadmin
-    const user = await prisma.user.findFirst({
-      where: {
-        email: session.user.email,
-        role: 'SUPERADMIN'
-      }
-    });
-
-    if (!user) {
-      return new NextResponse('Forbidden', { status: 403 });
+    if (!session?.user?.id || session?.user?.role !== 'SUPERADMIN') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized - Requires SUPERADMIN role' }), 
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     const schools = await prisma.school.findMany({
@@ -100,7 +90,10 @@ export async function GET() {
     return NextResponse.json(transformedSchools);
   } catch (error) {
     console.error('Error fetching schools:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new NextResponse(
+      JSON.stringify({ error: 'Internal Server Error' }), 
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 
@@ -108,49 +101,43 @@ export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    // Check if user is superadmin
-    const user = await prisma.user.findFirst({
-      where: {
-        email: session.user.email,
-        role: 'SUPERADMIN'
-      }
-    });
-
-    if (!user) {
-      return new NextResponse('Forbidden', { status: 403 });
+    if (!session?.user?.id || session?.user?.role !== 'SUPERADMIN') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized - Requires SUPERADMIN role' }), 
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     const { searchParams } = new URL(req.url);
     const schoolId = searchParams.get('id');
 
     if (!schoolId) {
-      return new NextResponse('School ID is required', { status: 400 });
+      return new NextResponse(
+        JSON.stringify({ error: 'School ID is required' }), 
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Delete all associated records first
-    await prisma.$transaction([
-      // Update all users to remove schoolId reference
-      prisma.user.updateMany({
-        where: { schoolId: schoolId },
-        data: { schoolId: null }
-      }),
-      // Finally delete the school
-      prisma.school.delete({
-        where: { id: schoolId }
-      })
-    ]);
+    // Delete the school
+    await prisma.school.delete({
+      where: {
+        id: schoolId,
+      },
+    });
 
-    return NextResponse.json({ message: 'School deleted successfully' });
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error('Error deleting school:', error);
     const err = error as { code?: string };
     if (err.code === 'P2025') {
-      return new NextResponse('School not found', { status: 404 });
+      return new NextResponse(
+        JSON.stringify({ error: 'School not found' }), 
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new NextResponse(
+      JSON.stringify({ error: 'Internal Server Error' }), 
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }

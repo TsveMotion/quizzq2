@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { hash } from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
@@ -81,15 +81,54 @@ export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
-      console.log('No session or email found');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized - No session found' }, 
+        { status: 401 }
+      );
     }
 
-    console.log('Looking up user:', session.user.email);
-    const currentUser = await prisma.user.findFirst({
+    // Extract user data safely
+    const userId = session?.user?.id;
+    const userRole = session?.user?.role;
+
+    if (!userId || !userRole) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid session data' }, 
+        { status: 401 }
+      );
+    }
+
+    // For SUPERADMIN, fetch all users
+    if (userRole === 'SUPERADMIN') {
+      const users = await prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          schoolId: true,
+          status: true,
+          school: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      return NextResponse.json(users);
+    }
+
+    // For other roles, fetch the current user first
+    const currentUser = await prisma.user.findUnique({
       where: { 
-        email: session.user.email,
+        id: userId 
       },
       select: {
         id: true,
@@ -99,50 +138,43 @@ export async function GET(req: Request) {
     });
 
     if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'User not found' }, 
+        { status: 404 }
+      );
     }
-
-    if (!['SUPERADMIN', 'SCHOOLADMIN', 'TEACHER'].includes(currentUser.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
-
-    console.log('Current user role:', currentUser.role);
-
-    // Get query parameters
-    const url = new URL(req.url);
-    const schoolId = url.searchParams.get('schoolId');
-    const role = url.searchParams.get('role');
 
     // Build where clause based on user role
-    const where: any = {
-      status: 'ACTIVE' // Only show active users
-    };
+    const where: any = {};
 
     // Role-based filtering
     if (currentUser.role === 'SCHOOLADMIN') {
       where.schoolId = currentUser.schoolId;
     } else if (currentUser.role === 'TEACHER') {
       where.OR = [
-        { teacherId: currentUser.id }, // Students assigned to this teacher
-        { schoolId: currentUser.schoolId, role: 'TEACHER' } // Other teachers in same school
+        { teacherId: currentUser.id },
+        { schoolId: currentUser.schoolId, role: 'TEACHER' }
       ];
-    } else if (currentUser.role !== 'SUPERADMIN') {
-      if (!currentUser) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-      console.log('Insufficient permissions for role:', currentUser.role);
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    } else {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' }, 
+        { status: 403 }
+      );
     }
 
+    // Get query parameters
+    const url = new URL(req.url);
+    const schoolId = url.searchParams.get('schoolId');
+    const role = url.searchParams.get('role');
+
     // Additional filters from query params
-    if (schoolId && (currentUser.role === 'SUPERADMIN' || currentUser.schoolId === schoolId)) {
+    if (schoolId && currentUser.schoolId === schoolId) {
       where.schoolId = schoolId;
     }
     if (role) {
       where.role = role.toUpperCase();
     }
 
-    console.log('Fetching users with where clause:', where);
     const users = await prisma.user.findMany({
       where,
       select: {
@@ -150,8 +182,9 @@ export async function GET(req: Request) {
         name: true,
         email: true,
         role: true,
-        status: true,
         createdAt: true,
+        schoolId: true,
+        status: true,
         school: {
           select: {
             id: true,
@@ -164,7 +197,6 @@ export async function GET(req: Request) {
       }
     });
 
-    console.log('Found users:', users.length);
     return NextResponse.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -178,40 +210,64 @@ export async function GET(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      console.log('No session or email found');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const userId = session?.user?.id;
+    
+    if (!session || !userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' }, 
+        { status: 401 }
+      );
     }
 
-    const currentUser = await prisma.user.findFirst({
-      where: { 
-        email: session.user.email,
-        role: 'SUPERADMIN'
-      },
-      select: {
-        id: true,
-        role: true,
-        schoolId: true,
-      }
+    const url = new URL(req.url);
+    const targetUserId = url.searchParams.get('id');
+
+    if (!targetUserId) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, schoolId: true }
     });
 
     if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Current user not found' },
+        { status: 404 }
+      );
     }
 
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    // Only SUPERADMIN or SCHOOLADMIN can delete users
+    if (currentUser.role !== 'SUPERADMIN' && currentUser.role !== 'SCHOOLADMIN') {
+      return NextResponse.json(
+        { error: 'Not authorized to delete users' },
+        { status: 403 }
+      );
+    }
 
-    if (!id) {
-      console.log('User ID is required');
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    // If SCHOOLADMIN, can only delete users from their school
+    if (currentUser.role === 'SCHOOLADMIN') {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { schoolId: true }
+      });
+
+      if (targetUser?.schoolId !== currentUser.schoolId) {
+        return NextResponse.json(
+          { error: 'Not authorized to delete users from other schools' },
+          { status: 403 }
+        );
+      }
     }
 
     await prisma.user.delete({
-      where: { id }
+      where: { id: targetUserId }
     });
 
-    console.log('User deleted successfully');
     return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);

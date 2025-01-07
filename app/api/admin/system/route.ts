@@ -13,13 +13,29 @@ export async function GET(req: Request) {
     }
 
     const settings = await prisma.systemSettings.findFirst({
+      select: {
+        id: true,
+        maintenanceMode: true,
+        maintenanceMessage: true,
+        registrationOpen: true,
+        createdAt: true,
+        updatedAt: true
+      },
       orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json(settings || {
-      maintenanceMode: false,
-      maintenanceMessage: ''
-    });
+    if (!settings) {
+      const newSettings = await prisma.systemSettings.create({
+        data: {
+          maintenanceMode: false,
+          maintenanceMessage: "",
+          registrationOpen: true
+        }
+      });
+      return NextResponse.json(newSettings);
+    }
+
+    return NextResponse.json(settings);
   } catch (error) {
     console.error('[SYSTEM_SETTINGS_GET]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -57,6 +73,14 @@ export async function POST(req: Request) {
 
     // Update database
     const settings = await prisma.systemSettings.findFirst({
+      select: {
+        id: true,
+        maintenanceMode: true,
+        maintenanceMessage: true,
+        registrationOpen: true,
+        createdAt: true,
+        updatedAt: true
+      },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -66,7 +90,7 @@ export async function POST(req: Request) {
         data: {
           maintenanceMode,
           maintenanceMessage,
-          updatedBy: session.user.email
+          registrationOpen: true
         }
       });
       return NextResponse.json(updatedSettings);
@@ -75,7 +99,7 @@ export async function POST(req: Request) {
         data: {
           maintenanceMode,
           maintenanceMessage,
-          updatedBy: session.user.email
+          registrationOpen: true
         }
       });
       return NextResponse.json(newSettings);

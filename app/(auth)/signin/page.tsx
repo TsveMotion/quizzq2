@@ -17,33 +17,86 @@ export default function SignInPage() {
     event.preventDefault();
     setIsLoading(true);
 
-    const formData = new FormData(event.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-
     try {
+      const formData = new FormData(event.currentTarget);
+      const email = formData.get('email') as string;
+      const password = formData.get('password') as string;
+
+      console.log('Attempting sign in with:', { email });
+
+      if (!email || !password) {
+        toast({
+          title: "Error",
+          description: "Please provide both email and password",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const result = await signIn('credentials', {
-        email,
+        email: email.toLowerCase(),
         password,
         redirect: false,
       });
 
-      if (result?.error) {
+      console.log('Sign in result:', result);
+
+      if (!result) {
+        throw new Error("Authentication failed");
+      }
+
+      if (result.error) {
         toast({
-          title: "Error",
+          title: "Authentication Error",
           description: result.error,
           variant: "destructive",
         });
         return;
       }
 
-      router.push('/dashboard');
-      router.refresh();
+      // Get the session to determine user role
+      const session = await fetch('/api/auth/session');
+      const sessionData = await session.json();
       
+      console.log('Session data:', sessionData);
+      
+      // Route based on user role
+      let dashboardPath = '/dashboard';
+      if (sessionData?.user?.role) {
+        const role = sessionData.user.role.toLowerCase();
+        switch (role) {
+          case 'superadmin':
+            dashboardPath = '/dashboard/superadmin';
+            break;
+          case 'schooladmin':
+            dashboardPath = '/dashboard/schooladmin';
+            break;
+          case 'teacher':
+            dashboardPath = '/dashboard/teacher';
+            break;
+          case 'student':
+            dashboardPath = '/dashboard/student';
+            break;
+          default:
+            console.log('Unknown role:', role);
+            dashboardPath = '/dashboard';
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Successfully signed in",
+        variant: "default",
+      });
+
+      console.log('Redirecting to:', dashboardPath);
+      router.push(dashboardPath);
+      router.refresh();
     } catch (error) {
+      console.error('Sign-in error:', error);
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {

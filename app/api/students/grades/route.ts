@@ -13,77 +13,57 @@ export async function GET() {
     }
 
     const user = await prisma.user.findUnique({
-      where: {
-        email: session.user.email,
-      },
+      where: { id: session.user.id },
       include: {
         enrolledClasses: {
-          include: {
+          select: {
+            id: true,
+            name: true,
             assignments: {
-              include: {
+              select: {
+                id: true,
+                title: true,
+                points: true,
                 submissions: {
                   where: {
-                    studentId: session.user.id,
+                    studentId: session.user.id
                   },
-                },
-              },
-            },
-          },
-        },
-      },
+                  select: {
+                    grade: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!user) {
       return new NextResponse('User not found', { status: 404 });
     }
 
-    const grades = user.enrolledClasses.map((classItem: {
-      id: string;
-      name: string;
-      assignments: Array<{
-        title: string;
-        weight: number | null;
-        submissions: Array<{
-          grade: number | null;
-        }>;
-      }>;
-    }) => {
-      const assignments = classItem.assignments
-        .filter((assignment: {
-          submissions: Array<{
-            grade: number | null;
-          }>;
-        }) => assignment.submissions[0]?.grade)
-        .map((assignment: {
-          title: string;
-          weight: number | null;
-          submissions: Array<{
-            grade: number | null;
-          }>;
-        }) => ({
-          title: assignment.title,
-          grade: assignment.submissions[0].grade!,
-          weight: assignment.weight || 100 / classItem.assignments.length,
-        }));
+    const grades = user?.enrolledClasses.map((classItem) => {
+      const totalPoints = classItem.assignments.reduce((sum, assignment) => sum + (assignment.points || 0), 0);
+      const earnedPoints = classItem.assignments.reduce((sum, assignment) => {
+        const submission = assignment.submissions[0];
+        return sum + (submission?.grade || 0);
+      }, 0);
 
-      const overallGrade =
-        assignments.length > 0
-          ? assignments.reduce(
-              (sum: number, assignment: {
-                grade: number;
-                weight: number;
-              }) => sum + (assignment.grade * assignment.weight) / 100,
-              0
-            )
-          : 0;
+      const classGrade = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
 
       return {
-        id: classItem.id,
+        classId: classItem.id,
         className: classItem.name,
-        overallGrade: Math.round(overallGrade * 100) / 100,
-        assignments,
+        grade: classGrade,
+        assignments: classItem.assignments.map(assignment => ({
+          id: assignment.id,
+          title: assignment.title,
+          points: assignment.points,
+          grade: assignment.submissions[0]?.grade || 0
+        }))
       };
-    });
+    }) || [];
 
     return NextResponse.json(grades);
   } catch (error) {

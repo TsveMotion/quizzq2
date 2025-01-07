@@ -18,31 +18,55 @@ export async function GET(
       include: {
         class: {
           select: {
-            name: true,
-            students: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
+            id: true,
+            name: true
+          }
         },
         questions: {
           select: {
             id: true,
-            question: true,
+            text: true,
+            type: true,
             options: true,
-            correctAnswerIndex: true,
-            explanation: true,
-          },
+            points: true,
+            marks: true,
+            correctAnswer: true,
+            correctAnswerIndex: true
+          }
         },
         submissions: {
-          include: {
-            answers: true,
-          },
-        },
-      },
+          select: {
+            id: true,
+            status: true,
+            grade: true,
+            submittedAt: true,
+            student: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            answers: {
+              select: {
+                id: true,
+                answer: true,
+                isCorrect: true,
+                score: true,
+                question: {
+                  select: {
+                    id: true,
+                    text: true,
+                    type: true,
+                    points: true,
+                    marks: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!assignment) {
@@ -59,19 +83,18 @@ export async function GET(
       questions: assignment.questions,
       submissions: assignment.submissions.map((sub) => ({
         id: sub.id,
-        studentId: sub.studentId,
-        content: sub.content,
+        studentId: sub.student.id,
+        studentName: sub.student.name,
+        studentEmail: sub.student.email,
         grade: sub.grade,
         status: sub.status,
         submittedAt: sub.submittedAt,
         answers: sub.answers.map(ans => ({
           id: ans.id,
-          questionId: ans.questionId,
+          questionId: ans.question.id,
           answer: ans.answer,
           isCorrect: ans.isCorrect,
-          score: ans.score,
-          feedback: ans.feedback,
-          submittedAt: ans.submittedAt
+          score: ans.score
         }))
       })),
     };

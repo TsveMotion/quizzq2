@@ -5,10 +5,10 @@ import { getServerSession } from "next-auth";
 
 // Contact form schema
 const contactSchema = z.object({
-  schoolName: z.string().min(1, "School name is required"),
+  schoolId: z.string().min(1, "School ID is required"),
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
-  role: z.string().min(1, "Role is required"),
+  phone: z.string().min(1, "Phone is required"),
   message: z.string().min(10, "Message must be at least 10 characters long"),
 });
 
@@ -20,13 +20,10 @@ export async function POST(req: Request) {
     // Store the contact message in the database
     const contact = await prisma.contact.create({
       data: {
-        schoolName: validatedData.schoolName,
         name: validatedData.name,
         email: validatedData.email,
-        role: validatedData.role,
-        message: validatedData.message,
-        status: 'pending',
-      },
+        message: validatedData.message
+      }
     });
 
     return NextResponse.json({ success: true, message: "Message sent successfully" });

@@ -151,7 +151,7 @@ export async function POST(req: Request) {
     }
 
     // Create all students and assign them to classes if specified
-    const createdStudents = await prisma.$transaction(async (tx) => {
+    const createdStudents = await prisma.$transaction(async (tx: Omit<typeof prisma, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">) => {   
       const created = [];
 
       // First, find or create a default teacher for new classes
@@ -242,7 +242,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       message: 'Students imported successfully',
-      count: createdStudents.filter(s => s.status === 'success').length,
+      count: createdStudents.filter((s: { status: string }) => s.status === 'success').length,
     });
   } catch (error) {
     console.error('[BULK_IMPORT]', error);

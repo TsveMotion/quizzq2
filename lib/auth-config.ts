@@ -1,10 +1,19 @@
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import NextAuth from "next-auth";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
 import { compare } from "bcrypt";
-import NextAuth from "next-auth/next";
+import prisma from "@/lib/prisma";
 
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma) as any, // TODO: Fix type compatibility in a future update
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  pages: {
+    signIn: '/signin',
+  },
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -14,26 +23,38 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error("Please provide both email and password");
         }
 
         const user = await prisma.user.findUnique({
           where: {
-            email: credentials.email
+            email: credentials.email.toLowerCase()
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            password: true,
+            role: true,
+            schoolId: true,
+            status: true,
+            emailVerified: true,
+            image: true
           }
         });
 
         if (!user) {
-          return null;
+          throw new Error("Invalid email or password");
         }
 
-        const isPasswordValid = await compare(
-          credentials.password,
-          user.password
-        );
+        const isPasswordValid = await compare(credentials.password, user.password);
 
         if (!isPasswordValid) {
-          return null;
+          throw new Error("Invalid email or password");
+        }
+
+        if (user.status !== 'ACTIVE') {
+          throw new Error("Your account is not active. Please contact support.");
         }
 
         return {
@@ -42,44 +63,40 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           schoolId: user.schoolId,
+          emailVerified: user.emailVerified,
+          image: user.image
         };
       }
     })
   ],
-  pages: {
-    signIn: '/auth/signin',
-    error: '/auth/error',
-    signOut: '/',
-  },
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      if (trigger === "update" && session?.name) {
-        token.name = session.name;
-      }
-      if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
-        token.role = user.role;
-        token.schoolId = user.schoolId;
+    async jwt({ token, user, account }) {
+      if (account && user) {
+        return {
+          ...token,
+          id: user.id,
+          role: user.role,
+          schoolId: user.schoolId,
+        };
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.schoolId = token.schoolId;
-      }
-      return session;
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.id,
+          role: token.role,
+          schoolId: token.schoolId,
+        },
+      };
     }
   },
-  session: {
-    strategy: "jwt",
-  },
+  debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET,
 } as const;
 
 const handler = NextAuth(authOptions);
-export { handler as auth };
+export default handler;
 export type { NextAuthOptions };

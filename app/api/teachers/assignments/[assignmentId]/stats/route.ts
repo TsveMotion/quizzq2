@@ -93,11 +93,14 @@ export async function GET(
       id: string;
       question: string;
     }) => {
-      const questionSubmissions = submissionStats.flatMap((sub: {
-        answers: Array<{ questionId: string; isCorrect: boolean; score: number | null }>;
-      }) =>
-        sub.answers.filter((ans: { questionId: string }) => ans.questionId === question.id)
-      );
+      const questionSubmissions = submissionStats.flatMap((sub) => {
+        return sub.answers
+          .filter((ans) => ans.questionId === question.id)
+          .map((ans) => ({
+            ...ans,
+            isCorrect: ans.isCorrect || false
+          }));
+      });
       const correctAnswers = questionSubmissions.filter((sub: { isCorrect: boolean }) => sub.isCorrect).length;
       const totalAttempts = questionSubmissions.length;
       const averageScore =

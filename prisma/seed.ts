@@ -135,8 +135,6 @@ async function main() {
 
 Show all your work and explain your reasoning for each step.`,
       dueDate: new Date('2025-01-12'),
-      content: '',
-      weight: 100,
       totalMarks: 100,
       class: {
         connect: {
@@ -159,8 +157,6 @@ Show all your work and explain your reasoning for each step.`,
 
 Show all your work and explain your reasoning for each step.`,
       dueDate: new Date('2025-01-12'),
-      content: '',
-      weight: 100,
       totalMarks: 100
     }
   });

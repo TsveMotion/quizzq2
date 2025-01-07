@@ -85,19 +85,23 @@ export async function POST(request: Request) {
 
     // Create questions with marks
     let totalMarks = 0;
-    for (const question of questions) {
+    for (let index = 0; index < questions.length; index++) {
+      const question = questions[index];
       const marks = question.marks || 10; // Default 10 marks per question if not specified
       totalMarks += marks;
       
-      await prisma.quizQuestion.create({
+      await prisma.question.create({
         data: {
-          question: question.question,
-          options: JSON.stringify(question.options),
+          text: question.text,
+          type: question.type,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
           correctAnswerIndex: question.correctAnswerIndex,
-          explanation: question.explanation || "",
+          points: question.points,
           marks: marks,
           assignmentId: assignment.id,
-        },
+          order: index // Add order based on question index
+        }
       });
     }
 

@@ -50,7 +50,7 @@ interface SuperAdminSchoolsTabProps {
   isSchoolModalOpen: boolean;
   setIsSchoolModalOpen: (open: boolean) => void;
   isLoading?: boolean;
-  onSchoolsChange: () => void;
+  onSchoolsChange: (schools: School[]) => void;
 }
 
 function SuperAdminSchoolsTab({
@@ -125,8 +125,12 @@ function SuperAdminSchoolsTab({
         throw new Error(error.error || 'Failed to delete school');
       }
 
+      // Get updated schools list
+      const updatedSchoolsResponse = await fetch('/api/schools');
+      const updatedSchools = await updatedSchoolsResponse.json();
+      onSchoolsChange(updatedSchools);
+      
       toast.success('School deleted successfully');
-      onSchoolsChange(); // Refresh the schools list
     } catch (error) {
       console.error('Error deleting school:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to delete school');

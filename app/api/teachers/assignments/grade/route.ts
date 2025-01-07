@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const { submissionId, grade, feedback } = await req.json();
+    const { submissionId, feedback } = await req.json();
 
     // Validate the submission exists and belongs to a class where the user is a teacher
     const submission = await prisma.homeworkSubmission.findFirst({
@@ -33,36 +33,47 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Submission not found', { status: 404 });
     }
 
-    // Update submissions with grades
-    const updatePromises = submission.answers.map(answer => {
-      const isCorrect = String(answer.answer) === String(answer.question.correctAnswerIndex);
-      const score = isCorrect ? answer.question.marks : 0;
+    // Grade each answer
+    const gradedAnswers = submission.answers.map(answer => {
+      const isCorrect = String(answer.answer) === String(answer.question.correctAnswer);
+      const score = isCorrect ? answer.question.points : 0;
+      return {
+        ...answer,
+        isCorrect,
+        score
+      };
+    });
 
-      return prisma.questionSubmission.update({
-        where: { id: answer.id },
+    // Calculate total grade
+    const totalPoints = submission.answers.reduce((sum, answer) => sum + answer.question.points, 0);
+    const earnedPoints = gradedAnswers.reduce((sum, answer) => sum + answer.score, 0);
+    const finalGrade = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+
+    // Update submission grades
+    await prisma.$transaction(async (tx) => {
+      // Update each answer
+      for (const answer of gradedAnswers) {
+        await tx.questionSubmission.update({
+          where: { id: answer.id },
+          data: {
+            isCorrect: answer.isCorrect,
+            score: answer.score
+          }
+        });
+      }
+
+      // Update homework submission
+      await tx.homeworkSubmission.update({
+        where: { id: submissionId },
         data: {
-          isCorrect,
-          score,
-          submittedAt: new Date(),
-        },
+          grade: finalGrade,
+          feedback,
+          status: 'GRADED'
+        }
       });
     });
 
-    await Promise.all(updatePromises);
-
-    // Update the submission with grade and feedback
-    const updatedSubmission = await prisma.homeworkSubmission.update({
-      where: {
-        id: submissionId
-      },
-      data: {
-        grade,
-        feedback,
-        status: 'graded'
-      }
-    });
-
-    return NextResponse.json(updatedSubmission);
+    return NextResponse.json({ message: 'Submission graded successfully' });
   } catch (error) {
     console.error('Error grading submission:', error);
     return new NextResponse('Internal Server Error', { status: 500 });

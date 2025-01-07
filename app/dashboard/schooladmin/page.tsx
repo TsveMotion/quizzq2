@@ -33,148 +33,121 @@ export default async function SchoolAdminPage() {
     });
 
     if (!currentUser || !currentUser.schoolId) {
-      return { school: null };
+      return (
+        <div className="flex h-screen w-full items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-2">No School Assigned</h2>
+            <p className="text-gray-600">Please contact an administrator to assign you to a school.</p>
+          </div>
+        </div>
+      );
     }
 
     const school = await prisma.school.findUnique({
-      where: { id: currentUser.schoolId },
+      where: { id: session.user.schoolId! },
       select: {
         id: true,
         name: true,
+        email: true,
+        phone: true,
         description: true,
         roleNumber: true,
+        address: true,
+        city: true,
+        state: true,
+        country: true,
+        zip: true,
+        website: true,
+        logo: true,
         createdAt: true,
         updatedAt: true,
         users: {
           select: {
             id: true,
-            teacherId: true,
             name: true,
             email: true,
-            password: true,
             role: true,
-            powerLevel: true,
             status: true,
             createdAt: true,
             updatedAt: true,
-            emailVerified: true,
             schoolId: true,
+            teacherId: true,
+            password: true,
+            powerLevel: true,
+            emailVerified: true,
             image: true,
             avatar: true,
             bio: true,
             subjects: true,
-            education: true,
             experience: true,
             phoneNumber: true,
-            officeHours: true,
-          },
+            education: true,
+            officeHours: true
+          }
         },
         classes: {
           include: {
-            teacher: {
-              select: {
-                id: true,
-                teacherId: true,
-                name: true,
-                email: true,
-                password: true,
-                role: true,
-                powerLevel: true,
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-                emailVerified: true,
-                schoolId: true,
-                image: true,
-                avatar: true,
-                bio: true,
-                subjects: true,
-                education: true,
-                experience: true,
-                phoneNumber: true,
-                officeHours: true,
-              },
-            },
+            teacher: true,
+            students: true,
             classTeachers: {
               include: {
-                teacher: {
-                  select: {
-                    id: true,
-                    teacherId: true,
-                    name: true,
-                    email: true,
-                    password: true,
-                    role: true,
-                    powerLevel: true,
-                    status: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    emailVerified: true,
-                    schoolId: true,
-                    image: true,
-                    avatar: true,
-                    bio: true,
-                    subjects: true,
-                    education: true,
-                    experience: true,
-                    phoneNumber: true,
-                    officeHours: true,
-                  },
-                },
-              },
+                teacher: true
+              }
             },
-            students: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                password: true,
-                role: true,
-                powerLevel: true,
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-                emailVerified: true,
-                schoolId: true,
-                teacherId: true,
-                image: true,
-                avatar: true,
-                bio: true,
-                subjects: true,
-                education: true,
-                experience: true,
-                phoneNumber: true,
-                officeHours: true,
-              },
+            assignments: {
+              include: {
+                questions: true,
+                submissions: true
+              }
             },
             _count: {
               select: {
                 students: true,
-              },
-            },
-          },
+                assignments: true,
+                classTeachers: true
+              }
+            }
+          }
         },
         _count: {
           select: {
             users: true,
-            classes: true,
-          },
-        },
-      },
+            classes: true
+          }
+        }
+      }
     });
 
     if (!school) {
-      redirect('/dashboard');
+      return null;
     }
 
+    const teacherCount = school.users.filter(user => user.role === 'teacher').length;
+    const studentCount = school.users.filter(user => user.role === 'student').length;
+
+    const schoolData = {
+      ...school,
+      teacherCount,
+      studentCount
+    };
+
     return (
-      <div className="h-full">
-        <Suspense fallback={<LoadingSpinner />}>
-          <SchoolAdminDashboard school={school} />
-        </Suspense>
-      </div>
+      <Suspense fallback={<LoadingSpinner />}>
+        <div className="min-h-screen bg-background">
+          <SchoolAdminDashboard school={schoolData} />
+        </div>
+      </Suspense>
     );
+
   } catch (error) {
     console.error('Error fetching school data:', error);
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Error</h2>
+          <p className="text-gray-600">An error occurred while loading the dashboard. Please try again later.</p>
+        </div>
+      </div>
+    );
   }
 }

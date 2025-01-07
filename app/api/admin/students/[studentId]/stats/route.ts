@@ -30,9 +30,22 @@ export async function GET(
         submittedAt: true,
         assignment: {
           select: {
+            id: true,
             title: true,
+            description: true,
+            status: true,
             totalMarks: true,
             dueDate: true,
+            questions: {
+              select: {
+                id: true,
+                text: true,
+                type: true,
+                options: true,
+                points: true,
+                marks: true
+              }
+            }
           }
         },
         answers: {
@@ -41,9 +54,12 @@ export async function GET(
             answer: true,
             isCorrect: true,
             score: true,
-            submittedAt: true,
             question: {
               select: {
+                id: true,
+                text: true,
+                type: true,
+                points: true,
                 marks: true
               }
             }
