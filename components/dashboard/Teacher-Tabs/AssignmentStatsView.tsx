@@ -55,6 +55,56 @@ export function AssignmentStatsView({ assignmentId, activeTab = "overview" }: As
   if (isLoading) return <div>Loading statistics...</div>;
   if (!stats) return <div>No statistics available</div>;
 
+  const sortedSubmissions = stats.studentSubmissions.sort((a: {
+    studentId: string;
+    studentName: string;
+    studentEmail: string;
+    submitted: boolean;
+    grade: number;
+    submittedAt: string | null;
+    percentageCorrect: number;
+  }, b: {
+    studentId: string;
+    studentName: string;
+    studentEmail: string;
+    submitted: boolean;
+    grade: number;
+    submittedAt: string | null;
+    percentageCorrect: number;
+  }) => {
+    if (a.submitted && !b.submitted) return -1;
+    if (!a.submitted && b.submitted) return 1;
+    return 0;
+  });
+
+  const submissionRate = stats.overview.submissionRate || 0;
+  const averageScore = stats.overview.averageScore || 0;
+
+  const questionStats = stats.questionStats.map((q: {
+    questionId: string;
+    question: string;
+    correctAnswers: number;
+    totalAttempts: number;
+    averageScore: number;
+    successRate: number;
+  }) => ({
+    ...q,
+    successRate: Math.round(q.successRate * 100),
+  }));
+
+  const studentSubmissions = stats.studentSubmissions.map((student: {
+    studentId: string;
+    studentName: string;
+    studentEmail: string;
+    submitted: boolean;
+    grade: number;
+    submittedAt: string | null;
+    percentageCorrect: number;
+  }) => ({
+    ...student,
+    submittedAt: student.submittedAt ? formatDate(student.submittedAt) : 'Not submitted',
+  }));
+
   if (activeTab === "submissions") {
     return (
       <Table>
@@ -68,7 +118,7 @@ export function AssignmentStatsView({ assignmentId, activeTab = "overview" }: As
           </TableRow>
         </TableHeader>
         <TableBody>
-          {stats.studentSubmissions.map((student) => (
+          {sortedSubmissions.map((student) => (
             <TableRow key={student.studentId}>
               <TableCell className="font-medium">
                 <div>
@@ -155,13 +205,13 @@ export function AssignmentStatsView({ assignmentId, activeTab = "overview" }: As
           </TableRow>
         </TableHeader>
         <TableBody>
-          {stats.questionStats.map((q) => (
+          {questionStats.map((q) => (
             <TableRow key={q.questionId}>
               <TableCell className="font-medium">{q.question}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
-                  <Progress value={q.successRate * 100} className="w-[100px]" />
-                  <span>{(q.successRate * 100).toFixed(1)}%</span>
+                  <Progress value={q.successRate} className="w-[100px]" />
+                  <span>{q.successRate}%</span>
                 </div>
               </TableCell>
               <TableCell>{q.averageScore.toFixed(1)}</TableCell>

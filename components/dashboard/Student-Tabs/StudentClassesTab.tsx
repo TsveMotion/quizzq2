@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useSession } from 'next-auth/react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, BookOpen, Calendar, Clock, GraduationCap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -16,35 +18,45 @@ import {
 interface Class {
   id: string;
   name: string;
-  description: string;
+  subject: string;
+  description?: string;
   teacherName: string;
+  studentCount: number;
   schedule: string;
-  subject?: string;
   nextAssignment?: {
     title: string;
     dueDate: string;
   };
 }
 
-export default function StudentClassesTab() {
+export function StudentClassesTab() {
+  const { data: session } = useSession();
   const [classes, setClasses] = useState<Class[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<string>('all');
   const { toast } = useToast();
 
   const fetchClasses = useCallback(async () => {
+    setIsLoading(true);
     try {
       const userId = session?.user?.id;
       if (!userId) return;
+      
       const response = await fetch(`/api/student/${userId}/classes`);
       if (!response.ok) throw new Error('Failed to fetch classes');
       const data = await response.json();
       setClasses(data);
     } catch (error) {
       console.error('Error fetching classes:', error);
-      toast.error('Failed to fetch classes');
+      toast({
+        title: "Error",
+        description: "Failed to fetch classes",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [toast]);
+  }, [session, toast]);
 
   useEffect(() => {
     fetchClasses();
@@ -52,7 +64,7 @@ export default function StudentClassesTab() {
 
   const filteredClasses = classes.filter(cls => {
     if (filter === 'all') return true;
-    return cls.subject?.toLowerCase() === filter;
+    return cls.subject.toLowerCase() === filter;
   });
 
   const subjects = Array.from(new Set(classes.map(cls => cls.subject).filter(Boolean)));
@@ -118,7 +130,6 @@ export default function StudentClassesTab() {
             </CardContent>
           </Card>
         ))}
-
         {filteredClasses.length === 0 && (
           <div className="col-span-full flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
             <BookOpen className="h-8 w-8 text-muted-foreground" />

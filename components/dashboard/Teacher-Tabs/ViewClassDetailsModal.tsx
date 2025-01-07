@@ -21,18 +21,13 @@ interface Assignment {
   title: string;
   content: string;
   dueDate: string;
-  class: {
+  class?: {
+    id: string;
     name: string;
   };
   _count?: {
     submissions: number;
   };
-}
-
-interface ViewClassDetailsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  classId: string;
 }
 
 interface ClassDetails {
@@ -52,6 +47,12 @@ interface ClassDetails {
     activeAssignments: number;
     upcomingAssignments: number;
   };
+}
+
+interface ViewClassDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  classId: string;
 }
 
 export function ViewClassDetailsModal({
@@ -94,10 +95,10 @@ export function ViewClassDetailsModal({
       title: assignment.title,
       content: assignment.content,
       dueDate: assignment.dueDate,
-      class: { 
-        id: classDetails?.id || '',
-        name: classDetails?.name || '' 
-      },
+      class: classDetails ? {
+        id: classDetails.id,
+        name: classDetails.name
+      } : undefined,
       _count: assignment._count
     });
     setIsDetailsOpen(true);
@@ -273,7 +274,10 @@ export function ViewClassDetailsModal({
 
       {selectedAssignment && (
         <AssignmentDetailsModal
-          assignment={selectedAssignment}
+          assignment={{
+            ...selectedAssignment,
+            class: selectedAssignment.class || { name: 'No Class' }
+          }}
           open={isDetailsOpen}
           onOpenChange={(open) => {
             setIsDetailsOpen(open);

@@ -1,222 +1,143 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useToast } from '@/components/ui/use-toast';
-import { Loader2, Mail, User, Phone, School, BookOpen } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useToast } from '@/components/ui/use-toast';
 
 interface StudentProfile {
   id: string;
   name: string;
   email: string;
-  avatar: string | null;
-  bio: string | null;
-  phoneNumber: string | null;
-  grade: string | null;
-  subjects: string[] | null;
+  avatarUrl?: string;
+  grade: string;
+  studentId: string;
+  school: string;
+  joinedAt: string;
+  totalAssignments: number;
+  completedAssignments: number;
+  averageGrade?: number;
 }
 
-export default function StudentProfileTab() {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [profileData, setProfileData] = useState<StudentProfile | null>(null);
+export function StudentProfileTab() {
   const { data: session } = useSession();
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const fetchProfile = useCallback(async () => {
+    setIsLoading(true);
     try {
-      if (!session?.user?.id) return;
-      const response = await fetch(`/api/student/${session.user.id}/profile`);
+      const userId = session?.user?.id;
+      if (!userId) return;
+      
+      const response = await fetch(`/api/student/${userId}/profile`);
       if (!response.ok) throw new Error('Failed to fetch profile');
       const data = await response.json();
-      setProfileData(data);
+      setProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
-      toast.error('Failed to fetch profile');
+      toast({
+        title: "Error",
+        description: "Failed to fetch profile",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [session?.user?.id, setProfileData, setIsLoading, toast]);
+  }, [session, toast]);
 
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
 
-  const handleSave = async () => {
-    if (!profileData) return;
-
-    try {
-      const response = await fetch('/api/students/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profileData),
-      });
-
-      if (!response.ok) throw new Error('Failed to update profile');
-
-      toast({
-        title: 'Success',
-        description: 'Profile updated successfully',
-      });
-      setIsEditing(false);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update profile',
-        variant: 'destructive',
-      });
-    }
-  };
-
   if (isLoading) {
     return (
-      <Card className="p-4">
-        <div className="flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
-      </Card>
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      </div>
     );
   }
 
-  if (!profileData) {
+  if (!profile) {
     return (
-      <Card className="p-4">
-        <div className="text-center">Failed to load profile data</div>
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-8">
+          <p className="text-muted-foreground">Profile not available</p>
+        </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="grid gap-4">
-      <Card className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={profileData.avatar || ''} />
-              <AvatarFallback>{profileData.name?.[0]}</AvatarFallback>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center space-x-4">
+            <Avatar className="h-20 w-20">
+              {profile.avatarUrl ? (
+                <AvatarImage src={profile.avatarUrl} alt={profile.name} />
+              ) : (
+                <AvatarFallback>{profile.name.charAt(0)}</AvatarFallback>
+              )}
             </Avatar>
-            <div className="space-y-1">
-              <h3 className="text-2xl font-semibold">{profileData.name}</h3>
-              <div className="text-sm text-muted-foreground">{profileData.email}</div>
+            <div>
+              <CardTitle>{profile.name}</CardTitle>
+              <CardDescription>{profile.email}</CardDescription>
             </div>
           </div>
-          <Button
-            variant={isEditing ? 'default' : 'secondary'}
-            onClick={() => {
-              if (isEditing) {
-                handleSave();
-              } else {
-                setIsEditing(true);
-              }
-            }}
-          >
-            {isEditing ? 'Save Changes' : 'Edit Profile'}
-          </Button>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <div className="space-y-6">
-          <div>
-            <h4 className="text-sm font-medium mb-4">Personal Information</h4>
-            <div className="grid gap-4">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                {isEditing ? (
-                  <Input
-                    value={profileData.name}
-                    onChange={(e) =>
-                      setProfileData({ ...profileData, name: e.target.value })
-                    }
-                  />
-                ) : (
-                  <span className="text-sm">{profileData.name}</span>
-                )}
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium">Student ID</p>
+                <p className="text-sm text-muted-foreground">{profile.studentId}</p>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{profileData.email}</span>
+              <div>
+                <p className="text-sm font-medium">Grade</p>
+                <p className="text-sm text-muted-foreground">{profile.grade}</p>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                {isEditing ? (
-                  <Input
-                    value={profileData.phoneNumber || ''}
-                    onChange={(e) =>
-                      setProfileData({ ...profileData, phoneNumber: e.target.value })
-                    }
-                    placeholder="Enter phone number"
-                  />
-                ) : (
-                  <span className="text-sm">
-                    {profileData.phoneNumber || 'No phone number specified'}
-                  </span>
-                )}
+              <div>
+                <p className="text-sm font-medium">School</p>
+                <p className="text-sm text-muted-foreground">{profile.school}</p>
               </div>
-
-              <div className="flex items-center gap-2">
-                <School className="h-4 w-4 text-muted-foreground" />
-                {isEditing ? (
-                  <Input
-                    value={profileData.grade || ''}
-                    onChange={(e) =>
-                      setProfileData({ ...profileData, grade: e.target.value })
-                    }
-                    placeholder="Enter grade level"
-                  />
-                ) : (
-                  <span className="text-sm">
-                    {profileData.grade || 'No grade specified'}
-                  </span>
-                )}
+              <div>
+                <p className="text-sm font-medium">Joined</p>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(profile.joinedAt).toLocaleDateString()}
+                </p>
               </div>
-
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-                {isEditing ? (
-                  <Input
-                    value={profileData.subjects?.join(', ') || ''}
-                    onChange={(e) =>
-                      setProfileData({
-                        ...profileData,
-                        subjects: e.target.value.split(', ').filter(Boolean),
-                      })
-                    }
-                    placeholder="Enter subjects (comma-separated)"
-                  />
-                ) : (
-                  <span className="text-sm">
-                    {profileData.subjects?.join(', ') || 'No subjects specified'}
-                  </span>
-                )}
+            </div>
+            <div className="pt-4">
+              <h3 className="text-lg font-medium">Progress Overview</h3>
+              <div className="grid grid-cols-3 gap-4 mt-2">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold">{profile.totalAssignments}</div>
+                    <p className="text-xs text-muted-foreground">Total Assignments</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold">{profile.completedAssignments}</div>
+                    <p className="text-xs text-muted-foreground">Completed</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold">
+                      {profile.averageGrade ? `${profile.averageGrade}%` : 'N/A'}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Average Grade</p>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </div>
-
-          <div>
-            <h4 className="text-sm font-medium mb-4">Biography</h4>
-            {isEditing ? (
-              <Textarea
-                value={profileData.bio || ''}
-                onChange={(e) =>
-                  setProfileData({ ...profileData, bio: e.target.value })
-                }
-                placeholder="Tell us about yourself"
-                className="min-h-[100px]"
-              />
-            ) : (
-              <p className="text-sm">{profileData.bio || 'No biography specified'}</p>
-            )}
-          </div>
-        </div>
+        </CardContent>
       </Card>
     </div>
   );

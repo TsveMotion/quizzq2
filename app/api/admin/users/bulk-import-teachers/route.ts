@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth-config';
 import { prisma } from '@/lib/prisma';
 import * as ExcelJS from 'exceljs';
 
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
     if (existingUsers.length > 0) {
       return new NextResponse(
         JSON.stringify({
-          errors: existingUsers.map(u => `Email already exists: ${u.email}`),
+          errors: existingUsers.map((u: { email: string }) => `Email already exists: ${u.email}`),
         }),
         {
           status: 400,

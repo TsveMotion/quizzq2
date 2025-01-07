@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth-config';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -49,7 +51,11 @@ export async function GET(req: Request) {
     });
 
     // Format the data for the chart
-    const formattedData = classes.map(cls => ({
+    const formattedData = classes.map((cls: {
+      name: string;
+      _count: { students: number; assignments: number };
+      teacher?: { name: string };
+    }) => ({
       name: cls.name,
       studentCount: cls._count.students,
       teacherName: cls.teacher?.name || 'No Teacher',

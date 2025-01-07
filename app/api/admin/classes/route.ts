@@ -53,9 +53,9 @@ export async function GET(req: Request) {
     });
 
     // Transform the data to include teachers array
-    const transformedClasses = classes.map(classObj => ({
+    const transformedClasses = classes.map((classObj: any) => ({
       ...classObj,
-      teachers: classObj.classTeachers.map(ct => ct.teacher),
+      teachers: classObj.classTeachers.map((ct: any) => ct.teacher),
       _count: {
         ...classObj._count,
         teachers: classObj._count.classTeachers
@@ -127,7 +127,7 @@ export async function POST(req: Request) {
     // Transform the response
     const transformedClass = {
       ...newClass,
-      teachers: newClass.classTeachers.map(ct => ct.teacher),
+      teachers: newClass.classTeachers.map((ct: any) => ct.teacher),
       _count: {
         ...newClass._count,
         teachers: newClass._count.classTeachers

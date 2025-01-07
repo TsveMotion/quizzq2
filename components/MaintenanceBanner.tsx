@@ -21,7 +21,10 @@ export function MaintenanceBanner() {
   if (!isMaintenanceMode) return null;
 
   return (
-    <Alert variant="warning" className="rounded-none border-t-0 border-x-0">
+    <Alert
+      variant="destructive"
+      className="fixed bottom-0 left-0 right-0 z-50 rounded-none border-t-2 border-destructive"
+    >
       <AlertCircle className="h-4 w-4" />
       <AlertTitle>System Maintenance</AlertTitle>
       <AlertDescription>

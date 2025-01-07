@@ -14,11 +14,11 @@ import {
   GraduationCap,
   LineChart
 } from "lucide-react";
-import StudentOverviewTab from './StudentOverviewTab';
-import StudentProfileTab from './StudentProfileTab';
-import StudentClassesTab from './StudentClassesTab';
-import StudentAssignmentsTab from './StudentAssignmentsTab';
-import StudentGradesTab from './StudentGradesTab';
+import { StudentOverviewTab } from './StudentOverviewTab';
+import { StudentProfileTab } from './StudentProfileTab';
+import { StudentClassesTab } from './StudentClassesTab';
+import { StudentAssignmentsTab } from './StudentAssignmentsTab';
+import { StudentGradesTab } from './StudentGradesTab';
 
 export default function StudentDashboard() {
   const { data: session, status } = useSession();

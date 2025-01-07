@@ -12,76 +12,58 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const currentUser = await prisma.user.findFirst({
-      where: { 
-        email: session.user.email,
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        role: true,
+        schoolId: true,
       },
-      include: { 
-        school: true 
-      }
     });
 
-    if (!currentUser || !['SUPERADMIN', 'SCHOOLADMIN', 'TEACHER'].includes(currentUser.role)) {
-      console.log('Insufficient permissions for role:', currentUser.role);
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Only allow school admins to create users for their school
+    if (currentUser.role !== "SCHOOLADMIN") {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
     const data = await req.json();
-    const { name, email, password, role, schoolId } = data;
+    const { name, email, password, role } = data;
 
-    // Teachers can only create students
-    if (currentUser.role === 'TEACHER' && role !== 'STUDENT') {
-      console.log('Teachers can only create student accounts');
-      return NextResponse.json({ error: 'Teachers can only create student accounts' }, { status: 403 });
-    }
-
-    // Validate school access
-    if ((currentUser.role === 'SCHOOLADMIN' || currentUser.role === 'TEACHER') && currentUser.schoolId !== schoolId) {
-      console.log('Unauthorized access to school');
-      return NextResponse.json({ error: 'Unauthorized access to school' }, { status: 403 });
-    }
-
-    // Hash password
-    const hashedPassword = await hash(password, 10);
+    // Create user data
+    const userData = {
+      name,
+      email,
+      password: await hash(password, 10),
+      role,
+      status: "ACTIVE",
+      powerLevel: 1,
+      schoolId: currentUser.schoolId,
+    };
 
     // Create user
     const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: role.toUpperCase(),
-        status: 'ACTIVE',
-        powerLevel: role.toUpperCase() === 'STUDENT' ? 1 : 2,
-        school: {
-          connect: {
-            id: schoolId
-          }
-        },
-        ...(role.toUpperCase() === 'STUDENT' && currentUser.role === 'TEACHER' ? {
-          teacherId: currentUser.id
-        } : {})
-      },
+      data: userData,
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
         status: true,
-        school: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
+        createdAt: true,
+      },
     });
 
     console.log('User created:', user);
     return NextResponse.json(user);
   } catch (error) {
     console.error('Error creating user:', error);
-    if (error.code === 'P2002') {
+    if (error instanceof Error && 
+        typeof (error as any).code === 'string' && 
+        (error as any).code === 'P2002') {
       console.log('User with this email already exists');
       return NextResponse.json(
         { error: 'A user with this email already exists' },
@@ -108,12 +90,20 @@ export async function GET(req: Request) {
     const currentUser = await prisma.user.findFirst({
       where: { 
         email: session.user.email,
+      },
+      select: {
+        id: true,
+        role: true,
+        schoolId: true,
       }
     });
 
     if (!currentUser) {
-      console.log('Current user not found');
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (!['SUPERADMIN', 'SCHOOLADMIN', 'TEACHER'].includes(currentUser.role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     console.log('Current user role:', currentUser.role);
@@ -137,6 +127,9 @@ export async function GET(req: Request) {
         { schoolId: currentUser.schoolId, role: 'TEACHER' } // Other teachers in same school
       ];
     } else if (currentUser.role !== 'SUPERADMIN') {
+      if (!currentUser) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
       console.log('Insufficient permissions for role:', currentUser.role);
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
@@ -194,12 +187,16 @@ export async function DELETE(req: Request) {
       where: { 
         email: session.user.email,
         role: 'SUPERADMIN'
+      },
+      select: {
+        id: true,
+        role: true,
+        schoolId: true,
       }
     });
 
     if (!currentUser) {
-      console.log('Insufficient permissions for role:', currentUser.role);
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     const { searchParams } = new URL(req.url);

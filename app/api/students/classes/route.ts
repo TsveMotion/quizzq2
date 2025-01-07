@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -10,36 +12,34 @@ export async function GET() {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
+    const classes = await prisma.class.findMany({
       where: {
-        email: session.user.email,
+        students: {
+          some: {
+            id: session.user.id
+          }
+        }
       },
-      include: {
-        enrolledClasses: {
-          include: {
-            teacher: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        teacher: {
+          select: {
+            name: true
+          }
+        }
+      }
     });
 
-    if (!user) {
-      return new NextResponse('User not found', { status: 404 });
-    }
-
-    const classes = user.enrolledClasses.map((classItem) => ({
+    const transformedClasses = classes.map(classItem => ({
       id: classItem.id,
       name: classItem.name,
-      description: classItem.description || '',
-      teacherName: classItem.teacher?.name || 'Unknown Teacher',
-      schedule: classItem.schedule || 'Schedule not set',
+      description: classItem.description,
+      teacherName: classItem.teacher?.name || 'No teacher assigned'
     }));
 
-    return NextResponse.json(classes);
+    return NextResponse.json(transformedClasses);
   } catch (error) {
     console.error('Error fetching student classes:', error);
     return new NextResponse('Internal Server Error', { status: 500 });

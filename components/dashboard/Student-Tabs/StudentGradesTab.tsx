@@ -1,27 +1,32 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
+import { useSession } from 'next-auth/react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/components/ui/use-toast';
+import { format } from 'date-fns';
 import { Loader2, BookOpen, Trophy } from 'lucide-react';
 
 interface Grade {
   id: string;
   className: string;
-  overallGrade: number;
-  assignments: {
-    title: string;
-    grade: number;
-    weight: number;
-  }[];
+  assignmentTitle: string;
+  score: number;
+  maxScore: number;
+  submittedAt: string;
+  feedback?: string;
 }
 
-export default function StudentGradesTab() {
+export function StudentGradesTab() {
+  const { data: session } = useSession();
   const [grades, setGrades] = useState<Grade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchGrades = useCallback(async () => {
+    setIsLoading(true);
     try {
       const userId = session?.user?.id;
       if (!userId) return;
@@ -31,9 +36,15 @@ export default function StudentGradesTab() {
       setGrades(data);
     } catch (error) {
       console.error('Error fetching grades:', error);
-      toast.error('Failed to fetch grades');
+      toast({
+        title: "Error",
+        description: "Failed to fetch grades",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [toast]);
+  }, [session, toast]);
 
   useEffect(() => {
     fetchGrades();
@@ -80,30 +91,27 @@ export default function StudentGradesTab() {
                 <h3 className="text-lg font-medium">{grade.className}</h3>
               </div>
               <div className="flex items-center gap-2">
-                <Trophy className={`h-5 w-5 ${getGradeColor(grade.overallGrade)}`} />
-                <span className={`text-lg font-bold ${getGradeColor(grade.overallGrade)}`}>
-                  {grade.overallGrade}%
+                <Trophy className={`h-5 w-5 ${getGradeColor(grade.score / grade.maxScore * 100)}`} />
+                <span className={`text-lg font-bold ${getGradeColor(grade.score / grade.maxScore * 100)}`}>
+                  {(grade.score / grade.maxScore * 100).toFixed(2)}%
                 </span>
               </div>
             </div>
             
             <div className="space-y-2">
-              {grade.assignments.map((assignment, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between border-b py-2 last:border-0"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{assignment.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Weight: {assignment.weight}%
-                    </p>
-                  </div>
-                  <span className={`text-sm font-medium ${getGradeColor(assignment.grade)}`}>
-                    {assignment.grade}%
-                  </span>
+              <div
+                className="flex items-center justify-between border-b py-2 last:border-0"
+              >
+                <div>
+                  <p className="text-sm font-medium">{grade.assignmentTitle}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Score: {grade.score}/{grade.maxScore}
+                  </p>
                 </div>
-              ))}
+                <span className={`text-sm font-medium ${getGradeColor(grade.score / grade.maxScore * 100)}`}>
+                  {(grade.score / grade.maxScore * 100).toFixed(2)}%
+                </span>
+              </div>
             </div>
           </div>
         </Card>

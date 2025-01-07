@@ -48,7 +48,10 @@ export default function DocsPage() {
         </p>
       </div>
 
-      <Alert variant="warning" className="bg-yellow-50 dark:bg-yellow-900/10">
+      <Alert 
+        variant="default" 
+        className="border-yellow-200 bg-yellow-50 text-yellow-900 dark:border-yellow-800/30 dark:bg-yellow-900/10 dark:text-yellow-500 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500"
+      >
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>Beta Testing</AlertTitle>
         <AlertDescription>

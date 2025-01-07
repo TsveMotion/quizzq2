@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -112,7 +112,7 @@ interface ClassesTabProps {
 export function ClassesTab({
   classes,
   teachers,
-  students,
+  students: studentsProp,
   isLoading,
   searchTerm,
   setSearchTerm,
@@ -132,6 +132,28 @@ export function ClassesTab({
     name: string;
     description: string;
   } | null>(null);
+
+  const [students, setStudents] = useState<Student[]>([]);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const response = await fetch(`/api/schooladmin/students?schoolId=${schoolId}`);
+        if (!response.ok) throw new Error('Failed to fetch students');
+        const data = await response.json();
+        setStudents(data);
+      } catch (error) {
+        console.error('Error fetching students:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load students",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchStudents();
+  }, [schoolId, toast]);
 
   const filteredClasses = classes
     .filter(
@@ -429,7 +451,7 @@ export function ClassesTab({
           onSuccess={onClassesChange}
           classData={selectedClassForStudents}
           schoolId={schoolId}
-          allStudents={students}
+          allStudents={studentsProp}
         />
       )}
 
@@ -441,6 +463,7 @@ export function ClassesTab({
           classData={selectedClassForEdit}
           schoolId={schoolId}
           teachers={teachers}
+          students={students}
         />
       )}
 

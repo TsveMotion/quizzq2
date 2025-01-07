@@ -35,7 +35,14 @@ export async function DELETE(
 
     // Start a transaction to ensure all operations succeed or fail together
     await prisma.$transaction(async (tx) => {
-      // First, delete all class teacher associations
+      // Delete teacher's assignments
+      await tx.assignment.deleteMany({
+        where: {
+          teacherId: teacherId,
+        },
+      });
+
+      // Delete teacher's class assignments
       await tx.classTeacher.deleteMany({
         where: {
           teacherId: teacherId,
@@ -52,19 +59,12 @@ export async function DELETE(
         },
       });
 
-      // Delete assignments created by this teacher
-      await tx.assignment.deleteMany({
-        where: {
-          teacherId: teacherId,
-        },
-      });
-
       // For each class, either delete it or reassign it
       if (classesWithTeacher.length > 0) {
         await tx.class.deleteMany({
           where: {
             id: {
-              in: classesWithTeacher.map(c => c.id)
+              in: classesWithTeacher.map((c: { id: string }) => c.id)
             }
           }
         });

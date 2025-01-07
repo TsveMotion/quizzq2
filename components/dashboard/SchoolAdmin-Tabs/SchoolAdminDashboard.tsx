@@ -16,209 +16,568 @@ import { OverviewTab } from "./OverviewTab";
 import { TeachersTab } from "./TeachersTab";
 import { StudentsTab } from "./StudentsTab";
 import { ClassesTab } from "./ClassesTab";
+import { School, Class, User } from "@prisma/client";
 
-interface School {
+// Types for TeachersTab
+interface TeacherStudent {
   id: string;
   name: string;
+  email: string;
+}
+
+interface TeacherClass {
+  id: string;
+  name: string;
+  students: TeacherStudent[];
+}
+
+interface Teacher {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
   createdAt: Date;
-  updatedAt: Date;
+  teachingClasses?: TeacherClass[];
+}
+
+// Types for StudentsTab
+interface StudentTeacher {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface StudentClass {
+  id: string;
+  name: string;
+  teacher: StudentTeacher;
+}
+
+interface Student {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: Date;
+  enrolledClasses?: StudentClass[];
+}
+
+// Types for ClassesTab
+interface ClassTeacher {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface ClassStudent {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface ClassWithTeacher {
+  id: string;
+  name: string;
+  description?: string;
+  teacher: ClassTeacher;
+  students?: ClassStudent[];
+  createdAt: Date;
+}
+
+// Types for OverviewTab
+interface ExtendedClass extends Omit<Class, 'teacher'> {
+  teacher: {
+    id: string;
+    name: string;
+    email: string;
+    password: string;
+    role: string;
+    powerLevel: number;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+    emailVerified: Date | null;
+    schoolId: string | null;
+    teacherId: string | null;
+    image: string | null;
+    avatar: string | null;
+    bio: string | null;
+    subjects: string | null;
+    education: string | null;
+    experience: string | null;
+    phoneNumber: string | null;
+    officeHours: string | null;
+  };
+  students: {
+    id: string;
+    name: string;
+    email: string;
+    password: string;
+    role: string;
+    powerLevel: number;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+    emailVerified: Date | null;
+    schoolId: string | null;
+    teacherId: string | null;
+    image: string | null;
+    avatar: string | null;
+    bio: string | null;
+    subjects: string | null;
+    education: string | null;
+    experience: string | null;
+    phoneNumber: string | null;
+    officeHours: string | null;
+  }[];
+  classTeachers: {
+    teacher: {
+      id: string;
+      name: string;
+      email: string;
+      password: string;
+      role: string;
+      powerLevel: number;
+      status: string;
+      createdAt: Date;
+      updatedAt: Date;
+      emailVerified: Date | null;
+      schoolId: string | null;
+      teacherId: string | null;
+      image: string | null;
+      avatar: string | null;
+      bio: string | null;
+      subjects: string | null;
+      education: string | null;
+      experience: string | null;
+      phoneNumber: string | null;
+      officeHours: string | null;
+    };
+  }[];
+  _count: {
+    students: number;
+  };
+}
+
+interface ExtendedSchool extends School {
+  users: User[];
+  classes: ExtendedClass[];
+  _count: {
+    users: number;
+    classes: number;
+  };
 }
 
 interface SchoolAdminDashboardProps {
-  school: School;
+  school: School & {
+    users: User[];
+    classes: ExtendedClass[];
+    _count: {
+      users: number;
+      classes: number;
+    };
+  };
 }
 
 export function SchoolAdminDashboard({ school }: SchoolAdminDashboardProps) {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
-  const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [data, setData] = useState({
-    teachers: [],
-    students: [],
-    classes: []
-  });
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchData = useCallback(async () => {
-    if (!school?.id) {
-      toast({
-        title: "Error",
-        description: "No school associated with this account",
-        variant: "destructive",
-      });
-      return;
-    }
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<ClassWithTeacher[]>(() => 
+    school.classes.map(cls => ({
+      id: cls.id,
+      name: cls.name,
+      description: cls.description === null ? undefined : cls.description,
+      teacher: {
+        id: cls.teacher.id,
+        name: cls.teacher.name,
+        email: cls.teacher.email
+      },
+      students: cls.students.map(student => ({
+        id: student.id,
+        name: student.name,
+        email: student.email
+      })),
+      createdAt: cls.createdAt
+    }))
+  );
 
-    try {
-      setIsLoading(true);
-      const [teachersRes, studentsRes, classesRes] = await Promise.all([
-        fetch(`/api/schools/${school.id}/teachers`),
-        fetch(`/api/schools/${school.id}/students`),
-        fetch(`/api/schools/${school.id}/classes`)
-      ]);
-
-      if (!teachersRes.ok || !studentsRes.ok || !classesRes.ok) {
-        throw new Error('Failed to fetch data');
+  // Prepare school data for OverviewTab
+  const overviewSchool: ExtendedSchool = {
+    ...school,
+    classes: school.classes.map(cls => ({
+      id: cls.id,
+      name: cls.name,
+      description: cls.description,
+      createdAt: cls.createdAt,
+      updatedAt: cls.updatedAt,
+      schoolId: cls.schoolId,
+      teacherId: cls.teacherId,
+      teacher: {
+        id: cls.teacher.id,
+        name: cls.teacher.name,
+        email: cls.teacher.email,
+        password: cls.teacher.password,
+        role: cls.teacher.role,
+        powerLevel: cls.teacher.powerLevel,
+        status: cls.teacher.status,
+        createdAt: cls.teacher.createdAt,
+        updatedAt: cls.teacher.updatedAt,
+        emailVerified: cls.teacher.emailVerified,
+        schoolId: cls.teacher.schoolId,
+        teacherId: cls.teacher.teacherId,
+        image: cls.teacher.image,
+        avatar: cls.teacher.avatar,
+        bio: cls.teacher.bio,
+        subjects: cls.teacher.subjects,
+        education: cls.teacher.education,
+        experience: cls.teacher.experience,
+        phoneNumber: cls.teacher.phoneNumber,
+        officeHours: cls.teacher.officeHours,
+      },
+      students: cls.students.map(student => ({
+        id: student.id,
+        name: student.name,
+        email: student.email,
+        password: student.password,
+        role: student.role,
+        powerLevel: student.powerLevel,
+        status: student.status,
+        createdAt: student.createdAt,
+        updatedAt: student.updatedAt,
+        emailVerified: student.emailVerified,
+        schoolId: student.schoolId,
+        teacherId: student.teacherId,
+        image: student.image,
+        avatar: student.avatar,
+        bio: student.bio,
+        subjects: student.subjects,
+        education: student.education,
+        experience: student.experience,
+        phoneNumber: student.phoneNumber,
+        officeHours: student.officeHours,
+      })),
+      classTeachers: cls.classTeachers.map(classTeacher => ({
+        teacher: {
+          id: classTeacher.teacher.id,
+          name: classTeacher.teacher.name,
+          email: classTeacher.teacher.email,
+          password: classTeacher.teacher.password,
+          role: classTeacher.teacher.role,
+          powerLevel: classTeacher.teacher.powerLevel,
+          status: classTeacher.teacher.status,
+          createdAt: classTeacher.teacher.createdAt,
+          updatedAt: classTeacher.teacher.updatedAt,
+          emailVerified: classTeacher.teacher.emailVerified,
+          schoolId: classTeacher.teacher.schoolId,
+          teacherId: classTeacher.teacher.teacherId,
+          image: classTeacher.teacher.image,
+          avatar: classTeacher.teacher.avatar,
+          bio: classTeacher.teacher.bio,
+          subjects: classTeacher.teacher.subjects,
+          education: classTeacher.teacher.education,
+          experience: classTeacher.teacher.experience,
+          phoneNumber: classTeacher.teacher.phoneNumber,
+          officeHours: classTeacher.teacher.officeHours,
+        }
+      })),
+      _count: {
+        students: cls.students.length
       }
+    }))
+  };
 
-      const [teachersData, studentsData, classesData] = await Promise.all([
-        teachersRes.json(),
-        studentsRes.json(),
-        classesRes.json()
-      ]);
+  // Fetch data when component mounts
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch teachers
+        const teachersResponse = await fetch(`/api/schooladmin/teachers?schoolId=${school.id}`);
+        if (!teachersResponse.ok) throw new Error('Failed to fetch teachers');
+        const teachersData = await teachersResponse.json();
+        setTeachers(teachersData.map((teacher: User & { teachingClasses?: any[] }) => ({
+          id: teacher.id,
+          name: teacher.name,
+          email: teacher.email,
+          role: teacher.role,
+          createdAt: teacher.createdAt,
+          teachingClasses: teacher.teachingClasses?.map(cls => ({
+            id: cls.id,
+            name: cls.name,
+            students: cls.students.map((student: User) => ({
+              id: student.id,
+              name: student.name,
+              email: student.email
+            }))
+          }))
+        })));
 
-      setData({
-        teachers: teachersData,
-        students: studentsData,
-        classes: classesData
-      });
+        // Fetch students
+        const studentsResponse = await fetch(`/api/schooladmin/students?schoolId=${school.id}`);
+        if (!studentsResponse.ok) throw new Error('Failed to fetch students');
+        const studentsData = await studentsResponse.json();
+        setStudents(studentsData.map((student: User & { enrolledClasses?: any[] }) => ({
+          id: student.id,
+          name: student.name,
+          email: student.email,
+          role: student.role,
+          createdAt: student.createdAt,
+          enrolledClasses: student.enrolledClasses?.map(cls => ({
+            id: cls.id,
+            name: cls.name,
+            teacher: {
+              id: cls.teacher.id,
+              name: cls.teacher.name,
+              email: cls.teacher.email
+            }
+          }))
+        })));
+
+        // Fetch classes
+        const classesResponse = await fetch(`/api/schooladmin/classes?schoolId=${school.id}`);
+        if (!classesResponse.ok) throw new Error('Failed to fetch classes');
+        const classesData = await classesResponse.json();
+        setClasses(classesData.map((cls: any) => ({
+          id: cls.id,
+          name: cls.name,
+          description: cls.description === null ? undefined : cls.description,
+          teacher: {
+            id: cls.teacher.id,
+            name: cls.teacher.name,
+            email: cls.teacher.email
+          },
+          students: cls.students?.map((student: User) => ({
+            id: student.id,
+            name: student.name,
+            email: student.email
+          })),
+          createdAt: cls.createdAt
+        })));
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load data",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [school.id, toast]);
+
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: '/login' });
+  };
+
+  const onTeachersChange = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/schooladmin/teachers?schoolId=${school.id}`);
+      if (!response.ok) throw new Error('Failed to fetch teachers');
+      const data = await response.json();
+      setTeachers(data.map((teacher: User & { teachingClasses?: any[] }) => ({
+        id: teacher.id,
+        name: teacher.name,
+        email: teacher.email,
+        role: teacher.role,
+        createdAt: teacher.createdAt,
+        teachingClasses: teacher.teachingClasses?.map(cls => ({
+          id: cls.id,
+          name: cls.name,
+          students: cls.students.map((student: User) => ({
+            id: student.id,
+            name: student.name,
+            email: student.email
+          }))
+        }))
+      })));
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching teachers:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch data",
+        description: "Failed to refresh teachers list",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
-  }, [school?.id, toast]);
+  }, [school.id, toast]);
 
-  useEffect(() => {
-    if (school?.id) {
-      fetchData();
+  const onStudentsChange = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/schooladmin/students?schoolId=${school.id}`);
+      if (!response.ok) throw new Error('Failed to fetch students');
+      const data = await response.json();
+      setStudents(data.map((student: User & { enrolledClasses?: any[] }) => ({
+        id: student.id,
+        name: student.name,
+        email: student.email,
+        role: student.role,
+        createdAt: student.createdAt,
+        enrolledClasses: student.enrolledClasses?.map(cls => ({
+          id: cls.id,
+          name: cls.name,
+          teacher: {
+            id: cls.teacher.id,
+            name: cls.teacher.name,
+            email: cls.teacher.email
+          }
+        }))
+      })));
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh students list",
+        variant: "destructive",
+      });
     }
-  }, [fetchData, school?.id]);
+  }, [school.id, toast]);
 
-  if (!session?.user) {
-    return <div>Please sign in to access the dashboard</div>;
-  }
-
-  if (!school) {
-    return <div>No school data available</div>;
-  }
-
-  const navItems = [
-    {
-      title: "Overview",
-      value: "overview",
-      icon: LayoutDashboard,
-    },
-    {
-      title: "Teachers",
-      value: "teachers",
-      icon: GraduationCap,
-    },
-    {
-      title: "Students",
-      value: "students",
-      icon: Users,
-    },
-    {
-      title: "Classes",
-      value: "classes",
-      icon: BookOpen,
-    },
-  ];
+  const onClassesChange = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/schooladmin/classes?schoolId=${school.id}`);
+      if (!response.ok) throw new Error('Failed to fetch classes');
+      const data = await response.json();
+      setClasses(data.map((cls: any) => ({
+        id: cls.id,
+        name: cls.name,
+        description: cls.description === null ? undefined : cls.description,
+        teacher: {
+          id: cls.teacher.id,
+          name: cls.teacher.name,
+          email: cls.teacher.email
+        },
+        students: cls.students?.map((student: User) => ({
+          id: student.id,
+          name: student.name,
+          email: student.email
+        })),
+        createdAt: cls.createdAt
+      })));
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh classes list",
+        variant: "destructive",
+      });
+    }
+  }, [school.id, toast]);
 
   return (
-    <div className="flex h-screen">
-      <div className="w-64 border-r bg-background">
-        <div className="flex h-16 items-center border-b px-6">
-          <h2 className="text-lg font-semibold">School Admin</h2>
-        </div>
-        <div className="space-y-1 p-4">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
+    <div className="flex flex-col min-h-screen">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="mr-4 hidden md:flex">
+            <a className="mr-6 flex items-center space-x-2" href="/">
+              <span className="hidden font-bold sm:inline-block">
+                {school.name}
+              </span>
+            </a>
+            <nav className="flex items-center space-x-6 text-sm font-medium">
               <Button
-                key={item.value}
-                variant="ghost"
-                className={cn(
-                  "w-full justify-start gap-2 px-2",
-                  activeTab === item.value && "bg-muted"
-                )}
-                onClick={() => setActiveTab(item.value)}
+                variant={activeTab === "overview" ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => setActiveTab("overview")}
               >
-                <Icon className="h-4 w-4" />
-                {item.title}
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                Overview
               </Button>
-            );
-          })}
-        </div>
-        <div className="absolute bottom-0 w-64 border-t p-4">
-          <div className="mb-2">
-            <div className="text-sm font-semibold">{session.user.name || 'School Admin'}</div>
-            <div className="text-xs text-muted-foreground">{session.user.email}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{school.name}</div>
+              <Button
+                variant={activeTab === "teachers" ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => setActiveTab("teachers")}
+              >
+                <GraduationCap className="mr-2 h-4 w-4" />
+                Teachers
+              </Button>
+              <Button
+                variant={activeTab === "students" ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => setActiveTab("students")}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Students
+              </Button>
+              <Button
+                variant={activeTab === "classes" ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => setActiveTab("classes")}
+              >
+                <BookOpen className="mr-2 h-4 w-4" />
+                Classes
+              </Button>
+            </nav>
           </div>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 text-red-600"
-            onClick={async () => {
-              await signOut({
-                redirect: true,
-                callbackUrl: 'http://localhost:3000/'
-              });
-            }}
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto">
-        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-          <div className="flex items-center justify-between space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight">
-              {school.name} Dashboard
-            </h2>
+          <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+            <div className="w-full flex-1 md:w-auto md:flex-none">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={handleSignOut}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </Button>
+            </div>
           </div>
+        </div>
+      </header>
 
+      <main className="flex-1">
+        <div className="container py-6">
           <div className="space-y-4">
             {activeTab === "overview" && (
-              <OverviewTab school={school} />
+              <OverviewTab 
+                school={overviewSchool}
+              />
             )}
 
             {activeTab === "teachers" && (
               <TeachersTab
-                teachers={data.teachers}
+                teachers={teachers}
                 isLoading={isLoading}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 schoolId={school.id}
-                onTeachersChange={fetchData}
+                onTeachersChange={onTeachersChange}
               />
             )}
 
             {activeTab === "students" && (
               <StudentsTab
-                students={data.students}
+                students={students}
                 isLoading={isLoading}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 schoolId={school.id}
-                onStudentsChange={fetchData}
+                onStudentsChange={onStudentsChange}
               />
             )}
 
             {activeTab === "classes" && (
               <ClassesTab
-                classes={data.classes}
-                teachers={data.teachers}
-                students={data.students}
+                classes={classes}
+                teachers={teachers}
+                students={students}
                 isLoading={isLoading}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 schoolId={school.id}
-                onClassesChange={fetchData}
+                onClassesChange={onClassesChange}
               />
             )}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

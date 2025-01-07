@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { Calendar, Users, FileText, Wand2, Loader2, Trash2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ interface Assignment {
     id: string;
     name: string;
   };
-  _count: {
+  _count?: {
     submissions: number;
   };
 }
@@ -44,22 +44,33 @@ export default function TeacherAssignmentsTab() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [assignmentToDelete, setAssignmentToDelete] = useState<Assignment | null>(null);
 
+  const fetchAssignments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/teachers/assignments');
+      if (!response.ok) {
+        throw new Error('Failed to fetch assignments');
+      }
+      const data = await response.json();
+      setAssignments(data.map((assignment: Assignment) => transformAssignment(assignment)));
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch assignments",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [setAssignments, setLoading]);
+
   useEffect(() => {
     fetchAssignments();
-  }, []);
+  }, [fetchAssignments]);
 
   const handleViewAssignment = (assignment: Assignment) => {
-    setSelectedAssignment({
-      id: assignment.id,
-      title: assignment.title,
-      content: assignment.content,
-      dueDate: assignment.dueDate,
-      class: assignment.class ? { 
-        id: assignment.class.id,
-        name: assignment.class.name 
-      } : null,
-      _count: assignment._count
-    });
+    setSelectedAssignment(transformAssignment(assignment));
     setIsDetailsOpen(true);
   };
 
@@ -68,7 +79,7 @@ export default function TeacherAssignmentsTab() {
   };
 
   const handleAssignmentCreated = (newAssignment: Assignment) => {
-    setAssignments(prev => [newAssignment, ...prev]);
+    setAssignments(prev => [transformAssignment(newAssignment), ...prev]);
   };
 
   const handleDeleteClick = (assignment: Assignment, e: React.MouseEvent) => {
@@ -106,23 +117,16 @@ export default function TeacherAssignmentsTab() {
     }
   };
 
-  const fetchAssignments = async () => {
-    try {
-      const response = await fetch('/api/teachers/assignments');
-      if (!response.ok) throw new Error('Failed to fetch assignments');
-      const data = await response.json();
-      setAssignments(data);
-    } catch (error) {
-      console.error('Error fetching assignments:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch assignments",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  const transformAssignment = (assignment: Assignment) => ({
+    id: assignment.id,
+    title: assignment.title,
+    content: assignment.content,
+    dueDate: assignment.dueDate,
+    class: assignment.class,
+    _count: {
+      submissions: assignment._count?.submissions || 0
     }
-  };
+  });
 
   if (loading) {
     return (
@@ -140,7 +144,7 @@ export default function TeacherAssignmentsTab() {
       </div>
 
       <div className="grid gap-4">
-        {assignments.map((assignment) => (
+        {assignments.map((assignment: Assignment) => (
           <Card
             key={assignment.id}
             className={cn(
@@ -178,7 +182,7 @@ export default function TeacherAssignmentsTab() {
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
-                  <span>{assignment._count.submissions} submissions</span>
+                  <span>{assignment._count?.submissions || 0} submissions</span>
                 </div>
               </div>
             </CardContent>
@@ -188,7 +192,10 @@ export default function TeacherAssignmentsTab() {
 
       {selectedAssignment && (
         <AssignmentDetailsModal
-          assignment={selectedAssignment}
+          assignment={{
+            ...selectedAssignment,
+            class: selectedAssignment.class || { name: 'No Class' }
+          }}
           open={isDetailsOpen}
           onOpenChange={(open) => {
             setIsDetailsOpen(open);

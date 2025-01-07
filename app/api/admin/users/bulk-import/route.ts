@@ -83,7 +83,7 @@ export async function POST(req: Request) {
 
     // Validate and prepare data
     const errors: string[] = [];
-    const students = [];
+    const students: { email: string; name: string; password: string; className?: string }[] = [];
     const existingEmails = new Set();
 
     for (let i = 0; i < data.length; i++) {
@@ -138,7 +138,7 @@ export async function POST(req: Request) {
     });
 
     if (existingUsers.length > 0) {
-      const existingEmails = existingUsers.map(u => u.email);
+      const existingEmails = existingUsers.map((u: { email: string }) => u.email);
       errors.push(`The following emails already exist: ${existingEmails.join(', ')}`);
     }
 
@@ -176,65 +176,73 @@ export async function POST(req: Request) {
 
       // Process each student
       for (const student of students) {
-        const { className, ...userData } = student;
-        
-        // Create the student
-        const createdStudent = await tx.user.create({
-          data: {
-            ...userData,
-            role: 'STUDENT',
-            school: {
-              connect: { id: schoolId },
-            },
-          },
-        });
-
-        // If class name is provided, find or create the class and connect the student
-        if (className) {
-          let existingClass = await tx.class.findFirst({
-            where: {
-              name: className,
-              schoolId: schoolId,
+        try {
+          const { className, ...userData } = student;
+          
+          // Create the student
+          const createdStudent = await tx.user.create({
+            data: {
+              ...userData,
+              role: 'STUDENT',
+              school: {
+                connect: { id: schoolId },
+              },
             },
           });
 
-          if (existingClass) {
-            // Add student to existing class
-            await tx.class.update({
-              where: { id: existingClass.id },
-              data: {
-                students: {
-                  connect: { id: createdStudent.id },
-                },
-              },
-            });
-          } else {
-            // Create new class with the default teacher
-            existingClass = await tx.class.create({
-              data: {
+          // If class name is provided, find or create the class and connect the student
+          if (className) {
+            let existingClass = await tx.class.findFirst({
+              where: {
                 name: className,
-                school: {
-                  connect: { id: schoolId },
-                },
-                teacher: {
-                  connect: { id: defaultTeacher.id },
-                },
-                students: {
-                  connect: { id: createdStudent.id },
-                },
+                schoolId: schoolId,
               },
             });
-          }
-        }
 
-        created.push(createdStudent);
+            if (existingClass) {
+              // Add student to existing class
+              await tx.class.update({
+                where: { id: existingClass.id },
+                data: {
+                  students: {
+                    connect: { id: createdStudent.id },
+                  },
+                },
+              });
+            } else {
+              // Create new class with the default teacher
+              existingClass = await tx.class.create({
+                data: {
+                  name: className,
+                  school: {
+                    connect: { id: schoolId },
+                  },
+                  teacher: {
+                    connect: { id: defaultTeacher.id },
+                  },
+                  students: {
+                    connect: { id: createdStudent.id },
+                  },
+                },
+              });
+            }
+          }
+
+          created.push({ ...createdStudent, status: 'success' });
+        } catch (error) {
+          created.push({
+            ...student,
+            status: 'error',
+            error: (error as Error).message,
+          });
+        }
       }
       return created;
     });
 
     return NextResponse.json({
       message: 'Students imported successfully',
-      count: createdStudents.length,
+      count: createdStudents.filter(s => s.status === 'success').length,
     });
   } catch (error) {
     console.error('[BULK_IMPORT]', error);

@@ -39,6 +39,8 @@ interface School {
   teacherCount?: number;
 }
 
+type SortKey = keyof Pick<School, 'name' | 'createdAt'>;
+
 interface SuperAdminSchoolsTabProps {
   schools: School[];
   onAddSchool: () => void;
@@ -64,7 +66,7 @@ function SuperAdminSchoolsTab({
 }: SuperAdminSchoolsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof School;
+    key: SortKey;
     direction: 'asc' | 'desc';
   }>({ key: 'name', direction: 'asc' });
   const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
@@ -77,16 +79,27 @@ function SuperAdminSchoolsTab({
 
   // Sort schools based on current sort config
   const sortedSchools = [...filteredSchools].sort((a, b) => {
-    if (a[sortConfig.key] < b[sortConfig.key]) {
-      return sortConfig.direction === 'asc' ? -1 : 1;
+    const aValue = a[sortConfig.key];
+    const bValue = b[sortConfig.key];
+
+    if (!aValue || !bValue) return 0;
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortConfig.direction === 'asc' 
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
     }
-    if (a[sortConfig.key] > b[sortConfig.key]) {
-      return sortConfig.direction === 'asc' ? 1 : -1;
+
+    if (aValue instanceof Date && bValue instanceof Date) {
+      return sortConfig.direction === 'asc'
+        ? aValue.getTime() - bValue.getTime()
+        : bValue.getTime() - aValue.getTime();
     }
+
     return 0;
   });
 
-  const handleSort = (key: keyof School) => {
+  const handleSort = (key: SortKey) => {
     setSortConfig(current => ({
       key,
       direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'

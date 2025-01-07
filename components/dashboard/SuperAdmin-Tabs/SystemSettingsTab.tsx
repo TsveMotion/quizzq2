@@ -88,7 +88,7 @@ export default function SystemSettingsTab() {
             </div>
             
             {maintenanceMode && (
-              <Alert variant="warning" className="mt-4">
+              <Alert variant="destructive" className="mt-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Warning</AlertTitle>
                 <AlertDescription>

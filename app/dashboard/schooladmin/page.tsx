@@ -18,75 +18,149 @@ export default async function SchoolAdminPage() {
   console.log('User role:', session?.user?.role);
   console.log('School ID:', session?.user?.schoolId);
 
-  if (!session || session.user.role !== 'SCHOOLADMIN' || !session.user.schoolId) {
+  if (!session || session.user.role !== 'SCHOOLADMIN') {
     console.log('Redirecting: Invalid session or missing data');
     redirect('/auth/signin');
   }
 
   try {
-    const school = await prisma.school.findUnique({
-      where: {
-        id: session.user.schoolId
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        schoolId: true,
       },
-      include: {
+    });
+
+    if (!currentUser || !currentUser.schoolId) {
+      return { school: null };
+    }
+
+    const school = await prisma.school.findUnique({
+      where: { id: currentUser.schoolId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        roleNumber: true,
+        createdAt: true,
+        updatedAt: true,
+        users: {
+          select: {
+            id: true,
+            teacherId: true,
+            name: true,
+            email: true,
+            password: true,
+            role: true,
+            powerLevel: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            emailVerified: true,
+            schoolId: true,
+            image: true,
+            avatar: true,
+            bio: true,
+            subjects: true,
+            education: true,
+            experience: true,
+            phoneNumber: true,
+            officeHours: true,
+          },
+        },
         classes: {
           include: {
             teacher: {
               select: {
                 id: true,
+                teacherId: true,
                 name: true,
-                email: true
-              }
-            },
-            students: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
+                email: true,
+                password: true,
+                role: true,
+                powerLevel: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+                emailVerified: true,
+                schoolId: true,
+                image: true,
+                avatar: true,
+                bio: true,
+                subjects: true,
+                education: true,
+                experience: true,
+                phoneNumber: true,
+                officeHours: true,
+              },
             },
             classTeachers: {
               include: {
                 teacher: {
                   select: {
                     id: true,
+                    teacherId: true,
                     name: true,
-                    email: true
-                  }
-                }
-              }
+                    email: true,
+                    password: true,
+                    role: true,
+                    powerLevel: true,
+                    status: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    emailVerified: true,
+                    schoolId: true,
+                    image: true,
+                    avatar: true,
+                    bio: true,
+                    subjects: true,
+                    education: true,
+                    experience: true,
+                    phoneNumber: true,
+                    officeHours: true,
+                  },
+                },
+              },
+            },
+            students: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                password: true,
+                role: true,
+                powerLevel: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+                emailVerified: true,
+                schoolId: true,
+                teacherId: true,
+                image: true,
+                avatar: true,
+                bio: true,
+                subjects: true,
+                education: true,
+                experience: true,
+                phoneNumber: true,
+                officeHours: true,
+              },
             },
             _count: {
               select: {
                 students: true,
-                classTeachers: true
-              }
-            }
-          }
-        },
-        users: {
-          where: {
-            OR: [
-              { role: "TEACHER" },
-              { role: "STUDENT" }
-            ]
+              },
+            },
           },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            status: true,
-            createdAt: true
-          }
         },
         _count: {
           select: {
             users: true,
-            classes: true
-          }
-        }
-      }
+            classes: true,
+          },
+        },
+      },
     });
 
     if (!school) {

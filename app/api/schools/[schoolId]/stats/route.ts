@@ -63,9 +63,9 @@ export async function GET(
 
     // Calculate stats
     const stats = {
-      totalStudents: userCounts.find(c => c.role === 'student')?._count._all || 0,
-      totalTeachers: userCounts.find(c => c.role === 'teacher')?._count._all || 0,
-      totalAdmins: userCounts.find(c => c.role === 'schooladmin')?._count._all || 0,
+      totalStudents: userCounts.find((c: { role: string; _count: { _all: number } }) => c.role === 'student')?._count._all || 0,
+      totalTeachers: userCounts.find((c: { role: string; _count: { _all: number } }) => c.role === 'teacher')?._count._all || 0,
+      totalAdmins: userCounts.find((c: { role: string; _count: { _all: number } }) => c.role === 'schooladmin')?._count._all || 0,
       activeUsers,
       totalSubmissions
     };

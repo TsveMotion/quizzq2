@@ -46,9 +46,13 @@ export async function GET(
     });
 
     // Map submissions to students
-    const studentsWithSubmissions = assignment.class.students.map(student => ({
+    const studentsWithSubmissions = assignment.class.students.map((student: {
+      id: string;
+      name: string;
+      email: string;
+    }) => ({
       ...student,
-      submission: submissions.find(sub => sub.studentId === student.id),
+      submission: submissions.find((sub) => sub.studentId === student.id),
     }));
 
     return NextResponse.json(studentsWithSubmissions);

@@ -45,7 +45,8 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Error creating school:', error);
     // Return more specific error message
-    if (error.code === 'P2002') {
+    const err = error as { code?: string };
+    if (err.code === 'P2002') {
       return new NextResponse('A school with this role number already exists. Please try again.', { status: 400 });
     }
     return new NextResponse('Internal Server Error', { status: 500 });
@@ -75,9 +76,6 @@ export async function GET() {
     const schools = await prisma.school.findMany({
       include: {
         users: {
-          where: {
-            status: 'ACTIVE'
-          },
           select: {
             id: true,
             role: true
@@ -86,17 +84,16 @@ export async function GET() {
       }
     });
 
-    // Transform the data to include proper role-based counts
+    // Transform the data to include counts
     const transformedSchools = schools.map(school => {
-      const users = school.users || [];
-      const studentCount = users.filter(user => user.role === 'STUDENT').length;
-      const teacherCount = users.filter(user => user.role === 'TEACHER').length;
+      const studentCount = school.users.filter(user => user.role === 'STUDENT').length;
+      const teacherCount = school.users.filter(user => user.role === 'TEACHER').length;
 
       return {
         ...school,
         studentCount,
         teacherCount,
-        users: undefined // Remove users from the response
+        users: undefined // Remove users array from response
       };
     });
 
@@ -150,7 +147,8 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ message: 'School deleted successfully' });
   } catch (error) {
     console.error('Error deleting school:', error);
-    if (error.code === 'P2025') {
+    const err = error as { code?: string };
+    if (err.code === 'P2025') {
       return new NextResponse('School not found', { status: 404 });
     }
     return new NextResponse('Internal Server Error', { status: 500 });

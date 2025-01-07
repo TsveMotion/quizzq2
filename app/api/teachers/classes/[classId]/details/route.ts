@@ -63,7 +63,15 @@ export async function GET(
     }
 
     // Transform the data to include submission count
-    const formattedAssignments = classDetails.assignments.map(assignment => ({
+    const formattedAssignments = classDetails.assignments.map((assignment: {
+      id: string;
+      title: string;
+      dueDate: Date;
+      createdAt: Date;
+      _count: {
+        submissions: number;
+      };
+    }) => ({
       id: assignment.id,
       title: assignment.title,
       dueDate: assignment.dueDate,

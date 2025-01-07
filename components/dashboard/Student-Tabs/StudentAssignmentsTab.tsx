@@ -1,17 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useSession } from 'next-auth/react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { AssignmentDialog } from './AssignmentDialog';
+import { format, isAfter, isBefore, addDays } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Loader2,
   Calendar,
@@ -20,10 +23,7 @@ import {
   Filter,
   GraduationCap,
   AlertCircle,
-} from 'lucide-react';
-import { format, isAfter, isBefore, addDays } from 'date-fns';
-import { AssignmentDialog } from './AssignmentDialog';
-import { useSession } from 'next-auth/react';
+} from "lucide-react";
 
 interface Assignment {
   id: string;
@@ -33,16 +33,26 @@ interface Assignment {
   className: string;
   status: 'pending' | 'submitted' | 'graded';
   grade?: number;
-  attachments?: string[];
+  questions: {
+    id: string;
+    question: string;
+    options: string;
+  }[];
+  attachments?: {
+    id: string;
+    fileName: string;
+    url: string;
+  }[];
   submission?: {
     content: string;
     files: string[];
     submittedAt: string;
     feedback?: string;
+    answers?: { [key: string]: number };
   };
 }
 
-export default function StudentAssignmentsTab() {
+export function StudentAssignmentsTab() {
   const { data: session } = useSession();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,10 +66,21 @@ export default function StudentAssignmentsTab() {
       const response = await fetch(`/api/student/${session.user.id}/assignments`);
       if (!response.ok) throw new Error('Failed to fetch assignments');
       const data = await response.json();
-      setAssignments(data);
+      setAssignments(data.map((assignment: any) => ({
+        ...assignment,
+        attachments: assignment.attachments?.map((attachment: any) => ({
+          id: attachment.id || '',
+          fileName: attachment.fileName || attachment,
+          url: attachment.url || attachment
+        }))
+      })));
     } catch (error) {
       console.error('Error fetching assignments:', error);
-      toast.error('Failed to fetch assignments');
+      toast({
+        title: "Error",
+        description: "Failed to fetch assignments",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +90,7 @@ export default function StudentAssignmentsTab() {
     fetchAssignments();
   }, [fetchAssignments]);
 
-  const getStatusBadgeVariant = (status: Assignment['status'], isPastDue: boolean) => {
+  const getStatusBadgeVariant = (status: Assignment['status'], isPastDue: boolean): 'default' | 'destructive' | 'secondary' | 'outline' => {
     if (isPastDue && status === 'pending') return 'destructive';
     switch (status) {
       case 'pending':
@@ -77,7 +98,7 @@ export default function StudentAssignmentsTab() {
       case 'submitted':
         return 'default';
       case 'graded':
-        return 'success';
+        return 'default';
       default:
         return 'secondary';
     }

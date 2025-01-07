@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, Button, Text, Badge, Group, Stack, Modal, NumberInput, Textarea } from '@mantine/core';
 import { useSession } from 'next-auth/react';
 import { notifications } from '@mantine/notifications';
-import { formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 
 interface Submission {
   id: string;
@@ -98,36 +98,44 @@ export function GradeAssignmentsTab() {
     }
   };
 
+  const handleGradeChange = (value: string | number) => {
+    setGrade(typeof value === 'string' ? parseInt(value) : value);
+  };
+
+  const handleFeedbackChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setFeedback(e.target.value);
+  };
+
   return (
-    <Stack spacing="md">
+    <Stack gap="md">
       {assignments.map((assignment) => (
         <Card key={assignment.id} shadow="sm" p="lg">
-          <Text weight={500} size="lg" mb="md">{assignment.title}</Text>
+          <Text fw={500} size="lg" mb="md">{assignment.title}</Text>
           
-          <Text size="sm" color="dimmed" mb="md">
-            Due {formatDistanceToNow(new Date(assignment.dueDate), { addSuffix: true })}
+          <Text size="sm" c="dimmed" mb="md">
+            Due {format(new Date(assignment.dueDate), 'PPP')}
           </Text>
           
           <Text size="sm" mb="xl">{assignment.description}</Text>
 
-          <Text weight={500} mb="md">Submissions:</Text>
+          <Text fw={500} mb="md">Submissions:</Text>
           
-          <Stack spacing="sm">
+          <Stack gap="sm">
             {assignment.submissions.map((submission) => (
               <Card key={submission.id} withBorder>
-                <Group position="apart" mb="xs">
-                  <Text weight={500}>{submission.student.name}</Text>
+                <Group justify="space-between" mb="xs">
+                  <Text fw={500}>{submission.student.name}</Text>
                   <Badge color={submission.status === 'graded' ? 'green' : 'yellow'}>
                     {submission.status}
                   </Badge>
                 </Group>
 
-                <Text size="sm" color="dimmed" mb="md">
-                  Submitted {formatDistanceToNow(new Date(submission.submittedAt), { addSuffix: true })}
+                <Text size="sm" c="dimmed" mb="md">
+                  Submitted {format(new Date(submission.submittedAt), 'PPP')}
                 </Text>
 
                 {submission.grade && (
-                  <Text size="sm" weight={500} color="blue" mb="md">
+                  <Text size="sm" fw={500} c="blue" mb="md">
                     Grade: {submission.grade}/100
                   </Text>
                 )}
@@ -157,21 +165,21 @@ export function GradeAssignmentsTab() {
         size="lg"
       >
         {selectedSubmission && (
-          <Stack spacing="md">
-            <Text weight={500}>Student: {selectedSubmission.student.name}</Text>
+          <Stack gap="md">
+            <Text fw={500}>Student: {selectedSubmission.student.name}</Text>
             
-            <Text weight={500} mt="md">Answers:</Text>
+            <Text fw={500} mt="md">Answers:</Text>
             {selectedSubmission.answers.map((answer, index) => {
               const options = JSON.parse(answer.question.options);
               return (
                 <Card key={answer.id} withBorder p="md">
-                  <Text weight={500} mb="xs">
+                  <Text fw={500} mb="xs">
                     Question {index + 1}: {answer.question.question}
                   </Text>
-                  <Text color={answer.answer === answer.question.correctAnswerIndex ? "green" : "red"}>
+                  <Text c={answer.answer === answer.question.correctAnswerIndex ? "green" : "red"}>
                     Student's Answer: {options[answer.answer]}
                   </Text>
-                  <Text color="green">
+                  <Text c="green">
                     Correct Answer: {options[answer.question.correctAnswerIndex]}
                   </Text>
                 </Card>
@@ -180,14 +188,14 @@ export function GradeAssignmentsTab() {
 
             {selectedSubmission.content && (
               <>
-                <Text weight={500}>Additional Comments:</Text>
+                <Text fw={500}>Additional Comments:</Text>
                 <Text>{selectedSubmission.content}</Text>
               </>
             )}
 
             {selectedSubmission.files && selectedSubmission.files.length > 0 && (
               <>
-                <Text weight={500}>Attached Files:</Text>
+                <Text fw={500}>Attached Files:</Text>
                 {selectedSubmission.files.map((file, index) => (
                   <Button
                     key={index}
@@ -205,7 +213,7 @@ export function GradeAssignmentsTab() {
             <NumberInput
               label="Grade (0-100)"
               value={grade}
-              onChange={(val) => setGrade(val)}
+              onChange={handleGradeChange}
               min={0}
               max={100}
               required
@@ -214,7 +222,7 @@ export function GradeAssignmentsTab() {
             <Textarea
               label="Feedback"
               value={feedback}
-              onChange={(e) => setFeedback(e.currentTarget.value)}
+              onChange={handleFeedbackChange}
               minRows={3}
             />
 

@@ -29,22 +29,6 @@ export async function GET(
           },
         },
         questions: true,
-        submissions: {
-          include: {
-            student: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            answers: {
-              include: {
-                question: true,
-              },
-            },
-          },
-        },
       },
     });
 
@@ -52,30 +36,75 @@ export async function GET(
       return new NextResponse("Assignment not found", { status: 404 });
     }
 
+    // Get all submissions for this assignment
+    const submissions = await prisma.homeworkSubmission.findMany({
+      where: {
+        assignmentId: params.assignmentId,
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        answers: {
+          include: {
+            question: true,
+          },
+        },
+      },
+    });
+
+    // Transform submissions data
+    const submissionStats = submissions.map(submission => {
+      const answers = submission.answers.map(answer => ({
+        questionId: answer.question.id,
+        isCorrect: answer.isCorrect,
+        score: answer.score,
+      }));
+
+      return {
+        studentId: submission.student.id,
+        studentName: submission.student.name,
+        studentEmail: submission.student.email,
+        submittedAt: submission.submittedAt,
+        answers,
+      };
+    });
+
     // Calculate statistics
     const totalStudents = assignment.class.students.length;
-    const submittedStudents = assignment.submissions.length;
+    const submittedStudents = submissionStats.length;
     const totalMarks = assignment.totalMarks;
 
     // Calculate average score
-    const totalScores = assignment.submissions.reduce(
-      (sum, sub) => sum + (sub.grade || 0),
+    const totalScores = submissionStats.reduce(
+      (sum: number, sub: { answers: Array<{ score: number | null }> }) =>
+        sum + sub.answers.reduce((sum: number, ans: { score: number | null }) => sum + (ans.score || 0), 0),
       0
     );
     const averageScore =
       submittedStudents > 0 ? totalScores / submittedStudents : 0;
 
     // Calculate per-question statistics
-    const questionStats = assignment.questions.map((question) => {
-      const questionSubmissions = assignment.submissions.flatMap((sub) =>
-        sub.answers.filter((ans) => ans.questionId === question.id)
+    const questionStats = assignment.questions.map((question: {
+      id: string;
+      question: string;
+    }) => {
+      const questionSubmissions = submissionStats.flatMap((sub: {
+        answers: Array<{ questionId: string; isCorrect: boolean; score: number | null }>;
+      }) =>
+        sub.answers.filter((ans: { questionId: string }) => ans.questionId === question.id)
       );
-      const correctAnswers = questionSubmissions.filter((sub) => sub.isCorrect)
-        .length;
+      const correctAnswers = questionSubmissions.filter((sub: { isCorrect: boolean }) => sub.isCorrect).length;
       const totalAttempts = questionSubmissions.length;
       const averageScore =
-        questionSubmissions.reduce((sum, sub) => sum + (sub.score || 0), 0) /
-        (totalAttempts || 1);
+        questionSubmissions.reduce(
+          (sum: number, sub: { score: number | null }) => sum + (sub.score || 0),
+          0
+        ) / (totalAttempts || 1);
 
       return {
         questionId: question.id,
@@ -88,19 +117,25 @@ export async function GET(
     });
 
     // Get submission status for all students
-    const studentSubmissions = assignment.class.students.map((student) => {
-      const submission = assignment.submissions.find(
-        (sub) => sub.student.id === student.id
+    const studentSubmissions = assignment.class.students.map((student: {
+      id: string;
+      name: string;
+      email: string;
+    }) => {
+      const submission = submissionStats.find(
+        (sub: { studentId: string }) => sub.studentId === student.id
       );
       return {
         studentId: student.id,
         studentName: student.name,
         studentEmail: student.email,
         submitted: !!submission,
-        grade: submission?.grade || 0,
+        grade: submission
+          ? submission.answers.reduce((sum: number, ans: { score: number | null }) => sum + (ans.score || 0), 0)
+          : 0,
         submittedAt: submission?.submittedAt || null,
         percentageCorrect: submission
-          ? ((submission.grade || 0) / totalMarks) * 100
+          ? ((submission.answers.reduce((sum: number, ans: { score: number | null }) => sum + (ans.score || 0), 0)) / totalMarks) * 100
           : 0,
       };
     });

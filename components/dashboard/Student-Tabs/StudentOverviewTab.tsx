@@ -1,9 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from '@/components/ui/use-toast';
+import { format } from 'date-fns';
 import { Users, BookOpen, ClipboardList, LineChart } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -52,7 +56,7 @@ interface OverviewStats {
   };
 }
 
-function StudentOverviewTab() {
+export function StudentOverviewTab() {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<OverviewStats>({
@@ -252,5 +256,3 @@ function StudentOverviewTab() {
     </div>
   );
 }
-
-export default StudentOverviewTab;

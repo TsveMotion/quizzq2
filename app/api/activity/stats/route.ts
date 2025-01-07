@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth-config';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -10,20 +12,31 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        role: true,
+        schoolId: true,
+      }
+    });
+
+    if (!currentUser) {
+      return new NextResponse("User not found", { status: 404 });
+    }
+
+    let schoolFilter = {};
+    if (currentUser.role === 'SCHOOLADMIN' && currentUser.schoolId) {
+      schoolFilter = {
+        user: {
+          schoolId: currentUser.schoolId
+        }
+      };
+    }
+
     // Get the last 6 months of activity
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    let schoolId: string | undefined;
-    
-    // If user is a school admin, get their school's activity
-    if (session.user.role === 'SCHOOLADMIN') {
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { schoolId: true }
-      });
-      schoolId = user?.schoolId;
-    }
 
     // Get monthly activity counts
     const monthlyActivity = await prisma.userActivity.groupBy({
@@ -32,11 +45,8 @@ export async function GET(req: Request) {
         timestamp: {
           gte: sixMonthsAgo
         },
-        ...(schoolId && {
-          user: {
-            schoolId: schoolId
-          }
-        })
+        ...schoolFilter,
+        userId: session.user.id,
       },
       _count: {
         id: true
@@ -48,7 +58,7 @@ export async function GET(req: Request) {
     const monthlyData = new Array(6).fill(0);
     const currentMonth = new Date().getMonth();
 
-    monthlyActivity.forEach((activity) => {
+    monthlyActivity.forEach((activity: { timestamp: Date | string; _count: { id: number } }) => {
       const activityMonth = new Date(activity.timestamp).getMonth();
       const monthIndex = (activityMonth - currentMonth + 12) % 12;
       if (monthIndex < 6) {

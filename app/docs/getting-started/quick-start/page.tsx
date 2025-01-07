@@ -89,10 +89,11 @@ export default function QuickStartPage() {
       <div className="space-y-6">
         <div className="flex gap-4">
           {steps.map((section, index) => {
-            let Icon;
-            if (section.role === "admin") Icon = School;
-            if (section.role === "teacher") Icon = Users;
-            if (section.role === "student") Icon = GraduationCap;
+            const Icon = section.role === "admin" 
+              ? School 
+              : section.role === "teacher" 
+                ? Users 
+                : GraduationCap;
             
             return (
               <Button

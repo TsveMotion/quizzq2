@@ -1,77 +1,119 @@
-import { AuthOptions } from 'next-auth';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import { prisma } from '@/lib/prisma';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { NextAuthOptions, Session, User } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { compare } from "bcrypt";
+import { prisma } from "@/lib/prisma";
+import { JWT } from "next-auth/jwt";
+import { RequestInternal } from "next-auth";
 
-export const authOptions: AuthOptions = {
-  adapter: PrismaAdapter(prisma),
+// Extend the built-in types
+declare module "next-auth" {
+  interface User {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    schoolId: string | null;
+    emailVerified?: Date | null;
+    image?: string | null;
+  }
+  
+  interface Session {
+    user: User;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: string;
+    schoolId: string | null;
+  }
+}
+
+export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma) as any,
+  session: {
+    strategy: "jwt" as const
+  },
+  pages: {
+    signIn: '/login',
+  },
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        email: { label: "email", type: "text" },
+        password: { label: "password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(
+        credentials: Record<"email" | "password", string> | undefined,
+        req: Pick<RequestInternal, "body" | "query" | "headers" | "method">
+      ): Promise<User | null> {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
 
         const user = await prisma.user.findUnique({
           where: {
-            email: credentials.email,
+            email: credentials.email
           },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            password: true,
+            role: true,
+            schoolId: true,
+            status: true,
+            powerLevel: true,
+            emailVerified: true,
+            image: true
+          }
         });
 
         if (!user) {
           return null;
         }
 
-        const passwordsMatch = await bcrypt.compare(credentials.password, user.password);
+        const isPasswordValid = await compare(
+          credentials.password,
+          user.password
+        );
 
-        if (!passwordsMatch) {
+        if (!isPasswordValid) {
           return null;
         }
 
+        // Return type matches the User interface
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
+          schoolId: user.schoolId,
+          emailVerified: user.emailVerified,
+          image: user.image
         };
       }
     })
   ],
-  session: {
-    strategy: 'jwt',
-  },
-  secret: process.env.NEXTAUTH_SECRET,
-  pages: {
-    signIn: '/login',
-  },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWT; user?: User }): Promise<JWT> {
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          role: user.role,
-        };
+        token.id = user.id;
+        token.role = user.role;
+        token.schoolId = user.schoolId;
       }
       return token;
     },
-    async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          role: token.role,
-        },
-      };
-    },
-  },
+    async session({ session, token }: { session: Session; token: JWT }): Promise<Session> {
+      if (token) {
+        session.user.id = token.id;
+        session.user.role = token.role;
+        session.user.schoolId = token.schoolId;
+      }
+      return session;
+    }
+  }
 };
-
-export default authOptions;

@@ -57,7 +57,7 @@ export async function GET(
       dueDate: assignment.dueDate,
       className: assignment.class.name,
       questions: assignment.questions,
-      submissions: assignment.submissions.map(sub => ({
+      submissions: assignment.submissions.map((sub) => ({
         id: sub.id,
         studentId: sub.studentId,
         content: sub.content,
@@ -65,10 +65,14 @@ export async function GET(
         status: sub.status,
         submittedAt: sub.submittedAt,
         answers: sub.answers.map(ans => ({
+          id: ans.id,
           questionId: ans.questionId,
           answer: ans.answer,
           isCorrect: ans.isCorrect,
-        })),
+          score: ans.score,
+          feedback: ans.feedback,
+          submittedAt: ans.submittedAt
+        }))
       })),
     };
 

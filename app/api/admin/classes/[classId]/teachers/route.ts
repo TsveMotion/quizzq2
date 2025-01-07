@@ -21,11 +21,15 @@ export async function GET(
     const classWithTeachers = await db.class.findUnique({
       where: { id: classId },
       include: {
-        teacher: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        classTeachers: {
+          include: {
+            teacher: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         },
       },
@@ -35,7 +39,7 @@ export async function GET(
       return new NextResponse("Class not found", { status: 404 });
     }
 
-    return NextResponse.json(classWithTeachers.teacher);
+    return NextResponse.json(classWithTeachers.classTeachers);
   } catch (error) {
     console.error("[CLASS_TEACHERS_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
@@ -59,22 +63,28 @@ export async function POST(
     const updatedClass = await db.class.update({
       where: { id: classId },
       data: {
-        teacher: {
-          connect: { id: teacherId },
+        classTeachers: {
+          create: {
+            teacherId: teacherId,
+          },
         },
       },
       include: {
-        teacher: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        classTeachers: {
+          include: {
+            teacher: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         },
       },
     });
 
-    return NextResponse.json(updatedClass.teacher);
+    return NextResponse.json(updatedClass.classTeachers);
   } catch (error) {
     console.error("[CLASS_TEACHERS_POST]", error);
     return new NextResponse("Internal error", { status: 500 });
@@ -93,26 +103,39 @@ export async function DELETE(
     }
 
     const classId = params.classId;
+    const { teacherId } = await req.json();
 
-    const updatedClass = await db.class.update({
-      where: { id: classId },
+    // Update class
+    const updatedClass = await prisma.class.update({
+      where: {
+        id: params.classId,
+      },
       data: {
-        teacher: {
-          disconnect: true,
-        },
+        classTeachers: {
+          deleteMany: {
+            AND: [
+              { teacherId: teacherId },
+              { classId: params.classId }
+            ]
+          }
+        }
       },
       include: {
-        teacher: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
+        classTeachers: {
+          include: {
+            teacher: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              }
+            }
+          }
+        }
+      }
     });
 
-    return NextResponse.json(updatedClass.teacher);
+    return NextResponse.json(updatedClass.classTeachers);
   } catch (error) {
     console.error("[CLASS_TEACHERS_DELETE]", error);
     return new NextResponse("Internal error", { status: 500 });

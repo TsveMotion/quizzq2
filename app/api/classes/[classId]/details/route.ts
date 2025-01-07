@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: Request,
@@ -90,7 +90,13 @@ export async function GET(
       teacherEmail: classDetails.teacher.email,
       schedule: 'Schedule not set', // Add this field to Class model if needed
       subject: 'Subject not set', // Add this field to Class model if needed
-      assignments: classDetails.assignments.map(assignment => ({
+      assignments: classDetails.assignments.map((assignment: { 
+        id: string;
+        title: string;
+        description: string | null;
+        dueDate: Date;
+        submissions: Array<{ status: string }>;
+      }) => ({
         id: assignment.id,
         title: assignment.title,
         description: assignment.description || '',
@@ -98,8 +104,8 @@ export async function GET(
         status: assignment.submissions[0]?.status || 'pending',
       })),
       students: classDetails.students
-        .filter(student => student.id !== session.user.id) // Exclude current student
-        .map(student => ({
+        .filter((student: { id: string }) => student.id !== session.user.id) // Exclude current student
+        .map((student: { id: string; name: string; email: string }) => ({
           id: student.id,
           name: student.name,
           email: student.email,

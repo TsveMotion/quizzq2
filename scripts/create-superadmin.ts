@@ -1,30 +1,24 @@
-const { PrismaClient } = require('@prisma/client');
-const { hash } = require('bcrypt');
+import { PrismaClient } from '@prisma/client';
+import { hash } from 'bcrypt';
 
-const prisma = new PrismaClient();
-
-async function main() {
+async function createSuperAdmin() {
+  const client = new PrismaClient();
   try {
-    // Hash the password
-    const hashedPassword = await hash('superadmin@quizzq.com', 10);
-
-    // Create superadmin user
-    const superadmin = await prisma.user.create({
+    const hashedPassword = await hash('superadmin', 10);
+    await client.user.create({
       data: {
-        email: 'superadmin@quizzq.com',
-        password: hashedPassword,
+        email: 'superadmin@example.com',
         name: 'Super Admin',
-        role: 'superadmin',
-        powerLevel: 5, // Highest power level
-      },
+        password: hashedPassword,
+        role: 'SUPERADMIN'
+      }
     });
-
-    console.log('Superadmin created successfully:', superadmin);
+    console.log('Super admin created successfully');
   } catch (error) {
-    console.error('Error creating superadmin:', error);
+    console.error('Error creating super admin:', error);
   } finally {
-    await prisma.$disconnect();
+    await client.$disconnect();
   }
 }
 
-main();
+createSuperAdmin();

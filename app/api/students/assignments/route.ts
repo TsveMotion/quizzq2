@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -60,39 +62,39 @@ export async function GET() {
     });
 
     // Transform the data to match the frontend expectations
-    const formattedAssignments = assignments.map((assignment) => ({
-      id: assignment.id,
-      title: assignment.title,
-      description: assignment.description || '',
-      dueDate: assignment.dueDate.toISOString(),
-      className: assignment.class.name,
-      teacherName: assignment.class.teacher.name,
-      status: assignment.submissions[0]?.status || 'pending',
-      grade: assignment.submissions[0]?.grade,
-      attachments: assignment.attachments.map(att => ({
-        id: att.id,
-        fileName: att.fileName,
-        url: att.url,
-      })),
-      questions: assignment.questions.map(q => ({
-        id: q.id,
-        question: q.question,
-        options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
-        explanation: q.explanation,
-      })),
-      submission: assignment.submissions[0]
-        ? {
-            content: assignment.submissions[0].content || '',
-            files: assignment.submissions[0].files ? JSON.parse(assignment.submissions[0].files) : [],
-            submittedAt: assignment.submissions[0].submittedAt.toISOString(),
-            feedback: assignment.submissions[0].feedback,
-            answers: assignment.submissions[0].answers.reduce((acc: any, ans: any) => {
-              acc[ans.questionId] = ans.answer;
-              return acc;
-            }, {}),
-          }
-        : undefined,
-    }));
+    const formattedAssignments = assignments.map((assignment) => {
+      const submission = assignment.submissions.find(
+        (sub) => sub.studentId === session.user.id
+      );
+
+      return {
+        id: assignment.id,
+        title: assignment.title,
+        description: assignment.description,
+        dueDate: assignment.dueDate,
+        class: {
+          name: assignment.class.name,
+          teacher: {
+            name: assignment.class.teacher?.name || "Unknown",
+          },
+        },
+        submission: submission
+          ? {
+              id: submission.id,
+              status: submission.status,
+              grade: submission.grade,
+              content: submission.content,
+              files: submission.files,
+              submittedAt: submission.submittedAt,
+              feedback: submission.feedback,
+              answers: submission.answers.map((ans) => ({
+                questionId: ans.questionId,
+                answer: parseInt(ans.answer),
+              })),
+            }
+          : undefined,
+      };
+    });
 
     return NextResponse.json(formattedAssignments);
   } catch (error) {

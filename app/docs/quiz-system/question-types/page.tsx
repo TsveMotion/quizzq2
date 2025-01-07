@@ -22,7 +22,47 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-const questionTypes = [
+interface BaseExample {
+  question: string;
+}
+
+interface MultipleChoiceExample extends BaseExample {
+  options: string[];
+  correct: string;
+}
+
+interface ShortAnswerExample extends BaseExample {
+  answer: string;
+}
+
+interface TrueFalseExample extends BaseExample {
+  answer: string;
+}
+
+interface EssayExample extends BaseExample {
+  guidelines: string;
+}
+
+interface MatchingExample extends BaseExample {
+  pairs: [string, string][];
+}
+
+interface CodeExample extends BaseExample {
+  language: string;
+}
+
+type QuestionExample = MultipleChoiceExample | ShortAnswerExample | TrueFalseExample | EssayExample | MatchingExample | CodeExample;
+
+interface QuestionType {
+  title: string;
+  description: string;
+  icon: any;
+  color: string;
+  example: QuestionExample;
+  features: string[];
+}
+
+const questionTypes: QuestionType[] = [
   {
     title: "Multiple Choice",
     description: "Single correct answer from multiple options",
@@ -140,6 +180,14 @@ const item = {
   show: { opacity: 1, y: 0 },
 };
 
+function isMultipleChoiceExample(example: QuestionExample): example is MultipleChoiceExample {
+  return 'options' in example;
+}
+
+function isMatchingExample(example: QuestionExample): example is MatchingExample {
+  return 'pairs' in example;
+}
+
 export default function QuestionTypesPage() {
   return (
     <div className="max-w-4xl space-y-8">
@@ -183,7 +231,7 @@ export default function QuestionTypesPage() {
                         {'question' in type.example && (
                           <div className="space-y-2">
                             <p className="font-medium">Q: {type.example.question}</p>
-                            {'options' in type.example && (
+                            {'options' in type.example && isMultipleChoiceExample(type.example) && (
                               <ul className="space-y-1 ml-4">
                                 {type.example.options.map((option, index) => (
                                   <li key={index}>
@@ -197,7 +245,7 @@ export default function QuestionTypesPage() {
                                 Answer: {type.example.answer}
                               </p>
                             )}
-                            {'pairs' in type.example && (
+                            {'pairs' in type.example && isMatchingExample(type.example) && (
                               <div className="grid grid-cols-2 gap-2">
                                 {type.example.pairs.map(([left, right], index) => (
                                   <React.Fragment key={index}>

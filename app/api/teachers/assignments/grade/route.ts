@@ -33,6 +33,23 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Submission not found', { status: 404 });
     }
 
+    // Update submissions with grades
+    const updatePromises = submission.answers.map(answer => {
+      const isCorrect = String(answer.answer) === String(answer.question.correctAnswerIndex);
+      const score = isCorrect ? answer.question.marks : 0;
+
+      return prisma.questionSubmission.update({
+        where: { id: answer.id },
+        data: {
+          isCorrect,
+          score,
+          submittedAt: new Date(),
+        },
+      });
+    });
+
+    await Promise.all(updatePromises);
+
     // Update the submission with grade and feedback
     const updatedSubmission = await prisma.homeworkSubmission.update({
       where: {
@@ -41,15 +58,7 @@ export async function POST(req: NextRequest) {
       data: {
         grade,
         feedback,
-        status: 'graded',
-        answers: {
-          updateMany: submission.answers.map(answer => ({
-            where: { id: answer.id },
-            data: {
-              isCorrect: answer.answer === answer.question.correctAnswerIndex
-            }
-          }))
-        }
+        status: 'graded'
       }
     });
 

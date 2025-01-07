@@ -96,45 +96,27 @@ export async function DELETE(
 
     // Delete all related records in a transaction
     await prisma.$transaction(async (tx) => {
-      // Delete all question submissions by the student
-      await tx.questionSubmission.deleteMany({
-        where: {
-          submission: {
-            studentId: studentId
-          }
-        }
-      });
-
-      // Delete all homework submissions by the student
+      // Delete student's homework submissions
       await tx.homeworkSubmission.deleteMany({
         where: {
-          studentId: studentId
-        }
+          studentId: params.studentId,
+        },
       });
 
-      // Delete all practice quizzes by the student
+      // Delete student's practice quiz attempts
       await tx.practiceQuiz.deleteMany({
         where: {
-          userId: studentId
-        }
+          userId: params.studentId,
+        },
       });
 
-      // Delete all user activities
-      await tx.userActivity.deleteMany({
-        where: {
-          userId: studentId
-        }
-      });
-
-      // Delete the student-class relationships directly
-      await tx.$executeRaw`DELETE FROM _StudentClasses WHERE B = ${studentId}`;
+      // Delete student's class enrollments using raw SQL
+      await tx.$executeRaw`DELETE FROM _StudentClasses WHERE B = ${params.studentId}`;
 
       // Finally, delete the student
       await tx.user.delete({
         where: {
-          id: studentId,
-          schoolId: schoolId,
-          role: 'STUDENT',
+          id: params.studentId,
         },
       });
     });
@@ -144,6 +126,51 @@ export async function DELETE(
     console.error('[STUDENT_DELETE]', error);
     return new NextResponse(
       JSON.stringify({ error: 'Failed to delete student' }),
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: { schoolId: string; studentId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    const { schoolId, studentId } = params;
+
+    // Check if the user has permission (is school admin)
+    const currentUser = await prisma.user.findFirst({
+      where: {
+        email: session.user.email,
+        role: 'SCHOOLADMIN',
+        schoolId: schoolId,
+      },
+    });
+
+    if (!currentUser) {
+      return new NextResponse('Forbidden', { status: 403 });
+    }
+
+    // Get student's practice quizzes
+    const practiceQuizzes = await prisma.practiceQuiz.findMany({
+      where: {
+        userId: params.studentId,
+      },
+      include: {
+        questions: true,
+      },
+    });
+
+    return new NextResponse(JSON.stringify(practiceQuizzes));
+  } catch (error) {
+    console.error('[STUDENT_STATS]', error);
+    return new NextResponse(
+      JSON.stringify({ error: 'Failed to get student stats' }),
       { status: 500 }
     );
   }

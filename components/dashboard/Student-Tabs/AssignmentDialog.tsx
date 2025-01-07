@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card';
 import { Loader2, Upload, Download, CheckCircle, Clock, FileText, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 interface AssignmentDialogProps {
   assignment: {
@@ -164,9 +165,11 @@ export function AssignmentDialog({ assignment, isOpen, onClose }: AssignmentDial
           
           {canSubmit && (
             <Progress 
-              value={progressPercentage} 
-              className="h-2 mt-2"
-              indicatorClassName={progressPercentage === 100 ? "bg-green-500" : ""}
+              value={progressPercentage}
+              className={cn(
+                "h-2 mt-2",
+                progressPercentage === 100 ? "bg-green-500" : "bg-blue-200"
+              )}
             />
           )}
         </DialogHeader>

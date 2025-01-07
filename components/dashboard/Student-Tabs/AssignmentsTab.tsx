@@ -1,10 +1,12 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AssignmentDialog } from './AssignmentDialog';
-import { formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 
 interface Assignment {
@@ -49,7 +51,11 @@ export function AssignmentsTab() {
       setAssignments(data);
     } catch (error) {
       console.error('Error fetching assignments:', error);
-      toast.error('Failed to fetch assignments');
+      toast({
+        title: "Error",
+        description: "Failed to fetch assignments",
+        variant: "destructive"
+      });
     }
   }, [toast]);
 
@@ -71,7 +77,7 @@ export function AssignmentsTab() {
               </Badge>
             </div>
             <CardDescription>
-              Due {formatDistanceToNow(new Date(assignment.dueDate), { addSuffix: true })}
+              Due {format(new Date(assignment.dueDate), 'PPP')}
             </CardDescription>
           </CardHeader>
           <CardContent>

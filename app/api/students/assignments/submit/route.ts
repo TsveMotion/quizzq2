@@ -68,8 +68,8 @@ export async function POST(req: NextRequest) {
         assignmentId,
         answers: {
           create: Object.entries(answers).map(([questionId, answer]) => ({
-            questionId,
-            answer: answer as number,
+            question: { connect: { id: questionId } },
+            answer: String(answer),
             isCorrect: false // This will be updated when the teacher grades
           }))
         }
