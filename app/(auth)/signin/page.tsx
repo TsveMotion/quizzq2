@@ -30,6 +30,7 @@ export default function SignInPage() {
           description: "Please provide both email and password",
           variant: "destructive",
         });
+        setIsLoading(false);
         return;
       }
 
@@ -37,15 +38,23 @@ export default function SignInPage() {
         email: email.toLowerCase(),
         password,
         redirect: false,
+        callbackUrl: '/dashboard'
       });
 
       console.log('Sign in result:', result);
 
       if (!result) {
-        throw new Error("Authentication failed");
+        setIsLoading(false);
+        toast({
+          title: "Error",
+          description: "Authentication failed - no response",
+          variant: "destructive",
+        });
+        return;
       }
 
       if (result.error) {
+        setIsLoading(false);
         toast({
           title: "Authentication Error",
           description: result.error,
@@ -54,46 +63,64 @@ export default function SignInPage() {
         return;
       }
 
-      // Get the session to determine user role
-      const session = await fetch('/api/auth/session');
-      const sessionData = await session.json();
-      
-      console.log('Session data:', sessionData);
-      
-      // Route based on user role
-      let dashboardPath = '/dashboard';
-      if (sessionData?.user?.role) {
-        const role = sessionData.user.role.toLowerCase();
-        switch (role) {
-          case 'superadmin':
-            dashboardPath = '/dashboard/superadmin';
-            break;
-          case 'schooladmin':
-            dashboardPath = '/dashboard/schooladmin';
-            break;
-          case 'teacher':
-            dashboardPath = '/dashboard/teacher';
-            break;
-          case 'student':
-            dashboardPath = '/dashboard/student';
-            break;
-          default:
-            console.log('Unknown role:', role);
-            dashboardPath = '/dashboard';
+      try {
+        // Get the session to determine user role
+        const session = await fetch('/api/auth/session');
+        if (!session.ok) {
+          throw new Error(`Session fetch failed: ${session.statusText}`);
         }
+        const sessionData = await session.json();
+        
+        console.log('Session data:', sessionData);
+        
+        if (!sessionData?.user) {
+          throw new Error('No user data in session');
+        }
+
+        // Route based on user role
+        let dashboardPath = '/dashboard';
+        if (sessionData?.user?.role) {
+          const role = sessionData.user.role.toLowerCase();
+          switch (role) {
+            case 'superadmin':
+              dashboardPath = '/dashboard/superadmin';
+              break;
+            case 'schooladmin':
+              dashboardPath = '/dashboard/schooladmin';
+              break;
+            case 'teacher':
+              dashboardPath = '/dashboard/teacher';
+              break;
+            case 'student':
+              dashboardPath = '/dashboard/student';
+              break;
+            default:
+              console.log('Unknown role:', role);
+              dashboardPath = '/dashboard';
+          }
+        }
+
+        toast({
+          title: "Success",
+          description: "Successfully signed in",
+          variant: "default",
+        });
+
+        console.log('Redirecting to:', dashboardPath);
+        router.push(dashboardPath);
+        router.refresh();
+      } catch (error) {
+        console.error('Session fetch error:', error);
+        setIsLoading(false);
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
       }
-
-      toast({
-        title: "Success",
-        description: "Successfully signed in",
-        variant: "default",
-      });
-
-      console.log('Redirecting to:', dashboardPath);
-      router.push(dashboardPath);
-      router.refresh();
     } catch (error) {
       console.error('Sign-in error:', error);
+      setIsLoading(false);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Something went wrong. Please try again.",

@@ -23,18 +23,20 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Please provide both email and password");
+          throw new Error("Email and password are required");
         }
+
+        console.log('Authorizing user:', credentials.email);
 
         const user = await prisma.user.findUnique({
           where: {
-            email: credentials.email.toLowerCase()
+            email: credentials.email.toLowerCase(),
           },
           select: {
             id: true,
             email: true,
-            name: true,
             password: true,
+            name: true,
             role: true,
             schoolId: true,
             status: true,
@@ -44,18 +46,23 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user) {
+          console.log('User not found:', credentials.email);
           throw new Error("Invalid email or password");
         }
 
         const isPasswordValid = await compare(credentials.password, user.password);
 
         if (!isPasswordValid) {
+          console.log('Invalid password for user:', credentials.email);
           throw new Error("Invalid email or password");
         }
 
         if (user.status !== 'ACTIVE') {
+          console.log('Inactive account for user:', credentials.email);
           throw new Error("Your account is not active. Please contact support.");
         }
+
+        console.log('User authorized successfully:', credentials.email);
 
         return {
           id: user.id,
@@ -71,6 +78,8 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user, account }) {
+      console.log('JWT callback:', { tokenId: token?.id, userId: user?.id, accountId: account?.id });
+      
       if (account && user) {
         return {
           ...token,
@@ -82,6 +91,8 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      console.log('Session callback:', { sessionUserId: session?.user?.id, tokenId: token?.id });
+      
       return {
         ...session,
         user: {
@@ -89,7 +100,7 @@ export const authOptions: NextAuthOptions = {
           id: token.id,
           role: token.role,
           schoolId: token.schoolId,
-        },
+        }
       };
     }
   },
