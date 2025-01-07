@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { SchoolAdminDashboard } from '@/components/dashboard/SchoolAdmin-Tabs/SchoolAdminDashboard';
+import { SchoolWithRelations } from '@/components/dashboard/SchoolAdmin-Tabs/types';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth-config';
 
@@ -72,9 +73,6 @@ export default async function SchoolAdminPage() {
             updatedAt: true,
             schoolId: true,
             teacherId: true,
-            password: true,
-            powerLevel: true,
-            emailVerified: true,
             image: true,
             avatar: true,
             bio: true,
@@ -86,18 +84,39 @@ export default async function SchoolAdminPage() {
           }
         },
         classes: {
-          include: {
-            teacher: true,
-            students: true,
-            classTeachers: {
-              include: {
-                teacher: true
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            createdAt: true,
+            updatedAt: true,
+            teacher: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true
               }
             },
-            assignments: {
-              include: {
-                questions: true,
-                submissions: true
+            students: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true
+              }
+            },
+            classTeachers: {
+              select: {
+                id: true,
+                teacher: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true
+                  }
+                }
               }
             },
             _count: {
@@ -122,13 +141,58 @@ export default async function SchoolAdminPage() {
       return null;
     }
 
-    const teacherCount = school.users.filter(user => user.role === 'teacher').length;
-    const studentCount = school.users.filter(user => user.role === 'student').length;
+    const teacherCount = school.users.filter(user => user.role.toUpperCase() === 'TEACHER').length;
+    const studentCount = school.users.filter(user => user.role.toUpperCase() === 'STUDENT').length;
 
-    const schoolData = {
+    const schoolData: SchoolWithRelations = {
       ...school,
-      teacherCount,
-      studentCount
+      users: school.users.map(user => ({
+        ...user,
+        password: '',  // We don't want to expose the password
+        powerLevel: 1, // Default power level
+        emailVerified: null,
+        role: user.role || 'USER',
+        status: user.status || 'ACTIVE'
+      })),
+      classes: school.classes.map(cls => ({
+        id: cls.id,
+        name: cls.name,
+        description: cls.description,
+        schoolId: school.id,
+        teacherId: cls.teacher.id,
+        createdAt: cls.createdAt,
+        updatedAt: cls.updatedAt,
+        classTeachers: cls.classTeachers.map(ct => ({
+          id: ct.id,
+          classId: cls.id,
+          teacherId: ct.teacher.id,
+          createdAt: cls.createdAt,
+          updatedAt: cls.updatedAt,
+          teacher: {
+            id: ct.teacher.id,
+            name: ct.teacher.name,
+            email: ct.teacher.email,
+            role: ct.teacher.role
+          }
+        })),
+        teacher: {
+          id: cls.teacher.id,
+          name: cls.teacher.name,
+          email: cls.teacher.email,
+          role: cls.teacher.role
+        },
+        students: cls.students.map(student => ({
+          id: student.id,
+          name: student.name,
+          email: student.email,
+          role: student.role
+        })),
+        _count: {
+          assignments: 0,
+          quizzes: 0,
+          students: cls.students.length
+        }
+      }))
     };
 
     return (

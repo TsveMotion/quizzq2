@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Loader2, User, Trash2 } from "lucide-react";
+import { PlusCircle, Loader2, User, Trash2, Pencil } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -24,8 +24,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface UserData {
   id: string;
@@ -35,7 +37,7 @@ interface UserData {
   schoolId: string | null;
   school: { name: string } | null;
   createdAt: Date;
-  status: string;  
+  status: string;
   powerLevel?: number;
 }
 
@@ -46,213 +48,233 @@ interface School {
   roleNumber?: string;
 }
 
-interface UsersTabProps {
-  users: UserData[];
-  schools: School[];
-  isLoading: boolean;
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
-  onUsersChange: () => void;
-}
-
-function SuperAdminUsersTab({
-  users = [],
-  schools = [],
-  isLoading = false,
-  searchTerm,
-  setSearchTerm,
-  onUsersChange,
-}: UsersTabProps) {
+function UsersTab() {
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserData | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.school?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const fetchData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [usersRes, schoolsRes] = await Promise.all([
+        fetch('/api/users'),
+        fetch('/api/schools')
+      ]);
 
-  const handleDeleteClick = (user: UserData) => {
-    setUserToDelete(user);
-    setIsDeleteDialogOpen(true);
+      if (!usersRes.ok || !schoolsRes.ok) {
+        throw new Error('Failed to fetch data');
+      }
+
+      const [usersData, schoolsData] = await Promise.all([
+        usersRes.json(),
+        schoolsRes.json()
+      ]);
+
+      setUsers(usersData);
+      setSchools(schoolsData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      toast.error('Failed to load users data');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!userToDelete) return;
+  useEffect(() => {
+    fetchData();
+  }, []);
 
+  const filteredUsers = users.filter(user =>
+    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.school?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleDeleteUser = async (userId: string) => {
     try {
-      const response = await fetch(`/api/users?id=${userToDelete.id}`, {
+      const response = await fetch(`/api/users/${userId}`, {
         method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete user');
+        throw new Error('Failed to delete user');
       }
 
       toast.success('User deleted successfully');
-      onUsersChange(); // Refresh the users list
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to delete user');
-    } finally {
-      setIsDeleteDialogOpen(false);
-      setUserToDelete(null);
+      fetchData();
+    } catch (err) {
+      toast.error('Failed to delete user');
     }
+    setIsDeleteDialogOpen(false);
+    setUserToDelete(null);
   };
 
-  const handleEditUser = async (userData: Partial<UserData>) => {
-    try {
-      const response = await fetch('/api/users', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update user');
-      }
-
-      toast.success('User updated successfully');
-      onUsersChange(); // Refresh the users list
-      setSelectedUser(null); // Close the modal
-    } catch (error) {
-      console.error('Error updating user:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update user');
-    }
+  const getRoleBadgeColor = (role: string) => {
+    const colors: Record<string, string> = {
+      SUPERADMIN: 'bg-red-500',
+      SCHOOLADMIN: 'bg-blue-500',
+      TEACHER: 'bg-green-500',
+      STUDENT: 'bg-yellow-500'
+    };
+    return colors[role] || 'bg-gray-500';
   };
+
+  if (error) {
+    return (
+      <div className="flex h-[500px] w-full items-center justify-center">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button onClick={fetchData}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Input
-          placeholder="Search users..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
+        <div className="flex items-center gap-4 flex-1">
+          <Input
+            placeholder="Search users..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
         <Button onClick={() => setIsCreateModalOpen(true)}>
           <PlusCircle className="h-4 w-4 mr-2" />
           Add User
         </Button>
       </div>
 
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        ) : filteredUsers.length > 0 ? (
-          <ScrollArea className="h-[calc(100vh-20rem)] rounded-md border">
-            <Table>
-              <TableHeader>
+      <div className="rounded-md border">
+        <ScrollArea className="h-[600px]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>School</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>School</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
+              ) : filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    No users found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredUsers.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell>{user.name}</TableCell>
+                    <TableCell className="font-medium">{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.role}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={getRoleBadgeColor(user.role)}>
+                        {user.role}
+                      </Badge>
+                    </TableCell>
                     <TableCell>{user.school?.name || 'N/A'}</TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        user.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
+                      <Badge variant={user.status === 'ACTIVE' ? 'default' : 'secondary'}>
                         {user.status}
-                      </span>
+                      </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
                         <Button
-                          variant="outline"
-                          size="sm"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setSelectedUser(user)}
                         >
-                          Edit
+                          <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteClick(user)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <AlertDialog open={isDeleteDialogOpen}>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              onClick={() => {
+                                setUserToDelete(user);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete User</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete this user? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground"
+                                onClick={() => userToDelete && handleDeleteUser(userToDelete.id)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">No users found</p>
-          </div>
-        )}
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
       </div>
+
+      <CreateUserModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+        schools={schools}
+        onSuccess={() => {
+          fetchData();
+          setIsCreateModalOpen(false);
+        }}
+      />
 
       {selectedUser && (
         <EditUserModal
           user={selectedUser}
           schools={schools}
-          isOpen={!!selectedUser}
-          onClose={() => setSelectedUser(null)}
-          onSave={handleEditUser}
+          open={!!selectedUser}
+          onOpenChange={(open) => !open && setSelectedUser(null)}
+          onSuccess={() => {
+            fetchData();
+            setSelectedUser(null);
+          }}
         />
       )}
-
-      <CreateUserModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        schools={schools}
-        onSuccess={() => {
-          setIsCreateModalOpen(false);
-          onUsersChange();
-        }}
-      />
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this user? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDeleteConfirm}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
 
-export { SuperAdminUsersTab as UsersTab };
-export default SuperAdminUsersTab;
+export { UsersTab };
+export default UsersTab;

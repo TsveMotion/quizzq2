@@ -12,11 +12,19 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (!session?.user?.role || session.user.role !== 'SCHOOLADMIN' || !session?.user?.schoolId) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized - Requires SCHOOLADMIN role' }), 
+        { status: 401 }
+      );
     }
 
     const schoolId = params.schoolId;
+
+    // Verify the school ID matches the admin's school
+    if (schoolId !== session.user.schoolId) {
+      return new NextResponse("Unauthorized - School ID mismatch", { status: 401 });
+    }
 
     const students = await prisma.user.findMany({
       where: {
@@ -27,6 +35,7 @@ export async function GET(
         id: true,
         name: true,
         email: true,
+        status: true,
         createdAt: true,
         enrolledClasses: {
           select: {
@@ -41,6 +50,15 @@ export async function GET(
             },
           },
         },
+        _count: {
+          select: {
+            enrolledClasses: true,
+            submissions: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
       },
     });
 
@@ -59,21 +77,30 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (!session?.user?.role || session.user.role !== 'SCHOOLADMIN' || !session?.user?.schoolId) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized - Requires SCHOOLADMIN role' }), 
+        { status: 401 }
+      );
     }
 
     const schoolId = params.schoolId;
+
+    // Verify the school ID matches the admin's school
+    if (schoolId !== session.user.schoolId) {
+      return new NextResponse("Unauthorized - School ID mismatch", { status: 401 });
+    }
+
     const body = await request.json();
-    const { name, email, password } = body;
+    const { name, email, password, classIds } = body;
 
     if (!name || !email) {
-      return new NextResponse("Missing required fields", { status: 400 });
+      return new NextResponse("Name and email are required", { status: 400 });
     }
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { email: email.toLowerCase() }
     });
 
     if (existingUser) {
@@ -82,48 +109,48 @@ export async function POST(
 
     // Set default password as email if not provided
     const passwordToUse = password || email;
-    
-    // Log the data we're about to use
-    console.log('Creating student with data:', {
-      name,
-      email,
-      schoolId,
-      role: 'STUDENT',
-      status: 'ACTIVE',
-      powerLevel: 1
-    });
-    
     const hashedPassword = await bcrypt.hash(passwordToUse, 10);
 
+    // Prepare class connections if classIds are provided
+    const classConnections = classIds?.length > 0 ? {
+      connect: classIds.map((id: string) => ({ id }))
+    } : undefined;
+
+    // Create the student
     const student = await prisma.user.create({
       data: {
         name,
-        email,
+        email: email.toLowerCase(),
         password: hashedPassword,
         role: 'STUDENT',
         schoolId,
-        status: 'ACTIVE', 
+        status: 'ACTIVE',
         powerLevel: 1,
+        enrolledClasses: classConnections,
       },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        schoolId: true,
+        createdAt: true,
+        enrolledClasses: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        _count: {
+          select: {
+            enrolledClasses: true,
+          }
+        }
+      }
     });
 
-    // Verify the created student
-    const verifyStudent = await prisma.user.findUnique({
-      where: { id: student.id }
-    });
-
-    console.log('Verification of created student:', {
-      id: verifyStudent?.id,
-      email: verifyStudent?.email,
-      role: verifyStudent?.role,
-      status: verifyStudent?.status,
-      powerLevel: verifyStudent?.powerLevel
-    });
-
-    // Remove password from response
-    const { password: _, ...studentWithoutPassword } = student;
-
-    return NextResponse.json(studentWithoutPassword);
+    return NextResponse.json(student, { status: 201 });
   } catch (error) {
     console.error("[STUDENTS_POST]", error);
     return new NextResponse(
@@ -140,8 +167,17 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    
+    if (!session?.user?.role || session.user.role !== 'SCHOOLADMIN' || !session?.user?.schoolId) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized - Requires SCHOOLADMIN role' }), 
+        { status: 401 }
+      );
+    }
+
+    // Verify the school ID matches the admin's school
+    if (params.schoolId !== session.user.schoolId) {
+      return new NextResponse("Unauthorized - School ID mismatch", { status: 401 });
     }
 
     // Delete the student
@@ -149,16 +185,13 @@ export async function DELETE(
       where: {
         id: params.studentId,
         schoolId: params.schoolId,
-        role: 'STUDENT'
-      }
+        role: 'STUDENT', // Extra safety check
+      },
     });
 
-    return NextResponse.json({ message: 'Student deleted successfully' });
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error('Error deleting student:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete student' },
-      { status: 500 }
-    );
+    console.error("[STUDENTS_DELETE]", error);
+    return new NextResponse("Internal error", { status: 500 });
   }
 }

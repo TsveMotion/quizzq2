@@ -19,7 +19,8 @@ import {
   Settings,
   HelpCircle,
   Building2,
-  Cog 
+  Cog,
+  Shield 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -29,6 +30,7 @@ interface NavItem {
   value: string;
   icon: any;
   disabled?: boolean;
+  section?: string;
 }
 
 interface School {
@@ -48,260 +50,145 @@ const mainNavItems: NavItem[] = [
     value: "overview",
     icon: LayoutDashboard,
     disabled: false,
+    section: "dashboard"
   },
   {
     title: "Users",
     value: "users",
     icon: Users,
     disabled: false,
+    section: "dashboard"
   },
   {
     title: "Schools",
     value: "schools",
     icon: School,
     disabled: false,
+    section: "dashboard"
   },
   {
     title: "Contacts",
     value: "contacts",
     icon: MessageSquare,
     disabled: false,
+    section: "dashboard"
   },
-];
-
-const settingsNavItems: NavItem[] = [
   {
     title: "Settings",
     value: "settings",
     icon: Settings,
     disabled: false,
+    section: "system"
   },
   {
-    title: "System Settings",
-    value: "system-settings",
+    title: "System",
+    value: "system",
     icon: Cog,
     disabled: false,
+    section: "system"
   },
 ];
 
 export default function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [schools, setSchools] = useState<School[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
-  const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [schoolsResponse, usersResponse] = await Promise.all([
-          fetch('/api/schools', {
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }),
-          fetch('/api/users', {
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          })
-        ]);
-
-        if (!schoolsResponse.ok) {
-          throw new Error(`Failed to fetch schools: ${schoolsResponse.statusText}`);
-        }
-
-        if (!usersResponse.ok) {
-          throw new Error(`Failed to fetch users: ${usersResponse.statusText}`);
-        }
-
-        const [schoolsData, usersData] = await Promise.all([
-          schoolsResponse.json(),
-          usersResponse.json()
-        ]);
-
-        setSchools(schoolsData);
-        setUsers(usersData);
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
   const handleSignOut = async () => {
-    await signOut({ redirect: true, callbackUrl: "/signin" });
+    await signOut({ redirect: true, callbackUrl: "/" });
   };
 
-  const handleAddSchool = () => {
-    setSelectedSchool(null);
-    setIsSchoolModalOpen(true);
-  };
-
-  const handleEditSchool = (school: School) => {
-    setSelectedSchool(school);
-    setIsSchoolModalOpen(true);
-  };
-
-  const handleSaveSchool = async (school: School) => {
-    try {
-      const response = await fetch('/api/schools', {
-        method: school.id ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(school),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save school');
-      }
-
-      // Refresh schools list
-      const updatedSchoolsResponse = await fetch('/api/schools');
-      const updatedSchools = await updatedSchoolsResponse.json();
-      setSchools(updatedSchools);
-      setIsSchoolModalOpen(false);
-    } catch (error) {
-      console.error('Error saving school:', error);
-    }
-  };
-
-  const handleUsersChange = async () => {
-    try {
-      const response = await fetch('/api/users', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch users: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setUsers(data);
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-    }
-  };
+  const dashboardItems = mainNavItems.filter(item => item.section === "dashboard");
+  const systemItems = mainNavItems.filter(item => item.section === "system");
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <div className="w-64 bg-gray-900 text-white p-4 flex flex-col">
-        <div className="flex items-center mb-8">
-          <Building2 className="h-6 w-6 mr-2" />
-          <span className="text-xl font-bold">QuizzQ</span>
+      <div className="w-64 flex flex-col border-r border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex h-14 items-center border-b border-border px-4">
+          <Shield className="mr-2 h-5 w-5" />
+          <span className="font-semibold text-foreground">SuperAdmin</span>
         </div>
-
-        <nav className="flex-1 space-y-8">
-          <div className="space-y-2">
-            {mainNavItems.map((item) => (
+        
+        <div className="flex flex-col flex-grow py-2">
+          {/* All Navigation Items */}
+          <div className="space-y-1 px-2">
+            {/* Dashboard Items */}
+            {dashboardItems.map((item) => (
               <Button
                 key={item.value}
-                variant="ghost"
+                variant={activeTab === item.value ? "secondary" : "ghost"}
                 className={cn(
-                  "w-full justify-start text-white hover:text-white hover:bg-gray-800",
-                  activeTab === item.value && "bg-gray-800"
+                  "w-full justify-start gap-2",
+                  activeTab === item.value ? "bg-secondary" : "hover:bg-accent"
                 )}
                 onClick={() => setActiveTab(item.value)}
                 disabled={item.disabled}
               >
-                <item.icon className="h-5 w-5 mr-2" />
+                {item.icon && <item.icon className="h-4 w-4" />}
                 {item.title}
               </Button>
             ))}
-          </div>
 
-          <div className="space-y-2">
-            {settingsNavItems.map((item) => (
+            {/* Separator */}
+            <div className="my-2 border-t border-border/50" />
+
+            {/* System Items */}
+            {systemItems.map((item) => (
               <Button
                 key={item.value}
-                variant="ghost"
+                variant={activeTab === item.value ? "secondary" : "ghost"}
                 className={cn(
-                  "w-full justify-start text-white hover:text-white hover:bg-gray-800",
-                  activeTab === item.value && "bg-gray-800"
+                  "w-full justify-start gap-2",
+                  activeTab === item.value ? "bg-secondary" : "hover:bg-accent"
                 )}
                 onClick={() => setActiveTab(item.value)}
                 disabled={item.disabled}
               >
-                <item.icon className="h-5 w-5 mr-2" />
+                {item.icon && <item.icon className="h-4 w-4" />}
                 {item.title}
               </Button>
             ))}
-          </div>
+            
+            {/* Separator */}
+            <div className="my-2 border-t border-border/50" />
 
-          <div className="mt-auto space-y-2">
+            {/* Sign Out Button */}
             <Button
               variant="ghost"
-              className="w-full justify-start text-white hover:text-white hover:bg-gray-800"
-              onClick={() => window.open('https://docs.quizzq.com', '_blank')}
-            >
-              <HelpCircle className="h-5 w-5 mr-2" />
-              Help
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-white hover:text-white hover:bg-gray-800"
+              className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
               onClick={handleSignOut}
             >
-              <LogOut className="h-5 w-5 mr-2" />
+              <LogOut className="h-4 w-4" />
               Sign Out
             </Button>
           </div>
-        </nav>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <Tabs value={activeTab} className="w-full">
-          <TabsContent value="overview" className="m-0">
-            <SuperAdminOverviewTab />
-          </TabsContent>
-          <TabsContent value="users" className="mt-0 flex-1 overflow-hidden">
-            <UsersTab
-              users={users}
-              schools={schools}
-              isLoading={isLoading}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              onUsersChange={handleUsersChange}
-            />
-          </TabsContent>
-          <TabsContent value="schools" className="m-0">
-            <SchoolsTab 
-              schools={schools}
-              onAddSchool={handleAddSchool}
-              onEditSchool={handleEditSchool}
-              onSaveSchool={handleSaveSchool}
-              selectedSchool={selectedSchool}
-              isSchoolModalOpen={isSchoolModalOpen}
-              setIsSchoolModalOpen={setIsSchoolModalOpen}
-              isLoading={false}
-              onSchoolsChange={setSchools}
-            />
-          </TabsContent>
-          <TabsContent value="contacts" className="m-0">
-            <ContactsTab />
-          </TabsContent>
-          <TabsContent value="settings" className="m-0">
-            <SettingsTab />
-          </TabsContent>
-          <TabsContent value="system-settings" className="m-0">
-            <SystemSettingsTab />
-          </TabsContent>
-        </Tabs>
+      <div className="flex-1 overflow-y-auto">
+        <div className="container mx-auto px-4 py-6 max-w-[1400px]">
+          <Tabs value={activeTab} className="h-full">
+            <TabsContent value="overview" className="mt-0">
+              <SuperAdminOverviewTab />
+            </TabsContent>
+            <TabsContent value="users" className="mt-0">
+              <UsersTab />
+            </TabsContent>
+            <TabsContent value="schools" className="mt-0">
+              <SchoolsTab />
+            </TabsContent>
+            <TabsContent value="contacts" className="mt-0">
+              <ContactsTab />
+            </TabsContent>
+            <TabsContent value="settings" className="mt-0">
+              <SettingsTab />
+            </TabsContent>
+            <TabsContent value="system" className="mt-0">
+              <SystemSettingsTab />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );

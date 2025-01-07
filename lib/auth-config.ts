@@ -12,7 +12,7 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
-    signIn: '/signin',
+    signIn: '/auth/signin',
   },
   providers: [
     CredentialsProvider({
@@ -77,31 +77,21 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
-      console.log('JWT callback:', { tokenId: token?.id, userId: user?.id, accountId: account?.id });
-      
-      if (account && user) {
-        return {
-          ...token,
-          id: user.id,
-          role: user.role,
-          schoolId: user.schoolId,
-        };
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = user.role;
+        token.schoolId = user.schoolId;
       }
       return token;
     },
     async session({ session, token }) {
-      console.log('Session callback:', { sessionUserId: session?.user?.id, tokenId: token?.id });
-      
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          role: token.role,
-          schoolId: token.schoolId,
-        }
-      };
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+        session.user.schoolId = token.schoolId as string;
+      }
+      return session;
     }
   },
   debug: process.env.NODE_ENV === 'development',

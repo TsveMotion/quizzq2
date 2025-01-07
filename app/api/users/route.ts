@@ -7,8 +7,7 @@ import { authOptions } from '@/lib/auth-config';
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      console.log('No session or email found');
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -25,13 +24,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Only allow school admins to create users for their school
-    if (currentUser.role !== "SCHOOLADMIN") {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    // Allow both SUPERADMIN and SCHOOLADMIN to create users
+    if (!['SUPERADMIN', 'SCHOOLADMIN'].includes(currentUser.role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const data = await req.json();
-    const { name, email, password, role } = data;
+    const { name, email, password, role, schoolId } = data;
+
+    // Validate school admin permissions
+    if (currentUser.role === 'SCHOOLADMIN') {
+      if (role === 'SUPERADMIN' || role === 'SCHOOLADMIN') {
+        return NextResponse.json(
+          { error: 'School admins cannot create admin users' },
+          { status: 403 }
+        );
+      }
+      if (schoolId && schoolId !== currentUser.schoolId) {
+        return NextResponse.json(
+          { error: 'School admins can only create users for their own school' },
+          { status: 403 }
+        );
+      }
+    }
 
     // Create user data
     const userData = {
@@ -40,8 +55,7 @@ export async function POST(req: Request) {
       password: await hash(password, 10),
       role,
       status: "ACTIVE",
-      powerLevel: 1,
-      schoolId: currentUser.schoolId,
+      schoolId: schoolId === 'none' ? null : schoolId,
     };
 
     // Create user
@@ -53,6 +67,7 @@ export async function POST(req: Request) {
         email: true,
         role: true,
         status: true,
+        schoolId: true,
         createdAt: true,
       },
     });
@@ -62,8 +77,8 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Error creating user:', error);
     if (error instanceof Error && 
-        typeof (error as any).code === 'string' && 
-        (error as any).code === 'P2002') {
+        'code' in error &&
+        error.code === 'P2002') {
       console.log('User with this email already exists');
       return NextResponse.json(
         { error: 'A user with this email already exists' },
@@ -99,43 +114,73 @@ export async function GET(req: Request) {
       );
     }
 
+    // Test database connection first
+    try {
+      await prisma.$connect();
+    } catch (error) {
+      console.error('Database connection error:', error);
+      return NextResponse.json(
+        { error: 'Database connection failed. Please try again later.' },
+        { status: 503 }
+      );
+    }
+
+    let users = [];
+
     // For SUPERADMIN, fetch all users
     if (userRole === 'SUPERADMIN') {
-      const users = await prisma.user.findMany({
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          createdAt: true,
-          schoolId: true,
-          status: true,
-          school: {
-            select: {
-              id: true,
-              name: true
+      try {
+        users = await prisma.user.findMany({
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            createdAt: true,
+            schoolId: true,
+            status: true,
+            school: {
+              select: {
+                id: true,
+                name: true
+              }
             }
+          },
+          orderBy: {
+            createdAt: 'desc'
           }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
+        });
+      } catch (error) {
+        console.error('Error fetching users for SUPERADMIN:', error);
+        return NextResponse.json(
+          { error: 'Failed to fetch users data' },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json(users);
     }
 
     // For other roles, fetch the current user first
-    const currentUser = await prisma.user.findUnique({
-      where: { 
-        id: userId 
-      },
-      select: {
-        id: true,
-        role: true,
-        schoolId: true,
-      }
-    });
+    let currentUser;
+    try {
+      currentUser = await prisma.user.findUnique({
+        where: { 
+          id: userId 
+        },
+        select: {
+          id: true,
+          role: true,
+          schoolId: true,
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch user data' },
+        { status: 500 }
+      );
+    }
 
     if (!currentUser) {
       return NextResponse.json(
@@ -175,33 +220,41 @@ export async function GET(req: Request) {
       where.role = role.toUpperCase();
     }
 
-    const users = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        schoolId: true,
-        status: true,
-        school: {
-          select: {
-            id: true,
-            name: true
+    try {
+      users = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          schoolId: true,
+          status: true,
+          school: {
+            select: {
+              id: true,
+              name: true
+            }
           }
+        },
+        orderBy: {
+          createdAt: 'desc'
         }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+      });
+    } catch (error) {
+      console.error('Error fetching filtered users:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch users data' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(users);
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('Error in users route:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch users' },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

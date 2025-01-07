@@ -9,6 +9,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   providers: [
     CredentialsProvider({
@@ -52,23 +53,28 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async session({ token, session }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.name = token.name;
-        session.user.email = token.email;
-        session.user.role = token.role;
-        session.user.schoolId = token.schoolId;
-      }
-      return session;
-    },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
+        // Initial sign in
         token.id = user.id;
         token.role = user.role;
         token.schoolId = user.schoolId;
       }
+
+      if (trigger === "update" && session) {
+        // Update token if session is updated
+        return { ...token, ...session.user };
+      }
+
       return token;
+    },
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+        session.user.schoolId = token.schoolId as string | null;
+      }
+      return session;
     }
   }
 };

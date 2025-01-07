@@ -44,6 +44,7 @@ export function SuperAdminOverviewTab() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -54,6 +55,9 @@ export function SuperAdminOverviewTab() {
         
         if (!response.ok) {
           const errorData = await response.json();
+          if (response.status === 503) {
+            throw new Error('Database connection failed. Please try again later.');
+          }
           throw new Error(errorData.error || 'Failed to fetch stats');
         }
         
@@ -62,27 +66,50 @@ export function SuperAdminOverviewTab() {
       } catch (error) {
         console.error('Failed to fetch stats:', error);
         setError(error instanceof Error ? error.message : 'Failed to fetch stats');
+        
+        // Auto-retry up to 3 times with exponential backoff if it's a database connection error
+        if (error instanceof Error && error.message.includes('Database connection failed') && retryCount < 3) {
+          const timeout = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+          }, timeout);
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchStats();
-  }, []);
+  }, [retryCount]); // Add retryCount as dependency
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center">
+      <div className="flex h-96 items-center justify-center flex-col space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+        <p className="text-sm text-muted-foreground">
+          {retryCount > 0 ? `Retrying... (Attempt ${retryCount}/3)` : 'Loading stats...'}
+        </p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <Alert variant="destructive" className="mb-4">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <div className="space-y-4">
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <button
+          onClick={handleRetry}
+          className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+        >
+          Retry
+        </button>
+      </div>
     );
   }
 

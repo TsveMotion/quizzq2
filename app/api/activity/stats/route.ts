@@ -1,81 +1,73 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
+import { endOfDay, startOfDay, subDays } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    
+    if (!session?.user?.id || session?.user?.role !== 'SCHOOLADMIN' || !session?.user?.schoolId) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized - Requires SCHOOLADMIN role' }), 
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const schoolId = session.user.schoolId;
+    const today = new Date();
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = subDays(today, i);
+      return {
+        date: startOfDay(date),
+        nextDate: endOfDay(date),
+      };
+    });
+
+    // Get assignments for the last 7 days
+    const assignments = await prisma.assignment.findMany({
+      where: {
+        class: {
+          schoolId: schoolId
+        },
+        status: 'PUBLISHED',
+        createdAt: {
+          gte: last7Days[6].date,
+          lte: last7Days[0].nextDate,
+        },
+      },
       select: {
         id: true,
-        role: true,
-        schoolId: true,
-      }
+        createdAt: true,
+      },
     });
 
-    if (!currentUser) {
-      return new NextResponse("User not found", { status: 404 });
-    }
+    // Count assignments per day
+    const activityData = last7Days.map(({ date, nextDate }) => {
+      const count = assignments.filter(
+        assignment => 
+          assignment.createdAt >= date &&
+          assignment.createdAt <= nextDate
+      ).length;
 
-    let schoolFilter = {};
-    if (currentUser.role === 'SCHOOLADMIN' && currentUser.schoolId) {
-      schoolFilter = {
-        user: {
-          schoolId: currentUser.schoolId
-        }
+      return {
+        date: date.toISOString().split('T')[0],
+        count,
       };
-    }
+    }).reverse();
 
-    // Get the last 6 months of activity
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const startDate = sixMonthsAgo;
-    const endDate = new Date();
-
-    // Get monthly activity counts
-    const monthlyActivity = await prisma.userActivity.groupBy({
-      by: ['createdAt'],
-      _count: {
-        id: true
-      },
-      where: {
-        createdAt: {
-          gte: startDate,
-          lte: endDate
-        },
-        ...schoolFilter,
-        userId: session.user.id,
-      },
-    });
-
-    // Process the data into monthly counts
-    const activityByDay: { [key: string]: number } = {};
-    monthlyActivity.forEach((activity: { createdAt: Date; _count: { id: number } }) => {
-      const date = activity.createdAt.toISOString().split('T')[0];
-      activityByDay[date] = (activityByDay[date] || 0) + activity._count.id;
-    });
-
-    // Get the labels for the last 6 months
-    const labels = Object.keys(activityByDay);
-    const data = Object.values(activityByDay);
-
-    return NextResponse.json({
-      labels,
-      data
+    return new NextResponse(JSON.stringify(activityData), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Error fetching activity stats:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch activity stats' },
-      { status: 500 }
+    return new NextResponse(
+      JSON.stringify({ error: 'Failed to fetch activity stats' }), 
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }

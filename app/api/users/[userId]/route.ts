@@ -9,16 +9,21 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { school: true }
+      select: {
+        id: true,
+        role: true,
+        schoolId: true,
+      }
     });
 
-    if (!currentUser || !['superadmin', 'schooladmin'].includes(currentUser.role)) {
+    if (!currentUser || currentUser.role !== 'SUPERADMIN') {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
@@ -34,17 +39,6 @@ export async function DELETE(
 
     if (!userToDelete) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // School admin can only delete users from their own school
-    if (
-      currentUser.role === 'schooladmin' &&
-      (userToDelete.schoolId !== currentUser.schoolId || userToDelete.role === 'schooladmin')
-    ) {
-      return NextResponse.json(
-        { error: 'Unauthorized to delete this user' },
-        { status: 403 }
-      );
     }
 
     // Delete the user
@@ -68,21 +62,26 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { school: true }
+      select: {
+        id: true,
+        role: true,
+        schoolId: true,
+      }
     });
 
-    if (!currentUser || !['superadmin', 'schooladmin'].includes(currentUser.role)) {
+    if (!currentUser || currentUser.role !== 'SUPERADMIN') {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const data = await req.json();
-    const { name, email, role } = data;
+    const { name, email, role, schoolId } = data;
 
     // Get the user to be updated
     const userToUpdate = await prisma.user.findUnique({
@@ -98,17 +97,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // School admin can only update users from their own school
-    if (
-      currentUser.role === 'schooladmin' &&
-      (userToUpdate.schoolId !== currentUser.schoolId || userToUpdate.role === 'schooladmin')
-    ) {
-      return NextResponse.json(
-        { error: 'Unauthorized to update this user' },
-        { status: 403 }
-      );
-    }
-
     // Update the user
     const updatedUser = await prisma.user.update({
       where: { id: params.userId },
@@ -116,19 +104,14 @@ export async function PATCH(
         name,
         email,
         role,
-        updatedAt: new Date()
+        schoolId: schoolId === 'none' ? null : schoolId,
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
-        school: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
+        schoolId: true,
       }
     });
 

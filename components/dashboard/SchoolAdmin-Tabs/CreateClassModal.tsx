@@ -45,16 +45,12 @@ export function CreateClassModal({ isOpen, onClose, onSuccess, schoolId, teacher
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/schools/${schoolId}/classes`, {
+      const response = await fetch('/api/schooladmin/classes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description,
-          teacherId: formData.teacherId,
-        }),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -116,12 +112,13 @@ export function CreateClassModal({ isOpen, onClose, onSuccess, schoolId, teacher
               <Select
                 value={formData.teacherId}
                 onValueChange={(value) => setFormData({ ...formData, teacherId: value })}
+                required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a teacher" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teachers.map((teacher) => (
+                  {teachers?.map((teacher) => (
                     <SelectItem key={teacher.id} value={teacher.id}>
                       {teacher.name}
                     </SelectItem>

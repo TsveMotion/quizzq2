@@ -63,16 +63,36 @@ export async function GET() {
       );
     }
 
-    const schools = await prisma.school.findMany({
-      include: {
-        users: {
-          select: {
-            id: true,
-            role: true
+    // Test database connection first
+    try {
+      await prisma.$connect();
+    } catch (error) {
+      console.error('Database connection error:', error);
+      return new NextResponse(
+        JSON.stringify({ error: 'Database connection failed. Please try again later.' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    let schools = [];
+    try {
+      schools = await prisma.school.findMany({
+        include: {
+          users: {
+            select: {
+              id: true,
+              role: true
+            }
           }
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.error('Error fetching schools:', error);
+      return new NextResponse(
+        JSON.stringify({ error: 'Failed to fetch schools data' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Transform the data to include counts
     const transformedSchools = schools.map(school => {
@@ -89,7 +109,7 @@ export async function GET() {
 
     return NextResponse.json(transformedSchools);
   } catch (error) {
-    console.error('Error fetching schools:', error);
+    console.error('Error in schools route:', error);
     return new NextResponse(
       JSON.stringify({ error: 'Internal Server Error' }), 
       { status: 500, headers: { 'Content-Type': 'application/json' } }
