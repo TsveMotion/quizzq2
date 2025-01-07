@@ -23,58 +23,18 @@ export async function GET() {
           }
         }
       },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        dueDate: true,
-        totalMarks: true,
+      include: {
         class: {
-          select: {
-            id: true,
-            name: true,
-            teacher: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
+          include: {
+            teacher: true
           }
         },
+        questions: true,
         submissions: {
           where: {
             studentId: session.user.id
-          },
-          select: {
-            id: true,
-            status: true,
-            grade: true,
-            submittedAt: true,
-            answers: {
-              select: {
-                id: true,
-                answer: true,
-                isCorrect: true,
-                score: true
-              }
-            }
-          }
-        },
-        questions: {
-          select: {
-            id: true,
-            text: true,
-            type: true,
-            options: true,
-            points: true,
-            marks: true
           }
         }
-      },
-      orderBy: {
-        createdAt: 'desc'
       }
     });
 
@@ -83,6 +43,7 @@ export async function GET() {
         id: assignment.id,
         title: assignment.title,
         description: assignment.description,
+        status: assignment.status,
         dueDate: assignment.dueDate,
         totalMarks: assignment.totalMarks,
         class: {
@@ -90,7 +51,7 @@ export async function GET() {
           name: assignment.class.name,
           teacher: assignment.class.teacher
         },
-        submission: assignment.submissions[0],
+        submissions: assignment.submissions,
         questions: assignment.questions
       }))
     );

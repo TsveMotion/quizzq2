@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     // Calculate total grade
     const totalPoints = submission.answers.reduce((sum, answer) => sum + answer.question.points, 0);
     const earnedPoints = gradedAnswers.reduce((sum, answer) => sum + answer.score, 0);
-    const finalGrade = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+    const finalGrade = Math.round((earnedPoints / totalPoints) * 100).toString();
 
     // Update submission grades
     await prisma.$transaction(async (tx) => {
@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
         data: {
           grade: finalGrade,
           feedback,
-          status: 'GRADED'
+          status: 'GRADED',
+          score: earnedPoints
         }
       });
     });

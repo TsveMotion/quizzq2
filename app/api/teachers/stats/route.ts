@@ -19,72 +19,39 @@ export async function GET(request: Request) {
     // Get teacher's classes with counts and student performance
     const classes = await prisma.class.findMany({
       where: {
-        teacherId: teacherId,
+        teacherId: session.user.id
       },
       include: {
-        _count: {
-          select: {
-            students: true,
-            assignments: true,
-          },
-        },
         students: true,
         assignments: {
           include: {
             submissions: {
               include: {
+                student: true,
                 answers: {
                   include: {
                     question: true
                   }
                 }
               }
-            },
-          },
-        },
-      },
+            }
+          }
+        }
+      }
     });
 
-    // Calculate totals
-    const totalStudents = classes.reduce((acc: number, cls: { _count: { students: number } }) => 
-      acc + cls._count.students, 0);
-    const totalAssignments = classes.reduce((acc: number, cls: { _count: { assignments: number } }) => 
-      acc + cls._count.assignments, 0);
+    // Calculate statistics
+    const totalStudents = classes.reduce((acc: number, cls) => acc + cls.students.length, 0);
+    const totalAssignments = classes.reduce((acc: number, cls) => acc + cls.assignments.length, 0);
 
     // Calculate performance data (last 6 assignments)
-    const assignmentsWithScores = classes.flatMap((cls: {
-      assignments: Array<{
-        title: string;
-        createdAt: Date;
-        submissions: Array<{
-          answers: Array<{
-            isCorrect: boolean;
-          }>;
-        }>;
-      }>;
-    }) => 
-      cls.assignments.map((assignment: {
-        title: string;
-        createdAt: Date;
-        submissions: Array<{
-          answers: Array<{
-            isCorrect: boolean;
-          }>;
-        }>;
-      }) => {
+    const assignmentsWithScores = classes.flatMap((cls) => 
+      cls.assignments.map((assignment) => {
         const submissions = assignment.submissions;
         const averageScore = submissions.length > 0
-          ? submissions.reduce((acc: number, sub: {
-              answers: Array<{
-                isCorrect: boolean;
-              }>;
-            }) => {
-              const questionScores = sub.answers.map((ans: { isCorrect: boolean }) => 
-                ans.isCorrect ? 1 : 0);
-              const submissionScore = questionScores.length > 0
-                ? (questionScores.reduce((a: number, b: number) => a + b, 0) / questionScores.length) * 100
-                : 0;
-              return acc + submissionScore;
+          ? submissions.reduce((acc: number, sub) => {
+              const totalScore = sub.answers.reduce((sum: number, ans) => sum + (ans.score || 0), 0);
+              return acc + totalScore;
             }, 0) / submissions.length
           : 0;
         return {
@@ -93,7 +60,7 @@ export async function GET(request: Request) {
           createdAt: assignment.createdAt,
         };
       })
-    ).sort((a: { createdAt: Date }, b: { createdAt: Date }) => 
+    ).sort((a, b) => 
       b.createdAt.getTime() - a.createdAt.getTime()
     )
     .slice(0, 6)
@@ -108,19 +75,11 @@ export async function GET(request: Request) {
         submissions: assignment.submissions
       }))
     ).reduce(
-      (acc: { completed: number; pending: number; overdue: number }, 
-       assignment: {
-         id: string;
-         dueDate: Date;
-         submissions: Array<any>;
-       }) => {
+      (acc, assignment) => {
         const dueDate = new Date(assignment.dueDate);
         const submissionCount = assignment.submissions.length;
-        const expectedSubmissions = classes.find((c: {
-          assignments: Array<{ id: string }>;
-          students: Array<any>;
-        }) => 
-          c.assignments.some((a: { id: string }) => a.id === assignment.id)
+        const expectedSubmissions = classes.find((c) => 
+          c.assignments.some((a) => a.id === assignment.id)
         )?.students.length || 0;
         
         if (submissionCount >= expectedSubmissions) {
@@ -136,14 +95,9 @@ export async function GET(request: Request) {
     );
 
     // Calculate class distribution
-    const classDistribution = classes.map((cls: {
-      name: string;
-      _count: {
-        students: number;
-      };
-    }) => ({
+    const classDistribution = classes.map(cls => ({
       name: cls.name,
-      studentCount: cls._count.students,
+      studentCount: cls.students.length
     }));
 
     // Get recent activity (last 5 assignments)
@@ -160,13 +114,7 @@ export async function GET(request: Request) {
       },
     });
 
-    const formattedActivity = recentAssignments.map((assignment: {
-      title: string;
-      class: {
-        name: string;
-      };
-      createdAt: Date;
-    }) => ({
+    const formattedActivity = recentAssignments.map((assignment) => ({
       type: 'Assignment Created',
       description: `Created "${assignment.title}" for ${assignment.class.name}`,
       date: format(assignment.createdAt, 'MMM d, yyyy'),
@@ -178,13 +126,13 @@ export async function GET(request: Request) {
       totalAssignments,
       recentActivity: formattedActivity,
       performanceData: {
-        labels: assignmentsWithScores.map((a: { title: string }) => a.title),
-        data: assignmentsWithScores.map((a: { averageScore: number }) => a.averageScore),
+        labels: assignmentsWithScores.map((a) => a.title),
+        data: assignmentsWithScores.map((a) => a.averageScore),
       },
       assignmentCompletion: assignmentStatus,
       classDistribution: {
-        labels: classDistribution.map((c: { name: string }) => c.name),
-        data: classDistribution.map((c: { studentCount: number }) => c.studentCount),
+        labels: classDistribution.map((c) => c.name),
+        data: classDistribution.map((c) => c.studentCount),
       },
     });
   } catch (error) {

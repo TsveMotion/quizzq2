@@ -12,24 +12,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const settings = await prisma.systemSettings.findFirst({
-      select: {
-        id: true,
-        maintenanceMode: true,
-        maintenanceMessage: true,
-        registrationOpen: true,
-        createdAt: true,
-        updatedAt: true
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
+    const settings = await prisma.systemSettings.findFirst();
+    
     if (!settings) {
       const newSettings = await prisma.systemSettings.create({
         data: {
-          maintenanceMode: false,
-          maintenanceMessage: "",
-          registrationOpen: true
+          key: 'default',
+          value: JSON.stringify({
+            theme: 'light',
+            notifications: true
+          })
         }
       });
       return NextResponse.json(newSettings);
@@ -72,37 +64,32 @@ export async function POST(req: Request) {
     }
 
     // Update database
-    const settings = await prisma.systemSettings.findFirst({
-      select: {
-        id: true,
-        maintenanceMode: true,
-        maintenanceMessage: true,
-        registrationOpen: true,
-        createdAt: true,
-        updatedAt: true
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    if (settings) {
-      const updatedSettings = await prisma.systemSettings.update({
-        where: { id: settings.id },
-        data: {
-          maintenanceMode,
-          maintenanceMessage,
-          registrationOpen: true
-        }
-      });
-      return NextResponse.json(updatedSettings);
-    } else {
+    const settings = await prisma.systemSettings.findFirst();
+    
+    if (!settings) {
       const newSettings = await prisma.systemSettings.create({
         data: {
-          maintenanceMode,
-          maintenanceMessage,
-          registrationOpen: true
+          key: 'default',
+          value: JSON.stringify({
+            theme: 'light',
+            notifications: true
+          })
         }
       });
       return NextResponse.json(newSettings);
+    } else {
+      const updatedSettings = await prisma.systemSettings.update({
+        where: { id: settings.id },
+        data: {
+          value: JSON.stringify({
+            theme: 'light',
+            notifications: true,
+            maintenanceMode,
+            maintenanceMessage
+          })
+        }
+      });
+      return NextResponse.json(updatedSettings);
     }
   } catch (error) {
     console.error('[SYSTEM_SETTINGS_POST]', error);

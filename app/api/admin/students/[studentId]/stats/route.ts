@@ -18,51 +18,26 @@ export async function GET(
       return new NextResponse('Student ID is required', { status: 400 });
     }
 
-    // Get student's homework submissions with scores
-    const submissions = await prisma.homeworkSubmission.findMany({
+    // Get student's assignments
+    const assignments = await prisma.assignment.findMany({
       where: {
-        studentId: params.studentId
-      },
-      select: {
-        id: true,
-        status: true,
-        grade: true,
-        submittedAt: true,
-        assignment: {
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            status: true,
-            totalMarks: true,
-            dueDate: true,
-            questions: {
-              select: {
-                id: true,
-                text: true,
-                type: true,
-                options: true,
-                points: true,
-                marks: true
-              }
+        class: {
+          students: {
+            some: {
+              id: studentId
             }
           }
-        },
-        answers: {
-          select: {
-            id: true,
-            answer: true,
-            isCorrect: true,
-            score: true,
-            question: {
-              select: {
-                id: true,
-                text: true,
-                type: true,
-                points: true,
-                marks: true
-              }
-            }
+        }
+      },
+      include: {
+        questions: true,
+        submissions: {
+          where: {
+            studentId: studentId
+          },
+          include: {
+            student: true,
+            answers: true
           }
         }
       }
@@ -71,11 +46,15 @@ export async function GET(
     // Get student's practice quizzes
     const practiceQuizzes = await prisma.practiceQuiz.findMany({
       where: {
-        userId: studentId,
+        userId: studentId
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        questions: true,
+        createdAt: true
+      }
     });
 
     // Calculate statistics
@@ -84,7 +63,8 @@ export async function GET(
     let totalTime = 0;
     
     // Process assignment submissions
-    const assignmentStats = submissions.map((submission: any) => {
+    const assignmentStats = assignments.map((assignment: any) => {
+      const submission = assignment.submissions[0];
       const correctCount = submission.answers.filter((answer: { isCorrect: boolean }) => answer.isCorrect).length;
       const totalCount = submission.answers.length;
       
@@ -93,7 +73,7 @@ export async function GET(
       
       return {
         type: 'assignment',
-        title: submission.assignment.title,
+        title: assignment.title,
         score: Math.round((correctCount / totalCount) * 100),
         date: submission.submittedAt,
       };
@@ -101,14 +81,14 @@ export async function GET(
 
     // Process practice quizzes
     const quizStats = practiceQuizzes.map((quiz: any) => {
-      totalQuestions += quiz.totalQuestions;
-      correctAnswers += quiz.correctAnswers;
-      totalTime += quiz.totalTimeSeconds;
+      totalQuestions += quiz.questions.length;
+      correctAnswers += quiz.questions.filter((question: any) => question.correctAnswer).length;
+      totalTime += 0; // No time data available in the new query
       
       return {
         type: 'quiz',
-        title: 'Practice Quiz',
-        score: Math.round((quiz.correctAnswers / quiz.totalQuestions) * 100),
+        title: quiz.title,
+        score: Math.round((quiz.questions.filter((question: any) => question.correctAnswer).length / quiz.questions.length) * 100),
         date: quiz.createdAt,
       };
     });
@@ -123,15 +103,16 @@ export async function GET(
       }));
 
     const stats = {
-      totalAssignments: submissions.length,
-      completedAssignments: submissions.filter((a: any) => a.answers.length > 0).length,
-      averageScore: submissions.length > 0
+      totalAssignments: assignments.length,
+      completedAssignments: assignments.filter((a: any) => a.submissions.length > 0).length,
+      averageScore: assignments.length > 0
         ? Math.round(
-            submissions.reduce((acc: number, curr: any) => {
-              const score = (curr.answers.filter((answer: { isCorrect: boolean }) => answer.isCorrect).length / 
-                           curr.answers.length) * 100;
+            assignments.reduce((acc: number, curr: any) => {
+              const submission = curr.submissions[0];
+              const score = (submission.answers.filter((answer: { isCorrect: boolean }) => answer.isCorrect).length / 
+                           submission.answers.length) * 100;
               return acc + score;
-            }, 0) / submissions.length
+            }, 0) / assignments.length
           )
         : 0,
       totalQuizzes: practiceQuizzes.length,

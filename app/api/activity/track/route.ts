@@ -10,14 +10,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { action } = await req.json();
+    const { userId, type, details, metadata } = await req.json();
 
     const activity = await prisma.userActivity.create({
       data: {
-        userId: session.user.id,
-        action: action,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        userId: userId,
+        type: type,
+        description: details,
+        metadata: metadata || {},
+        timestamp: new Date()
       }
     });
 

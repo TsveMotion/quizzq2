@@ -16,21 +16,11 @@ export async function GET() {
       where: { id: session.user.id },
       include: {
         enrolledClasses: {
-          select: {
-            id: true,
-            name: true,
+          include: {
             assignments: {
-              select: {
-                id: true,
-                title: true,
-                points: true,
+              include: {
                 submissions: {
-                  where: {
-                    studentId: session.user.id
-                  },
-                  select: {
-                    grade: true
-                  }
+                  where: { studentId: session.user.id }
                 }
               }
             }
@@ -43,24 +33,25 @@ export async function GET() {
       return new NextResponse('User not found', { status: 404 });
     }
 
-    const grades = user?.enrolledClasses.map((classItem) => {
-      const totalPoints = classItem.assignments.reduce((sum, assignment) => sum + (assignment.points || 0), 0);
-      const earnedPoints = classItem.assignments.reduce((sum, assignment) => {
-        const submission = assignment.submissions[0];
-        return sum + (submission?.grade || 0);
-      }, 0);
+    const grades = user?.enrolledClasses.map(classItem => {
+      const totalPoints = classItem.assignments.reduce((sum: number, assignment) => 
+        sum + (assignment.points || 0), 0);
 
-      const classGrade = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+      const earnedPoints = classItem.assignments.reduce((sum: number, assignment) => {
+        const submission = assignment.submissions[0];
+        return sum + (submission?.score || 0);
+      }, 0);
 
       return {
         classId: classItem.id,
         className: classItem.name,
-        grade: classGrade,
+        grade: totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0,
         assignments: classItem.assignments.map(assignment => ({
           id: assignment.id,
           title: assignment.title,
           points: assignment.points,
-          grade: assignment.submissions[0]?.grade || 0
+          earned: assignment.submissions[0]?.score || 0,
+          submittedAt: assignment.submissions[0]?.submittedAt
         }))
       };
     }) || [];

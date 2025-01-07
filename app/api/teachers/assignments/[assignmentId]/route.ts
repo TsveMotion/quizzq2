@@ -16,52 +16,14 @@ export async function GET(
     const assignment = await prisma.assignment.findUnique({
       where: { id: params.assignmentId },
       include: {
-        class: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        questions: {
-          select: {
-            id: true,
-            text: true,
-            type: true,
-            options: true,
-            points: true,
-            marks: true,
-            correctAnswer: true,
-            correctAnswerIndex: true
-          }
-        },
+        class: true,
+        questions: true,
         submissions: {
-          select: {
-            id: true,
-            status: true,
-            grade: true,
-            submittedAt: true,
-            student: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
+          include: {
+            student: true,
             answers: {
-              select: {
-                id: true,
-                answer: true,
-                isCorrect: true,
-                score: true,
-                question: {
-                  select: {
-                    id: true,
-                    text: true,
-                    type: true,
-                    points: true,
-                    marks: true
-                  }
-                }
+              include: {
+                question: true
               }
             }
           }
@@ -70,36 +32,36 @@ export async function GET(
     });
 
     if (!assignment) {
-      return new NextResponse('Assignment not found', { status: 404 });
+      return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
 
-    // Format the response
-    const formattedAssignment = {
+    return NextResponse.json({
       id: assignment.id,
       title: assignment.title,
-      description: assignment.description || '',
+      description: assignment.description,
       dueDate: assignment.dueDate,
+      status: assignment.status,
+      totalMarks: assignment.totalMarks,
       className: assignment.class.name,
       questions: assignment.questions,
-      submissions: assignment.submissions.map((sub) => ({
+      submissions: assignment.submissions.map(sub => ({
         id: sub.id,
         studentId: sub.student.id,
         studentName: sub.student.name,
         studentEmail: sub.student.email,
-        grade: sub.grade,
         status: sub.status,
+        score: sub.score,
         submittedAt: sub.submittedAt,
         answers: sub.answers.map(ans => ({
           id: ans.id,
-          questionId: ans.question.id,
+          questionId: ans.questionId,
           answer: ans.answer,
-          isCorrect: ans.isCorrect,
-          score: ans.score
+          score: ans.score,
+          feedback: ans.feedback,
+          isCorrect: ans.isCorrect
         }))
-      })),
-    };
-
-    return NextResponse.json(formattedAssignment);
+      }))
+    });
   } catch (error) {
     console.error('Error fetching assignment:', error);
     return new NextResponse('Internal Server Error', { status: 500 });

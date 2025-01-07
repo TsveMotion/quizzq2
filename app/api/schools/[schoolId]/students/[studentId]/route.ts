@@ -156,14 +156,18 @@ export async function GET(
       return new NextResponse('Forbidden', { status: 403 });
     }
 
-    // Get student's practice quizzes
+    // Get practice quizzes
     const practiceQuizzes = await prisma.practiceQuiz.findMany({
       where: {
-        userId: params.studentId,
+        userId: studentId
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        type: true,
         questions: true,
-      },
+        createdAt: true
+      }
     });
 
     return new NextResponse(JSON.stringify(practiceQuizzes));

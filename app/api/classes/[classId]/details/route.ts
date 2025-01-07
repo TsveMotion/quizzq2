@@ -36,45 +36,24 @@ export async function GET(
 
     // Fetch class details with teacher and students
     const classDetails = await prisma.class.findUnique({
-      where: {
-        id: classId,
-      },
+      where: { id: classId },
       include: {
-        teacher: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        students: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        teacher: true,
+        students: true,
         assignments: {
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            dueDate: true,
+          include: {
             submissions: {
-              where: {
-                studentId: session.user.id,
-              },
               select: {
+                id: true,
                 status: true,
-                submittedAt: true,
-              },
-            },
-          },
-          orderBy: {
-            dueDate: 'asc',
-          },
-        },
-      },
+                score: true,
+                createdAt: true,
+                updatedAt: true
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!classDetails) {

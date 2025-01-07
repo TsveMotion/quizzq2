@@ -18,11 +18,12 @@ export async function POST(req: Request) {
     const validatedData = contactSchema.parse(data);
 
     // Store the contact message in the database
-    const contact = await prisma.contact.create({
+    const contact = await prisma.message.create({
       data: {
         name: validatedData.name,
         email: validatedData.email,
-        message: validatedData.message
+        message: validatedData.message,
+        status: 'UNREAD'
       }
     });
 
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const contacts = await prisma.contact.findMany({
+    const contacts = await prisma.message.findMany({
       orderBy: {
         createdAt: 'desc'
       }
@@ -75,7 +76,7 @@ export async function PATCH(req: Request) {
     const data = await req.json();
     const { id, status } = data;
 
-    const contact = await prisma.contact.update({
+    const contact = await prisma.message.update({
       where: { id },
       data: { status }
     });
@@ -102,7 +103,7 @@ export async function DELETE(req: Request) {
       return new NextResponse("Contact ID is required", { status: 400 });
     }
 
-    await prisma.contact.delete({
+    await prisma.message.delete({
       where: { id }
     });
 
