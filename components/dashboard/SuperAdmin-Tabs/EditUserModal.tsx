@@ -49,6 +49,8 @@ const roleOptions = [
   { value: 'SCHOOLADMIN', label: 'School Admin' },
   { value: 'TEACHER', label: 'Teacher' },
   { value: 'STUDENT', label: 'Student' },
+  { value: 'PRO', label: 'Pro User' },
+  { value: 'FREE', label: 'Free User' },
 ];
 
 const statusOptions = [
@@ -83,19 +85,22 @@ export function EditUserModal({
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'same-origin',
         body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to update user');
+        throw new Error(data.error || 'Failed to update user');
       }
 
       toast.success('User updated successfully');
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      toast.error('Failed to update user');
       console.error('Error updating user:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update user');
     } finally {
       setIsLoading(false);
     }

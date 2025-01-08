@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-config';
+import { authOptions } from '@/lib/auth';
 import { endOfDay, startOfDay, subDays } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -9,11 +9,12 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
+    console.log('Session data:', session?.user);
     
-    if (!session?.user?.id || session?.user?.role !== 'SCHOOLADMIN' || !session?.user?.schoolId) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized - Requires SCHOOLADMIN role' }), 
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+    if (!session?.user?.email || session?.user?.role !== 'SCHOOLADMIN' || !session?.user?.schoolId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Requires SCHOOLADMIN role' }, 
+        { status: 401 }
       );
     }
 
@@ -59,15 +60,12 @@ export async function GET(req: Request) {
       };
     }).reverse();
 
-    return new NextResponse(JSON.stringify(activityData), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(activityData);
   } catch (error) {
     console.error('Error fetching activity stats:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Failed to fetch activity stats' }), 
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    return NextResponse.json(
+      { error: 'Failed to fetch activity stats' },
+      { status: 500 }
     );
   }
 }

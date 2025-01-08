@@ -20,6 +20,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
+// Colors matching the Users tab badges
+const ROLE_COLORS = {
+  SUPERADMIN: '#ef4444', // red-500
+  SCHOOLADMIN: '#3b82f6', // blue-500
+  TEACHER: '#22c55e', // green-500
+  STUDENT: '#eab308', // yellow-500
+  PRO: '#a855f7', // purple-500
+  FREE: '#9ca3af' // gray-400
+};
+
 interface Stats {
   totalUsers: number;
   totalSchools: number;
@@ -207,8 +217,8 @@ export function SuperAdminOverviewTab() {
                     outerRadius={80}
                     label
                   >
-                    {stats.usersByRole.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    {stats.usersByRole.map((entry) => (
+                      <Cell key={`cell-${entry.role}`} fill={ROLE_COLORS[entry.role as keyof typeof ROLE_COLORS] || '#9ca3af'} />
                     ))}
                   </Pie>
                   <Tooltip />

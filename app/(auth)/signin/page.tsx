@@ -1,177 +1,117 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import * as React from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import { Label } from "@/components/ui/label";
+import Link from "next/link";
 import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
     try {
-      const formData = new FormData(event.currentTarget);
-      const email = formData.get('email') as string;
-      const password = formData.get('password') as string;
-
-      console.log('Attempting sign in with:', { email });
-
-      if (!email || !password) {
-        toast({
-          title: "Error",
-          description: "Please provide both email and password",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      const result = await signIn('credentials', {
-        email: email.toLowerCase(),
+      const result = await signIn("credentials", {
+        email,
         password,
         redirect: false,
-        callbackUrl: '/dashboard'
       });
 
-      console.log('Sign in result:', result);
-
-      if (!result) {
-        setIsLoading(false);
-        toast({
-          title: "Error",
-          description: "Authentication failed - no response",
-          variant: "destructive",
-        });
+      if (result?.error) {
+        setError("Invalid email or password");
         return;
       }
 
-      if (result.error) {
-        setIsLoading(false);
-        toast({
-          title: "Authentication Error",
-          description: result.error,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      try {
-        // Get the session to determine user role
-        const session = await fetch('/api/auth/session');
-        if (!session.ok) {
-          throw new Error(`Session fetch failed: ${session.statusText}`);
-        }
-        const sessionData = await session.json();
-        
-        console.log('Session data:', sessionData);
-        
-        if (!sessionData?.user) {
-          throw new Error('No user data in session');
-        }
-
-        // Route based on user role
-        let dashboardPath = '/dashboard';
-        if (sessionData?.user?.role) {
-          const role = sessionData.user.role.toLowerCase();
-          switch (role) {
-            case 'superadmin':
-              dashboardPath = '/dashboard/superadmin';
-              break;
-            case 'schooladmin':
-              dashboardPath = '/dashboard/schooladmin';
-              break;
-            case 'teacher':
-              dashboardPath = '/dashboard/teacher';
-              break;
-            case 'student':
-              dashboardPath = '/dashboard/student';
-              break;
-            default:
-              console.log('Unknown role:', role);
-              dashboardPath = '/dashboard';
-          }
-        }
-
-        toast({
-          title: "Success",
-          description: "Successfully signed in",
-          variant: "default",
-        });
-
-        console.log('Redirecting to:', dashboardPath);
-        router.push(dashboardPath);
-        router.refresh();
-      } catch (error) {
-        console.error('Session fetch error:', error);
-        setIsLoading(false);
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
-          variant: "destructive",
-        });
-      }
+      router.push("/dashboard/User");
     } catch (error) {
-      console.error('Sign-in error:', error);
-      setIsLoading(false);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
+      setError("An error occurred. Please try again.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <>
       <MaintenanceBanner />
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="mx-auto w-full max-w-md space-y-6 p-6">
-          <div className="space-y-2 text-center">
-            <h1 className="text-3xl font-bold">Welcome back</h1>
-            <p className="text-gray-500 dark:text-gray-400">
-              Enter your credentials to sign in
-            </p>
-          </div>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                id="email"
-                name="email"
-                placeholder="Email"
-                required
-                type="email"
-                disabled={isLoading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Input
-                id="password"
-                name="password"
-                placeholder="Password"
-                required
-                type="password"
-                disabled={isLoading}
-              />
-            </div>
-            <Button
-              className="w-full"
-              type="submit"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </Button>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="w-[350px]">
+          <CardHeader>
+            <CardTitle>Sign In</CardTitle>
+            <CardDescription>
+              Enter your email below to sign in to your account
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleSubmit}>
+            <CardContent>
+              <div className="grid w-full items-center gap-4">
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                {error && (
+                  <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 p-3 rounded">
+                    {error}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4">
+              <Button
+                className="w-full"
+                type="submit"
+                disabled={loading}
+              >
+                {loading ? "Signing in..." : "Sign In"}
+              </Button>
+              <div className="text-sm text-center">
+                Don&apos;t have an account?{" "}
+                <Link
+                  href="/signup"
+                  className="text-primary hover:underline"
+                >
+                  Sign up
+                </Link>
+              </div>
+            </CardFooter>
           </form>
-        </div>
+        </Card>
       </div>
     </>
   );

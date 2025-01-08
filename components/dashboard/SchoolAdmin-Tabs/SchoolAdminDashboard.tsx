@@ -117,6 +117,20 @@ interface ExtendedClass extends Omit<Class, 'teacher' | 'students'> {
 interface ExtendedSchoolWithRelations extends ImportedSchoolWithRelations {
   users: (User & {
     status: string;
+    emailVerified: Date | null;
+    powerLevel: number;
+    proStatus: string;
+    proPlan: string | null;
+    proPlanId: string | null;
+    proPlanName: string | null;
+    proPlanPrice: number | null;
+    proPlanCurrency: string | null;
+    proPlanInterval: string | null;
+    proPlanTrialPeriodDays: number | null;
+    proPlanIsActive: boolean;
+    proPlanIsTrial: boolean;
+    proPlanStartedAt: Date | null;
+    proPlanEndedAt: Date | null;
   })[];
 }
 

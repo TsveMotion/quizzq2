@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth-config";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2024-12-18.acacia",
 });
 
 export async function POST(req: Request) {
@@ -15,7 +15,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { priceId } = body;
+    const { successUrl, cancelUrl } = body;
+
+    if (!process.env.STRIPE_PRICE_ID) {
+      return new NextResponse("Stripe price ID not configured", { status: 500 });
+    }
 
     const stripeSession = await stripe.checkout.sessions.create({
       customer_email: session.user.email,
@@ -27,8 +31,8 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/User?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/User?canceled=true`,
+      success_url: successUrl + "&session_id={CHECKOUT_SESSION_ID}",
+      cancel_url: cancelUrl,
       metadata: {
         userId: session.user.id,
       },

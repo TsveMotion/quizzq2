@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth-config";
 
 // Check if STRIPE_SECRET_KEY is available
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -12,28 +14,45 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { plan } = body;
-
-    // Get the price based on the plan
-    let amount = 399; // Default to £3.99 for Student Pro
-    if (plan !== 'Student Pro') {
-      throw new Error('Invalid plan selected');
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      console.error("No authenticated user found");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { amount } = await request.json();
+    if (!amount || typeof amount !== 'number') {
+      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    }
+
+    console.log("Creating payment intent for:", session.user.email);
+
+    // Create a PaymentIntent with the order amount and currency
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount, // Amount in pence
+      amount, // Amount in pence
       currency: 'gbp',
-      metadata: {
-        plan,
+      automatic_payment_methods: {
+        enabled: true,
       },
+      metadata: {
+        userId: session.user.id,
+        userEmail: session.user.email,
+      },
+      description: 'Premium Subscription',
     });
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret });
+    console.log("Created payment intent:", paymentIntent.id);
+
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+    });
   } catch (error) {
     console.error('Payment intent creation failed:', error);
     return NextResponse.json(
-      { error: 'Payment intent creation failed' },
+      { 
+        error: error instanceof Error ? error.message : 'Payment intent creation failed',
+        details: error instanceof Stripe.errors.StripeError ? error.type : undefined
+      },
       { status: 500 }
     );
   }

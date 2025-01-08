@@ -9,36 +9,37 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
+    console.log('Delete request session:', session?.user);
     
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.user?.email) {
+      console.log('No session user found');
+      return NextResponse.json({ error: 'Unauthorized - Not logged in' }, { status: 401 });
     }
 
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    // First verify if the current user exists and is a SUPERADMIN
+    const currentUser = await prisma.user.findFirst({
+      where: {
+        email: session.user.email,
+        role: 'SUPERADMIN'
+      },
       select: {
         id: true,
-        role: true,
-        schoolId: true,
-      }
-    });
-
-    if (!currentUser || currentUser.role !== 'SUPERADMIN') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
-
-    // Get the user to be deleted
-    const userToDelete = await prisma.user.findUnique({
-      where: { id: params.userId },
-      select: {
-        id: true,
-        schoolId: true,
         role: true
       }
     });
 
+    if (!currentUser) {
+      console.log('User not found or not SUPERADMIN:', session.user.email);
+      return NextResponse.json({ error: 'Unauthorized - Must be SUPERADMIN' }, { status: 403 });
+    }
+
+    // Get the user to be deleted
+    const userToDelete = await prisma.user.findUnique({
+      where: { id: params.userId }
+    });
+
     if (!userToDelete) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: 'User to delete not found' }, { status: 404 });
     }
 
     // Delete the user
@@ -50,7 +51,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting user:', error);
     return NextResponse.json(
-      { error: 'Failed to delete user' },
+      { error: 'Failed to delete user: ' + (error instanceof Error ? error.message : 'Unknown error') },
       { status: 500 }
     );
   }
@@ -62,64 +63,50 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
+    console.log('Patch request session:', session?.user);
     
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.user?.email) {
+      console.log('No session user found');
+      return NextResponse.json({ error: 'Unauthorized - Not logged in' }, { status: 401 });
     }
 
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    // First verify if the current user exists and is a SUPERADMIN
+    const currentUser = await prisma.user.findFirst({
+      where: {
+        email: session.user.email,
+        role: 'SUPERADMIN'
+      },
       select: {
         id: true,
-        role: true,
-        schoolId: true,
-      }
-    });
-
-    if (!currentUser || currentUser.role !== 'SUPERADMIN') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
-
-    const data = await req.json();
-    const { name, email, role, schoolId } = data;
-
-    // Get the user to be updated
-    const userToUpdate = await prisma.user.findUnique({
-      where: { id: params.userId },
-      select: {
-        id: true,
-        schoolId: true,
         role: true
       }
     });
 
-    if (!userToUpdate) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!currentUser) {
+      console.log('User not found or not SUPERADMIN:', session.user.email);
+      return NextResponse.json({ error: 'Unauthorized - Must be SUPERADMIN' }, { status: 403 });
     }
+
+    const data = await req.json();
+    console.log('Update data:', data);
 
     // Update the user
     const updatedUser = await prisma.user.update({
       where: { id: params.userId },
       data: {
-        name,
-        email,
-        role,
-        schoolId: schoolId === 'none' ? null : schoolId,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        schoolId: data.schoolId === 'none' ? null : data.schoolId,
+        status: data.status,
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        schoolId: true,
-      }
     });
 
     return NextResponse.json(updatedUser);
   } catch (error) {
     console.error('Error updating user:', error);
     return NextResponse.json(
-      { error: 'Failed to update user' },
+      { error: 'Failed to update user: ' + (error instanceof Error ? error.message : 'Unknown error') },
       { status: 500 }
     );
   }

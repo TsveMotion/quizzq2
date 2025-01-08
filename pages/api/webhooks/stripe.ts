@@ -4,7 +4,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../lib/prisma';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
+  apiVersion: '2024-12-18.acacia',
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -44,7 +44,7 @@ export default async function handler(
     const expiresAt = new Date(subscription.current_period_end * 1000);
     
     // Update user to PRO status
-    await prisma.user.update({
+    const user = await prisma.user.update({
       where: {
         email: session.customer_email!,
       },
@@ -71,10 +71,11 @@ export default async function handler(
     // Store the session ID in the database
     await prisma.stripeSession.create({
       data: {
-        sessionId: session.id,
-        email: session.customer_email!,
-        status: 'completed',
-      },
+        id: session.id,
+        userId: user.id,
+        status: session.status || 'unknown',
+        customerEmail: session.customer_email || undefined
+      }
     });
   }
 
@@ -87,7 +88,7 @@ export default async function handler(
 
     await prisma.user.update({
       where: {
-        email: customerEmail,
+        email: customerEmail || undefined,
       },
       data: {
         proExpiresAt: new Date(subscription.current_period_end * 1000),
@@ -106,7 +107,7 @@ export default async function handler(
 
     await prisma.user.update({
       where: {
-        email: customerEmail,
+        email: customerEmail || undefined,
       },
       data: {
         isPro: false,

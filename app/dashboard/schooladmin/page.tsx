@@ -2,9 +2,37 @@ import { Suspense } from 'react';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { SchoolAdminDashboard } from '@/components/dashboard/SchoolAdmin-Tabs/SchoolAdminDashboard';
-import { SchoolWithRelations } from '@/components/dashboard/SchoolAdmin-Tabs/types';
+import { User, School } from "@prisma/client";
+import { SchoolWithRelations, ClassWithTeacher } from '@/components/dashboard/SchoolAdmin-Tabs/types';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth-config';
+
+interface ExtendedUser extends User {
+  status: string;
+  emailVerified: Date | null;
+  powerLevel: number;
+  proStatus: string;
+  proPlan: string | null;
+  proPlanId: string | null;
+  proPlanName: string | null;
+  proPlanPrice: number | null;
+  proPlanCurrency: string | null;
+  proPlanInterval: string | null;
+  proPlanTrialPeriodDays: number | null;
+  proPlanIsActive: boolean;
+  proPlanIsTrial: boolean;
+  proPlanStartedAt: Date | null;
+  proPlanEndedAt: Date | null;
+}
+
+interface ExtendedSchoolWithRelations extends School {
+  users: ExtendedUser[];
+  classes: ClassWithTeacher[];
+  _count: {
+    users: number;
+    classes: number;
+  };
+}
 
 const LoadingSpinner = () => (
   <div className="flex h-screen w-full items-center justify-center">
@@ -45,23 +73,8 @@ export default async function SchoolAdminPage() {
     }
 
     const school = await prisma.school.findUnique({
-      where: { id: session.user.schoolId! },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        description: true,
-        roleNumber: true,
-        address: true,
-        city: true,
-        state: true,
-        country: true,
-        zip: true,
-        website: true,
-        logo: true,
-        createdAt: true,
-        updatedAt: true,
+      where: { id: session.user.schoolId ?? '' },
+      include: {
         users: {
           select: {
             id: true,
@@ -69,61 +82,29 @@ export default async function SchoolAdminPage() {
             email: true,
             role: true,
             status: true,
-            createdAt: true,
-            updatedAt: true,
+            image: true,
+            powerLevel: true,
+            emailVerified: true,
             schoolId: true,
             teacherId: true,
-            image: true,
             avatar: true,
             bio: true,
-            subjects: true,
-            experience: true,
-            phoneNumber: true,
-            education: true,
-            officeHours: true
+            proStatus: true,
+            proPlanIsActive: true,
+            proPlanIsTrial: true,
+            createdAt: true,
+            updatedAt: true,
+            password: false
           }
         },
         classes: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            createdAt: true,
-            updatedAt: true,
+          include: {
             teacher: {
               select: {
                 id: true,
                 name: true,
                 email: true,
-                role: true
-              }
-            },
-            students: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true
-              }
-            },
-            classTeachers: {
-              select: {
-                id: true,
-                teacher: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    role: true
-                  }
-                }
-              }
-            },
-            _count: {
-              select: {
-                students: true,
-                assignments: true,
-                classTeachers: true
+                role: true,
               }
             }
           }
@@ -131,68 +112,80 @@ export default async function SchoolAdminPage() {
         _count: {
           select: {
             users: true,
-            classes: true
+            classes: true,
           }
         }
       }
     });
 
     if (!school) {
-      return null;
+      redirect('/dashboard');
     }
 
-    const teacherCount = school.users.filter(user => user.role.toUpperCase() === 'TEACHER').length;
-    const studentCount = school.users.filter(user => user.role.toUpperCase() === 'STUDENT').length;
+    const teacherCount = school.users.filter((user: any) => user.role.toUpperCase() === 'TEACHER').length;
+    const studentCount = school.users.filter((user: any) => user.role.toUpperCase() === 'STUDENT').length;
 
-    const schoolData: SchoolWithRelations = {
+    const schoolData: ExtendedSchoolWithRelations = {
       ...school,
-      users: school.users.map(user => ({
-        ...user,
-        password: '',  // We don't want to expose the password
-        powerLevel: 1, // Default power level
-        emailVerified: null,
-        role: user.role || 'USER',
-        status: user.status || 'ACTIVE'
-      })),
-      classes: school.classes.map(cls => ({
+      users: school?.users.map((user: any) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        password: '', // We don't expose the actual password
+        role: user.role,
+        powerLevel: user.powerLevel || 0,
+        status: user.status || 'INACTIVE',
+        emailVerified: user.emailVerified || null,
+        image: user.image || null,
+        schoolId: user.schoolId || null,
+        teacherId: user.teacherId || null,
+        avatar: user.avatar || null,
+        bio: user.bio || null,
+        subjects: user.subjects || [],
+        education: user.education || '',
+        experience: user.experience || '',
+        phoneNumber: user.phoneNumber || '',
+        officeHours: user.officeHours || '',
+        isPro: false,
+        proSubscriptionId: null,
+        proExpiresAt: null,
+        proType: null,
+        proStatus: user.proStatus || 'INACTIVE',
+        proPlan: null,
+        proPlanId: null,
+        proPlanName: null,
+        proPlanPrice: null,
+        proPlanCurrency: null,
+        proPlanInterval: null,
+        proPlanTrialPeriodDays: null,
+        proPlanIsActive: !!user.proPlanIsActive,
+        proPlanIsTrial: !!user.proPlanIsTrial,
+        proPlanStartedAt: null,
+        proPlanEndedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })) || [],
+      classes: school?.classes.map((cls: any) => ({
         id: cls.id,
         name: cls.name,
         description: cls.description,
-        schoolId: school.id,
-        teacherId: cls.teacher.id,
+        schoolId: cls.schoolId,
+        teacherId: cls.teacherId,
         createdAt: cls.createdAt,
         updatedAt: cls.updatedAt,
-        classTeachers: cls.classTeachers.map(ct => ({
-          id: ct.id,
-          classId: cls.id,
-          teacherId: ct.teacher.id,
-          createdAt: cls.createdAt,
-          updatedAt: cls.updatedAt,
-          teacher: {
-            id: ct.teacher.id,
-            name: ct.teacher.name,
-            email: ct.teacher.email,
-            role: ct.teacher.role
-          }
-        })),
-        teacher: {
-          id: cls.teacher.id,
-          name: cls.teacher.name,
-          email: cls.teacher.email,
-          role: cls.teacher.role
-        },
-        students: cls.students.map(student => ({
-          id: student.id,
-          name: student.name,
-          email: student.email,
-          role: student.role
-        })),
+        teacher: cls.teacher,
+        students: [],
+        classTeachers: [],
         _count: {
           assignments: 0,
           quizzes: 0,
-          students: cls.students.length
+          students: 0
         }
-      }))
+      })) || [],
+      _count: {
+        users: school?._count?.users || 0,
+        classes: school?._count?.classes || 0
+      },
     };
 
     return (

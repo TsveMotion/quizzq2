@@ -39,6 +39,7 @@ interface UserData {
   createdAt: Date;
   status: string;
   powerLevel?: number;
+  isPro?: boolean;
 }
 
 interface School {
@@ -102,16 +103,23 @@ function UsersTab() {
     try {
       const response = await fetch(`/api/users/${userId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin'
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to delete user');
+        throw new Error(data.error || 'Failed to delete user');
       }
 
       toast.success('User deleted successfully');
-      fetchData();
+      fetchData(); // Refresh the user list
     } catch (err) {
-      toast.error('Failed to delete user');
+      console.error('Error deleting user:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete user');
     }
     setIsDeleteDialogOpen(false);
     setUserToDelete(null);
@@ -122,7 +130,9 @@ function UsersTab() {
       SUPERADMIN: 'bg-red-500',
       SCHOOLADMIN: 'bg-blue-500',
       TEACHER: 'bg-green-500',
-      STUDENT: 'bg-yellow-500'
+      STUDENT: 'bg-yellow-500',
+      PRO: 'bg-purple-500',
+      FREE: 'bg-gray-400'
     };
     return colors[role] || 'bg-gray-500';
   };
@@ -190,6 +200,11 @@ function UsersTab() {
                       <Badge variant="secondary" className={getRoleBadgeColor(user.role)}>
                         {user.role}
                       </Badge>
+                      {user.isPro && (
+                        <Badge variant="secondary" className="ml-2 bg-purple-500">
+                          PRO
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>{user.school?.name || 'N/A'}</TableCell>
                     <TableCell>

@@ -1,10 +1,30 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
+import { GetServerSideProps } from 'next';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-config';
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await getServerSession(context.req, context.res, authOptions);
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/signin',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+};
 
 export default function ProSignup() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [isVerifying, setIsVerifying] = useState(true);
   const [error, setError] = useState('');
 
@@ -61,12 +81,12 @@ export default function ProSignup() {
       setIsVerifying(false);
     };
 
-    if (router.isReady && session) {
+    if (router.isReady && status === 'authenticated') {
       verifyPayment();
     }
-  }, [router.isReady, session]);
+  }, [router.isReady, status, router, session]);
 
-  if (isVerifying) {
+  if (status === 'loading' || isVerifying) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

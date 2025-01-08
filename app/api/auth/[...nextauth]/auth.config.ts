@@ -10,7 +10,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -30,7 +30,26 @@ export const authOptions: NextAuthOptions = {
             email: user.email || '',
             name: user.user_metadata?.full_name || user.email || '',
             role: user.user_metadata?.role || 'student',
-            schoolId: user.user_metadata?.schoolId || '',
+            schoolId: user.user_metadata?.schoolId || null,
+            emailVerified: null,
+            image: null,
+            isPro: false,
+            proSubscriptionId: null,
+            proExpiresAt: null,
+            proType: null,
+            powerLevel: 0,
+            proStatus: 'INACTIVE',
+            proPlan: null,
+            proPlanId: null,
+            proPlanName: null,
+            proPlanPrice: null,
+            proPlanCurrency: null,
+            proPlanInterval: null,
+            proPlanTrialPeriodDays: null,
+            proPlanIsActive: false,
+            proPlanIsTrial: false,
+            proPlanStartedAt: null,
+            proPlanEndedAt: null
           };
         } catch (error) {
           return null;

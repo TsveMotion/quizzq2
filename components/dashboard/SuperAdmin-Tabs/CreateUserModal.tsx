@@ -34,6 +34,8 @@ const roleOptions = [
   { value: 'SCHOOLADMIN', label: 'School Admin' },
   { value: 'TEACHER', label: 'Teacher' },
   { value: 'STUDENT', label: 'Student' },
+  { value: 'PRO', label: 'Pro User' },
+  { value: 'FREE', label: 'Free User' },
 ];
 
 const defaultFormData = {

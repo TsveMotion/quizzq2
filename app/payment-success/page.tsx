@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
 
-export default function PaymentSuccessPage() {
+export default function PaymentSuccessPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined }
+}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const payment_intent = searchParams.get('payment_intent');
-  const payment_intent_client_secret = searchParams.get('payment_intent_client_secret');
+  const payment_intent = searchParams?.['payment_intent'] || '';
+  const payment_intent_client_secret = searchParams?.['payment_intent_client_secret'] || '';
 
   useEffect(() => {
     // Verify the payment was successful

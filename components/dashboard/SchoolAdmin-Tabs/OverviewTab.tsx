@@ -32,22 +32,22 @@ ChartJS.register(
 // Theme colors
 const themeColors = {
   light: {
-    primary: '#6366F1', // Indigo-500
-    secondary: '#8B5CF6', // Purple-500
-    tertiary: '#A855F7', // Purple-600
+    primary: '#6366F1',
+    secondary: '#8B5CF6',
+    tertiary: '#A855F7',
     background: 'white',
-    text: '#1F2937', // Gray-800
-    border: '#E5E7EB', // Gray-200
-    gridLines: '#F3F4F6', // Gray-100
+    text: '#1F2937',
+    border: '#E5E7EB',
+    gridLines: '#F3F4F6',
   },
   dark: {
-    primary: '#818CF8', // Indigo-400
-    secondary: '#A78BFA', // Purple-400
-    tertiary: '#C084FC', // Purple-400
-    background: '#1F2937', // Gray-800
-    text: '#F9FAFB', // Gray-50
-    border: '#374151', // Gray-700
-    gridLines: '#374151', // Gray-700
+    primary: '#818CF8',
+    secondary: '#A78BFA',
+    tertiary: '#C084FC',
+    background: '#1F2937',
+    text: '#F9FAFB',
+    border: '#374151',
+    gridLines: '#374151',
   },
 };
 
@@ -63,8 +63,8 @@ interface OverviewTabProps {
 }
 
 interface ActivityData {
-  labels: string[];
-  data: number[];
+  date: string;
+  count: number;
 }
 
 interface ClassStats {
@@ -75,23 +75,38 @@ interface ClassStats {
 }
 
 export const OverviewTab = ({ school }: OverviewTabProps) => {
-  const [activityData, setActivityData] = useState<ActivityData | null>(null);
+  const [activityData, setActivityData] = useState<ActivityData[]>([]);
   const [classStats, setClassStats] = useState<ClassStats[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { theme = 'light' } = useTheme();
   const colors = themeColors[theme as keyof typeof themeColors];
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const activityResponse = await fetch('/api/activity/stats');
-        const activityData = await activityResponse.json();
-        setActivityData(activityData);
+        setIsLoading(true);
+        const [activityResponse, classResponse] = await Promise.all([
+          fetch('/api/activity/stats'),
+          fetch('/api/classes/stats')
+        ]);
 
-        const classResponse = await fetch('/api/classes/stats');
-        const classData = await classResponse.json();
-        setClassStats(classData);
+        if (!activityResponse.ok || !classResponse.ok) {
+          throw new Error('Failed to fetch data');
+        }
+
+        const [activityData, classData] = await Promise.all([
+          activityResponse.json(),
+          classResponse.json()
+        ]);
+
+        setActivityData(activityData);
+        setClassStats(Array.isArray(classData) ? classData : []);
       } catch (error) {
         console.error('Error fetching data:', error);
+        setActivityData([]);
+        setClassStats([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -150,18 +165,18 @@ export const OverviewTab = ({ school }: OverviewTabProps) => {
 
   // Prepare data for classes overview
   const classesData = {
-    labels: classStats.map(cls => cls.name),
+    labels: (classStats || []).map(cls => cls.name),
     datasets: [
       {
         label: 'Students',
-        data: classStats.map(cls => cls.studentCount),
+        data: (classStats || []).map(cls => cls.studentCount),
         backgroundColor: colors.primary,
         borderColor: colors.primary,
         borderWidth: 1,
       },
       {
         label: 'Assignments',
-        data: classStats.map(cls => cls.assignmentCount),
+        data: (classStats || []).map(cls => cls.assignmentCount),
         backgroundColor: colors.secondary,
         borderColor: colors.secondary,
         borderWidth: 1,
@@ -171,17 +186,25 @@ export const OverviewTab = ({ school }: OverviewTabProps) => {
 
   // Prepare monthly activity data
   const monthlyActivityData = {
-    labels: activityData?.labels || [],
+    labels: activityData.map(item => item.date),
     datasets: [
       {
         label: 'User Activity',
-        data: activityData?.data || [],
+        data: activityData.map(item => item.count),
         borderColor: colors.primary,
         backgroundColor: `${colors.primary}20`,
         tension: 0.4,
       },
     ],
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <div className="text-lg text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -204,83 +227,32 @@ export const OverviewTab = ({ school }: OverviewTabProps) => {
       {/* Charts */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* User Distribution */}
-        <div className="rounded-lg bg-card p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-medium text-card-foreground">User Distribution</h3>
-          <div className="h-64">
-            <Doughnut 
+        <div className="h-[400px] rounded-lg bg-card p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-medium">User Distribution</h3>
+          <div className="h-[300px]">
+            <Doughnut
               data={userDistributionData}
               options={{
                 ...commonOptions,
-                cutout: '65%',
+                cutout: '60%',
               }}
             />
           </div>
         </div>
 
         {/* Monthly Activity */}
-        <div className="rounded-lg bg-card p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-medium text-card-foreground">Monthly Activity</h3>
-          <div className="h-64">
-            <Line
-              data={monthlyActivityData}
-              options={{
-                ...commonOptions,
-                scales: {
-                  ...commonOptions.scales,
-                  y: {
-                    ...commonOptions.scales.y,
-                    title: {
-                      display: true,
-                      text: 'Activity Count',
-                      color: colors.text,
-                    },
-                  },
-                },
-              }}
-            />
+        <div className="h-[400px] rounded-lg bg-card p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-medium">Monthly Activity</h3>
+          <div className="h-[300px]">
+            <Line data={monthlyActivityData} options={commonOptions} />
           </div>
         </div>
 
         {/* Classes Overview */}
-        <div className="col-span-1 rounded-lg bg-card p-6 shadow-sm lg:col-span-2">
-          <h3 className="mb-4 text-lg font-medium text-card-foreground">Classes Overview</h3>
-          <div className="h-64">
-            <Bar
-              data={classesData}
-              options={{
-                ...commonOptions,
-                scales: {
-                  ...commonOptions.scales,
-                  y: {
-                    ...commonOptions.scales.y,
-                    title: {
-                      display: true,
-                      text: 'Count',
-                      color: colors.text,
-                    },
-                  },
-                  x: {
-                    ...commonOptions.scales.x,
-                    title: {
-                      display: true,
-                      text: 'Classes',
-                      color: colors.text,
-                    },
-                  },
-                },
-                plugins: {
-                  ...commonOptions.plugins,
-                  tooltip: {
-                    callbacks: {
-                      afterBody: (tooltipItems) => {
-                        const index = tooltipItems[0].dataIndex;
-                        return `Teacher: ${classStats[index]?.teacherName || 'No Teacher'}`;
-                      },
-                    },
-                  },
-                },
-              }}
-            />
+        <div className="col-span-1 h-[400px] rounded-lg bg-card p-6 shadow-sm lg:col-span-2">
+          <h3 className="mb-4 text-lg font-medium">Classes Overview</h3>
+          <div className="h-[300px]">
+            <Bar data={classesData} options={commonOptions} />
           </div>
         </div>
       </div>

@@ -56,6 +56,7 @@ model User {
   teacher         User?                @relation("TeacherToStudent", fields: [teacherId], references: [id])
   students        User[]               @relation("TeacherToStudent")
   enrolledClasses Class[]              @relation("StudentClasses")
+  stripeSessions  StripeSession[]
 
   @@index([schoolId])
   @@index([teacherId])
@@ -295,4 +296,16 @@ model Message {
   status    String   @default("UNREAD")
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
+}
+
+model StripeSession {
+  id            String   @id
+  userId        String
+  status        String
+  customerEmail String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@map("stripe_sessions")
 }

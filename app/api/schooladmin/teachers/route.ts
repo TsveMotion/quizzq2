@@ -3,13 +3,17 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
+    console.log('Session data:', session?.user);
+    
     if (!session?.user?.id || session?.user?.role !== 'SCHOOLADMIN' || !session?.user?.schoolId) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized - Requires SCHOOLADMIN role' }), 
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      return NextResponse.json(
+        { error: 'Unauthorized - Requires SCHOOLADMIN role' }, 
+        { status: 401 }
       );
     }
 
@@ -47,9 +51,9 @@ export async function GET(req: Request) {
     return NextResponse.json(teachers);
   } catch (error) {
     console.error('Error fetching teachers:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Failed to fetch teachers' }), 
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    return NextResponse.json(
+      { error: 'Failed to fetch teachers' },
+      { status: 500 }
     );
   }
 }

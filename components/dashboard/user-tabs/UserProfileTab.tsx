@@ -17,7 +17,8 @@ export function UserProfileTab() {
           <div className="space-y-2">
             <p><strong>Name:</strong> {session?.user?.name}</p>
             <p><strong>Email:</strong> {session?.user?.email}</p>
-            <p><strong>Account Type:</strong> {session?.user?.isPro ? 'Pro' : 'Free'}</p>
+            <p><strong>Account Type:</strong> {session?.user?.isPro || session?.user?.role === 'PRO' ? 'Premium' : 'Free'}</p>
+            <p><strong>Role:</strong> {session?.user?.role}</p>
           </div>
         </Card>
         <Card className="p-6">

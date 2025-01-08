@@ -18,12 +18,9 @@ export default async function handler(
   // Verify the user has a valid Stripe payment
   const stripeSession = await prisma.stripeSession.findFirst({
     where: {
-      email: session.user.email,
-      status: 'completed',
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
+      customerEmail: session.user.email,
+      status: 'active'
+    }
   });
 
   if (!stripeSession) {

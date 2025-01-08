@@ -4,6 +4,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { School, User, Class } from '@prisma/client';
+import { headers } from 'next/headers';
+
+export const dynamic = 'force-dynamic';
 
 interface SchoolWithRelations extends School {
   users: User[];

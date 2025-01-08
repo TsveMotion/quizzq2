@@ -21,23 +21,16 @@ export default async function handler(
     // Check if this Stripe session exists and is completed
     const stripeSession = await prisma.stripeSession.findUnique({
       where: {
-        sessionId: sessionId,
-      },
+        id: sessionId
+      }
     });
 
-    if (!stripeSession || stripeSession.status !== 'completed') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid or incomplete payment session' 
-      });
+    if (!stripeSession) {
+      return res.status(404).json({ error: 'Session not found' });
     }
 
-    // Verify the email matches
-    if (stripeSession.email !== session.user?.email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email mismatch' 
-      });
+    if (stripeSession.customerEmail !== session.user?.email) {
+      return res.status(403).json({ error: 'Unauthorized' });
     }
 
     return res.json({ success: true });

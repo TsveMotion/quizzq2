@@ -1,31 +1,26 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
-import { authOptions } from '@/lib/auth-config';
+import { authOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get the user's school ID
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { schoolId: true }
-    });
-
-    if (!user?.schoolId) {
-      return NextResponse.json({ error: 'School not found' }, { status: 404 });
+    console.log('Session data:', session);
+    
+    if (!session?.user?.email || session?.user?.role !== 'SCHOOLADMIN' || !session?.user?.schoolId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Requires SCHOOLADMIN role' }, 
+        { status: 401 }
+      );
     }
 
     // Get classes with their student counts and teacher info
     const classes = await prisma.class.findMany({
       where: {
-        schoolId: user.schoolId
+        schoolId: session.user.schoolId
       },
       include: {
         students: {
@@ -51,12 +46,8 @@ export async function GET(req: Request) {
     });
 
     // Format the data for the chart
-    const formattedData = classes.map((cls: {
-      name: string;
-      _count: { students: number; assignments: number };
-      teacher?: { name: string };
-    }) => ({
-      name: cls.name,
+    const formattedData = classes.map((cls) => ({
+      name: cls.name || 'Unnamed Class',
       studentCount: cls._count.students,
       teacherName: cls.teacher?.name || 'No Teacher',
       assignmentCount: cls._count.assignments
