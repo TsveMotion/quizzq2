@@ -36,10 +36,10 @@ export const apiRoutes = {
  */
 export const dashboardRoutes = {
   root: '/dashboard',
+  user: '/dashboard/user',
   superadmin: '/dashboard/superadmin',
   schooladmin: '/dashboard/schooladmin',
   teacher: '/dashboard/teacher',
-  student: '/dashboard/student',
 } as const;
 
 /**
@@ -49,18 +49,18 @@ export const protectedRoutes = {
   // Routes that require authentication
   authenticated: [
     '/dashboard',
-    '/dashboard/superadmin',
-    '/dashboard/schooladmin',
-    '/dashboard/teacher',
-    '/dashboard/student',
+    dashboardRoutes.user,
+    dashboardRoutes.superadmin,
+    dashboardRoutes.schooladmin,
+    dashboardRoutes.teacher,
   ],
 
   // Routes accessible only to specific roles
   roleAccess: {
-    SUPERADMIN: ['/dashboard/superadmin'],
-    SCHOOLADMIN: ['/dashboard/schooladmin'],
-    TEACHER: ['/dashboard/teacher'],
-    STUDENT: ['/dashboard/student'],
+    SUPERADMIN: [dashboardRoutes.superadmin],
+    SCHOOLADMIN: [dashboardRoutes.schooladmin],
+    TEACHER: [dashboardRoutes.teacher],
+    STUDENT: [dashboardRoutes.user],
   },
 } as const;
 
@@ -88,5 +88,5 @@ export const roleToDashboard = {
   SUPERADMIN: dashboardRoutes.superadmin,
   SCHOOLADMIN: dashboardRoutes.schooladmin,
   TEACHER: dashboardRoutes.teacher,
-  STUDENT: dashboardRoutes.student,
+  STUDENT: dashboardRoutes.user,
 } as const;

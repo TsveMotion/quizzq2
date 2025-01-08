@@ -7,10 +7,13 @@ async function createSuperAdmin() {
     const hashedPassword = await hash('superadmin', 10);
     await client.user.create({
       data: {
-        email: 'superadmin@example.com',
+        email: 'superadmin@quizzq.com',
         name: 'Super Admin',
         password: hashedPassword,
-        role: 'SUPERADMIN'
+        role: 'SUPERADMIN',
+        status: 'ACTIVE',
+        powerLevel: 100,
+        isPro: true
       }
     });
     console.log('Super admin created successfully');

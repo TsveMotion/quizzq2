@@ -66,14 +66,21 @@ export default withAuth(
     if (pathname.startsWith('/dashboard')) {
       // Not authenticated
       if (!token) {
-        return NextResponse.redirect(new URL('/auth/signin', req.url));
+        return NextResponse.redirect(new URL('/signin', req.url));
       }
 
-      // Wrong dashboard
+      // All users go to /dashboard/user except special roles
       const userRole = token.role?.toLowerCase();
-      const correctPath = `/dashboard/${userRole}`;
-      if (!pathname.startsWith(correctPath)) {
-        return NextResponse.redirect(new URL(correctPath, req.url));
+      if (userRole === 'superadmin' || userRole === 'schooladmin' || userRole === 'teacher') {
+        const correctPath = `/dashboard/${userRole}`;
+        if (!pathname.startsWith(correctPath)) {
+          return NextResponse.redirect(new URL(correctPath, req.url));
+        }
+      } else {
+        // All other users (including 'free' and 'pro') go to /dashboard/user
+        if (!pathname.startsWith('/dashboard/user')) {
+          return NextResponse.redirect(new URL('/dashboard/user', req.url));
+        }
       }
     }
 
@@ -92,8 +99,7 @@ export default withAuth(
           return true;
         }
 
-        // For all other routes, require authentication
-        return true; // Let the middleware function handle the actual auth check
+        return true;
       },
     },
   }
@@ -101,7 +107,5 @@ export default withAuth(
 
 // Match all routes except static files
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],
 };

@@ -26,6 +26,22 @@ model User {
   experience      String?
   phoneNumber     String?
   officeHours     String?
+  isPro           Boolean              @default(false)
+  proSubscriptionId String?
+  proExpiresAt    DateTime?
+  proType         String?
+  proStatus       String?
+  proPlan         String?
+  proPlanId       String?
+  proPlanName     String?
+  proPlanPrice    Float?
+  proPlanCurrency String?
+  proPlanInterval String?
+  proPlanTrialPeriodDays Int?
+  proPlanIsActive Boolean?
+  proPlanIsTrial  Boolean?
+  proPlanStartedAt DateTime?
+  proPlanEndedAt  DateTime?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @default(now()) @updatedAt
   accounts        Account[]

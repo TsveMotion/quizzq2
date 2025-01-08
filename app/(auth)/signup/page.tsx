@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import Link from 'next/link';
 import { MaintenanceBanner } from "@/components/MaintenanceBanner";
+import { signIn } from 'next-auth/react';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -35,12 +36,23 @@ export default function SignUpPage() {
         throw new Error(data.error || 'Failed to create account');
       }
 
-      toast({
-        title: "Success!",
-        description: "Account created successfully. Please sign in.",
+      // Sign in the user automatically
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
       });
 
-      router.push('/signin');
+      if (result?.error) {
+        throw new Error('Failed to sign in after registration');
+      }
+
+      toast({
+        title: "Success!",
+        description: "Account created successfully. Redirecting to dashboard...",
+      });
+
+      router.push('/dashboard/free');
     } catch (error) {
       toast({
         title: "Error",

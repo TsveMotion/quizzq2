@@ -20,19 +20,17 @@ export default async function DashboardLayout({
   // Verify user has access to the current dashboard
   if (currentPath.includes('/dashboard/')) {
     const requestedRole = currentPath.split('/dashboard/')[1]?.split('/')[0];
-    if (requestedRole && userRole !== requestedRole.toLowerCase()) {
-      // Redirect to the correct dashboard based on role
-      switch (userRole) {
-        case 'superadmin':
-          redirect('/dashboard/superadmin');
-        case 'schooladmin':
-          redirect('/dashboard/schooladmin');
-        case 'teacher':
-          redirect('/dashboard/teacher');
-        case 'student':
-          redirect('/dashboard/student');
-        default:
-          redirect('/dashboard');
+    
+    // Special roles get their own dashboards
+    if (['superadmin', 'schooladmin', 'teacher'].includes(userRole)) {
+      const correctPath = `/dashboard/${userRole}`;
+      if (!currentPath.startsWith(correctPath)) {
+        redirect(correctPath);
+      }
+    } else {
+      // All other users go to /dashboard/user
+      if (!currentPath.startsWith('/dashboard/user')) {
+        redirect('/dashboard/user');
       }
     }
   }
