@@ -1,28 +1,57 @@
 'use client';
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { 
-  Brain, 
-  GraduationCap, 
-  MessageSquareMore, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Brain,
+  Book,
+  Atom,
+  Globe2,
+  Zap,
+  GraduationCap,
+  MessageSquareMore,
   Sparkles,
   Target,
   Users,
   BookOpen,
   Award,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  FileText,
+  Calendar,
+  PlayCircle,
+  LineChart,
+  Calculator,
+  Badge,
+  ArrowLeft,
+  User,
+  Send,
+  Paperclip,
+  Image as ImageIcon,
+  Bot
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { AnimatedBook } from "@/components/animated-book";
-import { AnimatedStatsCard } from "@/components/animated-stats-card";
-import { FloatingIcons } from "@/components/floating-icons";
-import { AnimatedStepCard } from "@/components/animated-step-card";
-import { AnimatedFeature } from "@/components/animated-feature";
-import { MaintenanceBanner } from "@/components/MaintenanceBanner";
+import { AnimatedBook } from "@/components/animated/animated-book";
+import { AnimatedStatsCard } from "@/components/animated/animated-stats-card";
+import { FloatingIcons } from "@/components/animated/floating-icons";
+import { AnimatedStepCard } from "@/components/animated/animated-step-card";
+import { AnimatedFeature } from "@/components/animated/animated-feature";
+import { MaintenanceBanner } from "@/components/maintenance-banner";
+import { QuizGeneratorDemo } from "@/components/demo/quiz-generator-demo";
+import { StudyPlannerDemo } from "@/components/demo/study-planner-demo";
+import cn from 'classnames';
+import { 
+  FeatureCard,
+  StatCard,
+  StepCard,
+  ExampleFeature,
+  TestimonialCard
+} from '@/components/home';
+import ChatInterface from '@/components/home/chat-interface';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -45,390 +74,606 @@ const itemVariants = {
   }
 };
 
+const MAX_PROMPTS = 5;
+
+const stats = [
+  {
+    number: "10,000+",
+    label: "Active Students",
+    icon: Users,
+    color: "from-purple-500/20 to-purple-600/20"
+  },
+  {
+    number: "50,000+",
+    label: "Quizzes Generated",
+    icon: Brain,
+    color: "from-blue-500/20 to-blue-600/20"
+  },
+  {
+    number: "98%",
+    label: "Success Rate",
+    icon: Target,
+    color: "from-indigo-500/20 to-indigo-600/20"
+  }
+];
+
+const tabs = [
+  {
+    id: "quiz-generator",
+    label: "Quiz Generator",
+    icon: FileText,
+    description: "Generate custom quizzes for any subject with AI",
+    color: "from-purple-500 to-purple-600"
+  },
+  {
+    id: "ai-tutor",
+    label: "AI Tutor",
+    icon: Brain,
+    description: "Get personalized tutoring and instant feedback",
+    color: "from-blue-500 to-blue-600"
+  },
+  {
+    id: "study-planner",
+    label: "Study Planner",
+    icon: Calendar,
+    description: "Create an optimized study schedule",
+    color: "from-indigo-500 to-indigo-600"
+  }
+];
+
 export default function Home() {
+  const [activeTab, setActiveTab] = useState("quiz-generator");
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [promptsUsed, setPromptsUsed] = useState(0);
+  const activeTabData = tabs.find(tab => tab.id === activeTab);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
+
+  const handlePromptUsage = async (callback: () => Promise<any>) => {
+    try {
+      const result = await callback();
+      return result;
+    } catch (error) {
+      console.error('Error:', error);
+      return null;
+    }
+  };
+
+  const generateQuiz = async (data: any) => {
+    return handlePromptUsage(async () => {
+      const response = await fetch('/api/demo/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error('Failed to generate quiz');
+      return response.json();
+    });
+  };
+
+  const renderActiveComponent = () => {
+    switch (activeTab) {
+      case "quiz-generator":
+        return <QuizGeneratorDemo onGenerate={generateQuiz} />;
+      case "ai-tutor":
+        return (
+          <div className="flex flex-col items-center justify-center p-12 text-center">
+            <Zap className="h-12 w-12 text-purple-400 mb-4" />
+            <h3 className="text-xl font-semibold text-purple-100 mb-2">Coming Soon</h3>
+            <p className="text-purple-200/70">This feature is currently under development.</p>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex flex-col items-center justify-center p-12 text-center">
+            <Zap className="h-12 w-12 text-purple-400 mb-4" />
+            <h3 className="text-xl font-semibold text-purple-100 mb-2">Coming Soon</h3>
+            <p className="text-purple-200/70">This feature is currently under development.</p>
+          </div>
+        );
+    }
+  };
+
   return (
     <>
       <MaintenanceBanner />
-      {/* Hero Section with Animated Background */}
-      <section className="hero-gradient relative overflow-hidden py-32">
-        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px] animate-grid" />
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="container relative mx-auto px-4"
-        >
-          <div className="relative z-10 mx-auto max-w-3xl text-center">
-            <motion.h1 
-              className="mb-6 text-6xl font-bold text-white dark:text-white"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+      <div className="min-h-screen bg-[#1a237e]">
+        {/* Hero Section */}
+        <section className="relative overflow-hidden bg-[#1a237e]">
+          {/* Animated background elements */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#311b92] opacity-100" />
+          
+          {/* Content overlay */}
+          <div className="relative z-10">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1 }}
+              className="container relative mx-auto px-4 py-32 sm:py-40"
             >
-              Transform Your Learning Journey with AI
-            </motion.h1>
-            <motion.p 
-              className="mb-8 text-xl text-white/90 dark:text-white/90"
+              <div className="relative z-10 mx-auto max-w-4xl text-center">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="mb-6 inline-block rounded-full bg-white/20 dark:bg-white/5 px-4 py-1.5 backdrop-blur-md shadow-lg"
+                >
+                  <span className="flex items-center text-sm font-medium text-white">
+                    <Sparkles className="mr-2 inline-block h-4 w-4 animate-pulse text-blue-200" />
+                    The Future of Learning is Here
+                  </span>
+                </motion.div>
+
+                <motion.h1 
+                  className="mb-6 font-bold text-white md:text-7xl text-5xl tracking-tight"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  Master Any Subject with{' '}
+                  <span className="relative inline-block">
+                    <span className="relative z-10 animate-glow bg-gradient-to-r from-blue-300 via-indigo-300 to-purple-300 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
+                      AI-Powered
+                    </span>
+                    <span className="absolute -inset-x-4 -inset-y-2 z-0 bg-gradient-to-r from-blue-500/40 via-indigo-500/40 to-purple-500/40 blur-xl dark:from-blue-400/30 dark:via-indigo-400/30 dark:to-purple-400/30" />
+                    <span className="absolute -inset-x-4 -inset-y-2 z-0 animate-pulse bg-gradient-to-r from-blue-400/20 via-indigo-400/20 to-purple-400/20 blur-2xl dark:from-blue-300/10 dark:via-indigo-300/10 dark:to-purple-300/10" />
+                  </span>{' '}
+                  Learning
+                </motion.h1>
+
+                <motion.p 
+                  className="mb-8 text-xl text-white/90"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  Join thousands of students revolutionizing their education with personalized AI tutoring,
+                  adaptive quizzes, and intelligent study plans. Learn smarter, not harder.
+                </motion.p>
+
+                <motion.div 
+                  className="flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0 justify-center"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <Button 
+                    size="lg" 
+                    className="group relative overflow-hidden bg-white/90 text-blue-600 hover:bg-white dark:bg-white/90 dark:text-blue-700 dark:hover:bg-white shadow-lg hover:shadow-xl transition-all duration-300"
+                    asChild
+                  >
+                    <Link href="/signup" className="flex items-center">
+                      <span className="relative z-10 flex items-center font-semibold">
+                        Start Learning Free
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </span>
+                      <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-blue-100 to-white transition-transform group-hover:translate-x-0" />
+                    </Link>
+                  </Button>
+                  <Button 
+                    size="lg" 
+                    variant="outline"
+                    className="group relative overflow-hidden border-white/40 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 dark:border-white/20 dark:bg-white/5 dark:hover:bg-white/10 shadow-lg hover:shadow-xl transition-all duration-300"
+                    asChild
+                  >
+                    <Link href="/demo" className="flex items-center">
+                      <span className="relative z-10 flex items-center font-semibold">
+                        Try Demo
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </span>
+                    </Link>
+                  </Button>
+                </motion.div>
+                
+                {/* Stats Section */}
+                <motion.div
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+                >
+                  <StatCard number="10k+" label="Active Students" />
+                  <StatCard number="50k+" label="Questions Generated" />
+                  <StatCard number="95%" label="Success Rate" />
+                  <StatCard number="24/7" label="AI Support" />
+                </motion.div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Chat Interface Section */}
+        <section className="mt-32 max-w-5xl mx-auto relative">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <ChatInterface mousePosition={mousePosition} />
+          </motion.div>
+        </section>
+
+        {/* Steps Section */}
+        <section className="relative py-24">
+          <div className="container mx-auto px-4">
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="text-center mb-16 relative"
             >
-              Experience personalized education powered by advanced AI technology.
-              Take quizzes, get instant feedback, and learn at your own pace.
-            </motion.p>
-            <motion.div 
-              className="space-x-4"
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="mb-2"
+              >
+                <div className="inline-block">
+                  <span className="inline-block text-white text-5xl font-bold mb-6 relative">
+                    How It Works
+                    <motion.div
+                      className="absolute -right-8 -top-8"
+                      initial={{ rotate: -10 }}
+                      animate={{ rotate: 10 }}
+                      transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+                    >
+                      <Sparkles className="w-6 h-6 text-[#4169E1]" />
+                    </motion.div>
+                  </span>
+                </div>
+              </motion.div>
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className="text-xl text-white/80"
+              >
+                Experience the perfect blend of AI technology and educational expertise
+              </motion.p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <motion.div
+                initial={{ y: 50, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                whileHover={{ y: -5 }}
+              >
+                <StepCard
+                  number="1"
+                  title="Sign Up"
+                  description="Create your account in seconds and get started with AI-powered learning"
+                />
+              </motion.div>
+
+              <motion.div
+                initial={{ y: 50, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                whileHover={{ y: -5 }}
+              >
+                <StepCard
+                  number="2"
+                  title="Choose Your Subject"
+                  description="Select from a wide range of subjects and topics you want to learn"
+                />
+              </motion.div>
+
+              <motion.div
+                initial={{ y: 50, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                whileHover={{ y: -5 }}
+              >
+                <StepCard
+                  number="3"
+                  title="Start Learning"
+                  description="Get personalized help and practice with AI-generated quizzes"
+                />
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
+        {/* Testimonials Section */}
+        <section className="relative py-24 bg-[#1a237e]">
+          <div className="container mx-auto px-4">
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="text-center mb-16 relative"
             >
-              <Button size="lg" variant="secondary" asChild>
-                <Link href="/signin">Sign In</Link>
-              </Button>
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="mb-2"
+              >
+                <div className="inline-block">
+                  <span className="inline-block text-white text-5xl font-bold mb-6 relative">
+                    What Our Users Say
+                    <motion.div
+                      className="absolute -right-8 -top-8"
+                      initial={{ rotate: -10 }}
+                      animate={{ rotate: 10 }}
+                      transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+                    >
+                      <Sparkles className="w-6 h-6 text-[#4169E1]" />
+                    </motion.div>
+                  </span>
+                </div>
+              </motion.div>
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className="text-xl text-white/80"
+              >
+                Don't just take our word for it. Hear from our satisfied users.
+              </motion.p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <motion.div
+                initial={{ y: 50, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                whileHover={{ y: -5 }}
+              >
+                <TestimonialCard
+                  quote="QuizzQ has transformed my learning experience. The AI tutor is incredibly helpful!"
+                  author="Sarah Johnson"
+                  role="Student"
+                />
+              </motion.div>
+
+              <motion.div
+                initial={{ y: 50, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                whileHover={{ y: -5 }}
+              >
+                <TestimonialCard
+                  quote="The personalized quizzes helped me identify and improve my weak areas."
+                  author="Michael Chen"
+                  role="University Student"
+                />
+              </motion.div>
+
+              <motion.div
+                initial={{ y: 50, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                whileHover={{ y: -5 }}
+              >
+                <TestimonialCard
+                  quote="As a teacher, I love how QuizzQ helps me create engaging content for my students."
+                  author="David Smith"
+                  role="High School Teacher"
+                />
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing Section */}
+        <section className="relative py-24 bg-[#1a237e]">
+          <div className="container mx-auto px-4">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="text-center mb-16"
+            >
+              <h2 className="text-3xl font-bold mb-4 text-foreground">
+                Choose Your Plan
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Start with our forever-free plan or upgrade to Pro for advanced features.
+              </p>
+            </motion.div>
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              <motion.div
+                variants={itemVariants}
+                className="p-8 rounded-xl border border-[#4169E1] bg-[#1a237e] relative flex flex-col h-full"
+              >
+                <div>
+                  <div className="text-2xl font-bold mb-2 text-white">Free Forever</div>
+                  <div className="text-4xl font-bold mb-6 text-[#4169E1]">£0<span className="text-lg font-normal text-white/80">/month</span></div>
+                  <ul className="space-y-4 mb-8">
+                    <li className="flex items-center text-white">
+                      <CheckCircle2 className="h-5 w-5 text-[#4169E1] mr-2" />
+                      <span>Basic AI assistance</span>
+                    </li>
+                    <li className="flex items-center text-white">
+                      <CheckCircle2 className="h-5 w-5 text-[#4169E1] mr-2" />
+                      <span>Limited practice questions</span>
+                    </li>
+                    <li className="flex items-center text-white">
+                      <CheckCircle2 className="h-5 w-5 text-[#4169E1] mr-2" />
+                      <span>Basic progress tracking</span>
+                    </li>
+                    <li className="flex items-center text-white">
+                      <CheckCircle2 className="h-5 w-5 text-[#4169E1] mr-2" />
+                      <span>Community support</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="mt-auto">
+                  <Button className="w-full bg-[#4169E1] hover:bg-[#4169E1]/90 text-white" size="lg" asChild>
+                    <Link href="/signup">Get Started Free</Link>
+                  </Button>
+                </div>
+              </motion.div>
+              <motion.div
+                variants={itemVariants}
+                className="p-8 rounded-xl border border-[#7B68EE] bg-[#1a237e] relative flex flex-col h-full"
+              >
+                <div className="absolute top-4 right-4 bg-[#7B68EE] text-white px-3 py-1 rounded-full text-sm">
+                  Most Popular
+                </div>
+                <div>
+                  <div className="text-2xl font-bold mb-2 text-white">Pro Plan</div>
+                  <div className="text-4xl font-bold mb-6 text-[#7B68EE]">£3.99<span className="text-lg font-normal text-white/80">/month</span></div>
+                  <ul className="space-y-4 mb-8">
+                    <li className="flex items-center text-white">
+                      <CheckCircle2 className="h-5 w-5 text-[#7B68EE] mr-2" />
+                      <span>Advanced AI tutor</span>
+                    </li>
+                    <li className="flex items-center text-white">
+                      <CheckCircle2 className="h-5 w-5 text-[#7B68EE] mr-2" />
+                      <span>Unlimited practice questions</span>
+                    </li>
+                    <li className="flex items-center text-white">
+                      <CheckCircle2 className="h-5 w-5 text-[#7B68EE] mr-2" />
+                      <span>Detailed analytics & insights</span>
+                    </li>
+                    <li className="flex items-center text-white">
+                      <CheckCircle2 className="h-5 w-5 text-[#7B68EE] mr-2" />
+                      <span>Priority support</span>
+                    </li>
+                    <li className="flex items-center text-white">
+                      <CheckCircle2 className="h-5 w-5 text-[#7B68EE] mr-2" />
+                      <span>Custom study plans</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="mt-auto">
+                  <Button className="w-full bg-[#7B68EE] hover:bg-[#7B68EE]/90 text-white" size="lg" asChild>
+                    <Link href="/signup?plan=pro">Upgrade to Pro</Link>
+                  </Button>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="relative py-32 overflow-hidden">
+          {/* Animated background elements */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#4169E1]/20 via-[#1a237e] to-[#7B68EE]/20" />
+          <div className="absolute inset-0">
+            <div className="absolute top-0 left-0 w-72 h-72 bg-[#4169E1]/10 rounded-full mix-blend-multiply filter blur-xl animate-blob" />
+            <div className="absolute top-0 right-0 w-72 h-72 bg-[#7B68EE]/10 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000" />
+            <div className="absolute -bottom-8 left-20 w-72 h-72 bg-[#4169E1]/10 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000" />
+          </div>
+          
+          <div className="container mx-auto px-4 relative z-10">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="text-center max-w-3xl mx-auto"
+            >
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="mb-8"
+              >
+                <div className="inline-block">
+                  <span className="inline-block text-white text-5xl font-bold mb-6 relative">
+                    Start Learning Today
+                    <motion.div
+                      className="absolute -right-8 -top-8"
+                      initial={{ rotate: -10 }}
+                      animate={{ rotate: 10 }}
+                      transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+                    >
+                      <Sparkles className="w-8 h-8 text-[#7B68EE]" />
+                    </motion.div>
+                  </span>
+                </div>
+              </motion.div>
+
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className="text-xl mb-12 text-white/90 leading-relaxed"
+              >
+                Join over <span className="text-[#4169E1] font-bold">10,000 students</span> who are already using QUIZZQ. 
+                Start with our free plan and upgrade anytime!
+              </motion.p>
+
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="flex flex-col sm:flex-row gap-6 justify-center items-center"
+              >
+                <Button 
+                  size="lg"
+                  className="bg-[#4169E1] hover:bg-[#4169E1]/90 text-white min-w-[200px] h-14 text-lg relative overflow-hidden group"
+                  asChild
+                >
+                  <Link href="/signup" className="relative">
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      Get Started Free
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#4169E1]/0 via-white/20 to-[#4169E1]/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                  </Link>
+                </Button>
+
+                <Button 
+                  size="lg"
+                  variant="outline"
+                  className="border-2 border-[#7B68EE] text-white hover:bg-[#7B68EE]/10 min-w-[200px] h-14 text-lg relative overflow-hidden group"
+                  asChild
+                >
+                  <Link href="/contact" className="relative">
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      Schools Contact Us
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#7B68EE]/0 via-[#7B68EE]/20 to-[#7B68EE]/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                  </Link>
+                </Button>
+              </motion.div>
             </motion.div>
           </div>
 
-          {/* Animated Book */}
-          <div className="hidden lg:block">
-            <AnimatedBook />
-          </div>
+          {/* Decorative circles */}
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#4169E1]/10 rounded-full" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#7B68EE]/10 rounded-full" />
+        </section>
+
+        {/* Floating Button */}
+        <motion.div 
+          className="fixed bottom-8 right-8 z-50"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 1 }}
+        >
+          <Button 
+            size="lg" 
+            className="bg-primary text-white shadow-lg hover:shadow-xl transition-shadow"
+            asChild
+          >
+            <Link href="/signup" className="flex items-center gap-2">
+              Start Free <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
         </motion.div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="relative overflow-hidden bg-accent/5 py-24 dark:bg-accent/10">
-        <FloatingIcons />
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-            <AnimatedStatsCard number="10k+" label="Active Students" />
-            <AnimatedStatsCard number="50+" label="Subjects" />
-            <AnimatedStatsCard number="98%" label="Success Rate" />
-            <AnimatedStatsCard number="24/7" label="AI Support" />
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="bg-background py-24">
-        <div className="container mx-auto px-4">
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="mb-16 text-center"
-          >
-            <h2 className="mb-4 text-3xl font-bold text-foreground">
-              Why Choose QUIZZQ?
-            </h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Our platform combines cutting-edge AI technology with proven learning methodologies
-              to deliver an unmatched educational experience.
-            </p>
-          </motion.div>
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            <AnimatedFeature
-              icon={<Brain className="h-10 w-10 text-primary" />}
-              title="AI-Powered Learning"
-              description="Adaptive learning paths that adjust to your understanding and pace"
-            />
-            <AnimatedFeature
-              icon={<MessageSquareMore className="h-10 w-10 text-primary" />}
-              title="24/7 AI Tutoring"
-              description="Get instant help from our AI chatbots whenever you need it"
-            />
-            <AnimatedFeature
-              icon={<Sparkles className="h-10 w-10 text-primary" />}
-              title="Smart Assignments"
-              description="Auto-graded assignments with detailed feedback and explanations"
-            />
-            <AnimatedFeature
-              icon={<Target className="h-10 w-10 text-primary" />}
-              title="Personalized Goals"
-              description="Set and track your learning objectives with AI-driven recommendations"
-            />
-            <AnimatedFeature
-              icon={<Users className="h-10 w-10 text-primary" />}
-              title="Collaborative Learning"
-              description="Connect with peers and form study groups for better understanding"
-            />
-            <AnimatedFeature
-              icon={<BookOpen className="h-10 w-10 text-primary" />}
-              title="Rich Content Library"
-              description="Access a vast collection of study materials and practice questions"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="bg-accent/5 py-24 dark:bg-accent/10">
-        <div className="container mx-auto px-4">
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="mb-16 text-center"
-          >
-            <h2 className="mb-4 text-3xl font-bold text-foreground">How QUIZZQ Works</h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Get started with QUIZZQ in three simple steps and transform your learning experience.
-            </p>
-          </motion.div>
-          <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-3">
-            <AnimatedStepCard
-              number="1"
-              title="Create Your Profile"
-              description="Sign up and tell us about your learning goals and preferences"
-            />
-            <AnimatedStepCard
-              number="2"
-              title="Choose Your Subjects"
-              description="Select from our wide range of subjects and topics"
-            />
-            <AnimatedStepCard
-              number="3"
-              title="Start Learning"
-              description="Begin your personalized learning journey with AI assistance"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Example Section */}
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl font-bold mb-4 text-foreground">
-              See QUIZZQ in Action
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Experience our interactive learning platform with real examples.
-            </p>
-          </motion.div>
-          <motion.div 
-            className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto"
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            <div className="space-y-8">
-              <ExampleFeature
-                title="AI Study Helper"
-                description="Get instant answers to your questions and detailed explanations"
-                icon={<Brain className="w-6 h-6 text-primary" />}
-              />
-              <ExampleFeature
-                title="Practice Questions"
-                description="Access thousands of practice questions with step-by-step solutions"
-                icon={<BookOpen className="w-6 h-6 text-primary" />}
-              />
-              <ExampleFeature
-                title="Progress Tracking"
-                description="Monitor your improvement with detailed analytics and insights"
-                icon={<Target className="w-6 h-6 text-primary" />}
-              />
-            </div>
-            <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-tr from-primary to-accent opacity-10" />
-              <Image
-                src="/dashboard-preview.png"
-                alt="QUIZZQ Dashboard Preview"
-                fill
-                className="object-cover"
-              />
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-24 bg-accent/5 dark:bg-accent/10">
-        <div className="container mx-auto px-4">
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl font-bold mb-4 text-foreground">
-              What Our Users Say
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Join thousands of satisfied students who have transformed their learning with QUIZZQ.
-            </p>
-          </motion.div>
-          <motion.div 
-            className="grid md:grid-cols-3 gap-8"
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            <TestimonialCard
-              quote="QUIZZQ has completely transformed how I study. The AI tutor is like having a personal teacher 24/7!"
-              author="Sarah K."
-              role="University Student"
-            />
-            <TestimonialCard
-              quote="The practice questions and instant feedback have helped me improve my grades significantly."
-              author="Michael R."
-              role="High School Student"
-            />
-            <TestimonialCard
-              quote="As a teacher, I love how QUIZZQ helps my students learn at their own pace with AI support."
-              author="Prof. James L."
-              role="High School Teacher"
-            />
-          </motion.div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-r from-primary/90 via-primary to-primary/90 relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px] animate-grid" />
-        <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="text-center"
-          >
-            <h2 className="text-4xl font-bold mb-6 text-white dark:text-white">
-              Ready to Transform Your Learning?
-            </h2>
-            <p className="text-xl mb-8 text-white/90 dark:text-white/90 max-w-2xl mx-auto">
-              Join thousands of students already using QUIZZQ to achieve their academic goals. Start your journey today!
-            </p>
-            <Button 
-              size="lg" 
-              variant="secondary" 
-              className="bg-white text-primary hover:bg-white/90 hover:text-primary/90 font-semibold"
-              asChild
-            >
-              <Link href="/signin">Start Learning Now</Link>
-            </Button>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ... */}
+      </div>
     </>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <motion.div variants={itemVariants}>
-      <Card className="p-6 hover:shadow-lg transition-shadow">
-        <div className="text-primary mb-4">{icon}</div>
-        <h3 className="text-xl font-semibold mb-2">{title}</h3>
-        <p className="text-muted-foreground">{description}</p>
-      </Card>
-    </motion.div>
-  );
-}
-
-function StatCard({ number, label }: { number: string; label: string }) {
-  return (
-    <motion.div 
-      variants={itemVariants}
-      className="text-center"
-    >
-      <div className="text-4xl font-bold text-primary mb-2">{number}</div>
-      <div className="text-sm text-muted-foreground">{label}</div>
-    </motion.div>
-  );
-}
-
-function StepCard({
-  number,
-  title,
-  description,
-}: {
-  number: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <motion.div 
-      variants={itemVariants}
-      className="relative p-6 rounded-lg bg-background border"
-    >
-      <div className="text-4xl font-bold text-primary/20 absolute top-4 right-4">
-        {number}
-      </div>
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-muted-foreground">{description}</p>
-    </motion.div>
-  );
-}
-
-function ExampleFeature({
-  title,
-  description,
-  icon,
-}: {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <motion.div 
-      variants={itemVariants}
-      className="flex items-start space-x-4"
-    >
-      <div className="p-2 rounded-lg bg-primary/10 text-primary">
-        {icon}
-      </div>
-      <div>
-        <h3 className="text-lg font-semibold mb-1">{title}</h3>
-        <p className="text-muted-foreground">{description}</p>
-      </div>
-    </motion.div>
-  );
-}
-
-function TestimonialCard({
-  quote,
-  author,
-  role,
-}: {
-  quote: string;
-  author: string;
-  role: string;
-}) {
-  return (
-    <motion.div 
-      variants={itemVariants}
-      className="p-6 rounded-lg bg-background border"
-    >
-      <div className="text-primary mb-4">
-        <CheckCircle2 className="w-8 h-8" />
-      </div>
-      <p className="text-lg mb-4 italic">{quote}</p>
-      <div>
-        <div className="font-semibold">{author}</div>
-        <div className="text-sm text-muted-foreground">{role}</div>
-      </div>
-    </motion.div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,7 @@ export function ClassesTab({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
-  const fetchClasses = async () => {
+  const fetchClasses = useCallback(async () => {
     try {
       const response = await fetch(`/api/schools/${schoolId}/classes`);
       if (!response.ok) {
@@ -78,7 +78,7 @@ export function ClassesTab({
         variant: "destructive",
       });
     }
-  };
+  }, [schoolId, onClassesChange, toast]);
 
   const handleDeleteClass = async () => {
     if (!classToDelete) return;
@@ -117,7 +117,7 @@ export function ClassesTab({
 
   useEffect(() => {
     fetchClasses();
-  }, [schoolId]);
+  }, [fetchClasses]);
 
   if (isLoading) {
     return (

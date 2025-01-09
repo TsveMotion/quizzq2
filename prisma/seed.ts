@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcryptjs from 'bcryptjs';
+import { seedQuizzes } from './quizSeed';
 
 const prisma = new PrismaClient();
 
@@ -163,18 +164,58 @@ Show all your work and explain your reasoning for each step.`,
 
   console.log('Assignment created/updated:', assignment);
 
-  // Log the class enrollment status
-  const updatedClass = await prisma.class.findFirst({
-    where: { id: classObj?.id },
-    include: {
-      students: true
+  // Seed quizzes
+  await seedQuizzes();
+
+  // Create sample quizzes if not exist
+  const existingQuizzes = await prisma.quiz.findMany();
+  if (existingQuizzes.length === 0) {
+    const sampleQuizzes = [
+      {
+        title: "JavaScript Fundamentals",
+        description: "Test your knowledge of JavaScript basics including variables, functions, and control flow.",
+        difficulty: "EASY",
+        isPremium: false,
+        published: true,
+        totalQuestions: 10,
+        timeLimit: 15
+      },
+      {
+        title: "Advanced React Patterns",
+        description: "Challenge yourself with advanced React concepts including hooks, context, and performance optimization.",
+        difficulty: "HARD",
+        isPremium: true,
+        published: true,
+        totalQuestions: 15,
+        timeLimit: 30
+      },
+      {
+        title: "CSS and Responsive Design",
+        description: "Test your understanding of CSS layouts, flexbox, grid, and responsive design principles.",
+        difficulty: "MEDIUM",
+        isPremium: false,
+        published: true,
+        totalQuestions: 12,
+        timeLimit: 20
+      },
+      {
+        title: "TypeScript Essentials",
+        description: "Learn and test your TypeScript knowledge including types, interfaces, and generics.",
+        difficulty: "MEDIUM",
+        isPremium: true,
+        published: true,
+        totalQuestions: 10,
+        timeLimit: 20
+      }
+    ];
+
+    for (const quiz of sampleQuizzes) {
+      await prisma.quiz.create({ data: quiz });
     }
-  });
-  console.log('Class enrollment:', {
-    className: updatedClass?.name,
-    studentCount: updatedClass?.students.length,
-    students: updatedClass?.students.map(s => ({ id: s.id, name: s.name }))
-  });
+    console.log('Created sample quizzes');
+  }
+
+  console.log('Seeding finished.');
 }
 
 main()

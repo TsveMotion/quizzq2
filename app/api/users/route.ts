@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { hash } from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
+import { Role } from '@prisma/client';
 
 export async function POST(req: Request) {
   try {
@@ -25,16 +26,28 @@ export async function POST(req: Request) {
     }
 
     // Allow both SUPERADMIN and SCHOOLADMIN to create users
-    if (!['SUPERADMIN', 'SCHOOLADMIN'].includes(currentUser.role)) {
+    if (!Object.values(Role).includes(currentUser.role as Role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const data = await req.json();
     const { name, email, password, role, schoolId } = data;
 
+    console.log('Received role:', role);
+    console.log('Available roles:', Object.keys(Role));
+
+    // Convert role string to enum
+    const userRole = role as Role;
+    if (!Object.values(Role).includes(userRole as Role)) {
+      console.log('Invalid role value:', userRole);
+      return NextResponse.json({ 
+        error: `Invalid role. Must be one of: ${Object.values(Role).join(', ')}` 
+      }, { status: 400 });
+    }
+
     // Validate school admin permissions
-    if (currentUser.role === 'SCHOOLADMIN') {
-      if (role === 'SUPERADMIN' || role === 'SCHOOLADMIN') {
+    if (currentUser.role === Role.SCHOOLADMIN) {
+      if (userRole === Role.SUPERADMIN || userRole === Role.SCHOOLADMIN) {
         return NextResponse.json(
           { error: 'School admins cannot create admin users' },
           { status: 403 }
@@ -53,7 +66,7 @@ export async function POST(req: Request) {
       name,
       email,
       password: await hash(password, 10),
-      role,
+      role: userRole,
       status: "ACTIVE",
       schoolId: schoolId === 'none' ? null : schoolId,
     };
@@ -128,7 +141,7 @@ export async function GET(req: Request) {
     let users = [];
 
     // For SUPERADMIN, fetch all users
-    if (userRole === 'SUPERADMIN') {
+    if (userRole === Role.SUPERADMIN) {
       try {
         users = await prisma.user.findMany({
           select: {
@@ -193,12 +206,12 @@ export async function GET(req: Request) {
     const where: any = {};
 
     // Role-based filtering
-    if (currentUser.role === 'SCHOOLADMIN') {
+    if (currentUser.role === Role.SCHOOLADMIN) {
       where.schoolId = currentUser.schoolId;
-    } else if (currentUser.role === 'TEACHER') {
+    } else if (currentUser.role === Role.TEACHER) {
       where.OR = [
         { teacherId: currentUser.id },
-        { schoolId: currentUser.schoolId, role: 'TEACHER' }
+        { schoolId: currentUser.schoolId, role: Role.TEACHER }
       ];
     } else {
       return NextResponse.json(
@@ -217,7 +230,7 @@ export async function GET(req: Request) {
       where.schoolId = schoolId;
     }
     if (role) {
-      where.role = role.toUpperCase();
+      where.role = Role[role as keyof typeof Role];
     }
 
     try {
@@ -295,7 +308,7 @@ export async function DELETE(req: Request) {
     }
 
     // Only SUPERADMIN or SCHOOLADMIN can delete users
-    if (currentUser.role !== 'SUPERADMIN' && currentUser.role !== 'SCHOOLADMIN') {
+    if (!Object.values(Role).includes(currentUser.role as Role)) {
       return NextResponse.json(
         { error: 'Not authorized to delete users' },
         { status: 403 }
@@ -303,7 +316,7 @@ export async function DELETE(req: Request) {
     }
 
     // If SCHOOLADMIN, can only delete users from their school
-    if (currentUser.role === 'SCHOOLADMIN') {
+    if (currentUser.role === Role.SCHOOLADMIN) {
       const targetUser = await prisma.user.findUnique({
         where: { id: targetUserId },
         select: { schoolId: true }

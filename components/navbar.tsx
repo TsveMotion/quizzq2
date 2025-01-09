@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useSession } from "next-auth/react";
-import { ModeToggle } from "@/components/mode-toggle";
+import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { ModeToggle } from "./mode-toggle";
 
 export function Navbar() {
   const { data: session } = useSession();
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -88,20 +88,43 @@ export function Navbar() {
           <div className="flex items-center space-x-4">
             <ModeToggle />
             {session ? (
-              <div className="flex items-center space-x-4">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/dashboard">Dashboard</Link>
-                </Button>
-                {session.user.role === 'SUPERADMIN' && (
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href="/dashboard/superadmin">SA</Link>
-                  </Button>
+              <div className="flex items-center space-x-2">
+                {pathname?.includes('/dashboard') ? (
+                  <>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => signOut({ callbackUrl: '/' })}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                    >
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href="/dashboard">Dashboard</Link>
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => signOut({ callbackUrl: '/' })}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                    >
+                      Sign Out
+                    </Button>
+                  </>
                 )}
               </div>
             ) : (
-              <Button size="sm" asChild>
-                <Link href="/signin">Sign In</Link>
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/signup">Sign Up</Link>
+                </Button>
+                <Button variant="default" size="sm" asChild>
+                  <Link href="/signin">Sign In</Link>
+                </Button>
+              </div>
             )}
             
             {/* Mobile Menu Button */}

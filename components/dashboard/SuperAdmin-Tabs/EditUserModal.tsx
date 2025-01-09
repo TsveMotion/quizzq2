@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -37,10 +37,9 @@ interface School {
 }
 
 interface EditUserModalProps {
-  user: User;
+  user: User | null;
   schools: School[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
   onSuccess: () => void;
 }
 
@@ -59,24 +58,61 @@ const statusOptions = [
   { value: 'SUSPENDED', label: 'Suspended' },
 ];
 
+const defaultFormData = {
+  name: '',
+  email: '',
+  role: 'STUDENT',
+  schoolId: null,
+  status: 'ACTIVE',
+};
+
 export function EditUserModal({
   user,
   schools,
-  open,
-  onOpenChange,
+  onClose,
   onSuccess,
 }: EditUserModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    schoolId: user.schoolId,
-    status: user.status,
+  const [formData, setFormData] = useState<{
+    name: string;
+    email: string;
+    role: string;
+    schoolId: string | null;
+    status: string;
+  }>({
+    name: user?.name || '',
+    email: user?.email || '',
+    role: user?.role || 'STUDENT',
+    schoolId: user?.schoolId || null,
+    status: user?.status || 'ACTIVE',
   });
+  const [isOpen, setIsOpen] = useState(!!user);
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        schoolId: user.schoolId || null,
+        status: user.status
+      });
+      setIsOpen(true);
+    } else {
+      setFormData(defaultFormData);
+      setIsOpen(false);
+    }
+  }, [user]);
+
+  const handleClose = () => {
+    setIsOpen(false);
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+    
     setIsLoading(true);
 
     try {
@@ -86,7 +122,10 @@ export function EditUserModal({
           'Content-Type': 'application/json',
         },
         credentials: 'same-origin',
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          schoolId: formData.schoolId === "none" ? null : formData.schoolId
+        }),
       });
 
       const data = await response.json();
@@ -97,7 +136,7 @@ export function EditUserModal({
 
       toast.success('User updated successfully');
       onSuccess();
-      onOpenChange(false);
+      handleClose();
     } catch (error) {
       console.error('Error updating user:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update user');
@@ -106,50 +145,58 @@ export function EditUserModal({
     }
   };
 
+  if (!user) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="bg-[#0f2850] border border-blue-800/40 rounded-2xl shadow-xl">
         <DialogHeader>
-          <DialogTitle>Edit User</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-blue-50">Edit User</DialogTitle>
+          <DialogDescription className="text-blue-200">
             Make changes to the user account here. Click save when you're done.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name" className="text-blue-200">Name</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
+              className="rounded-xl bg-[#0f2850] border-blue-800/40 text-blue-100 placeholder:text-blue-300/50 focus-visible:ring-blue-500 focus-visible:ring-offset-0"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-blue-200">Email</Label>
             <Input
               id="email"
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
+              className="rounded-xl bg-[#0f2850] border-blue-800/40 text-blue-100 placeholder:text-blue-300/50 focus-visible:ring-blue-500 focus-visible:ring-offset-0"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
+            <Label htmlFor="role" className="text-blue-200">Role</Label>
             <Select
               value={formData.role}
               onValueChange={(value) => setFormData({ ...formData, role: value })}
             >
-              <SelectTrigger>
+              <SelectTrigger className="rounded-xl bg-[#0f2850] border-blue-800/40 text-blue-100">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[#0f2850] border border-blue-800/40 rounded-xl">
                 {roleOptions.map((role) => (
-                  <SelectItem key={role.value} value={role.value}>
+                  <SelectItem 
+                    key={role.value} 
+                    value={role.value}
+                    className="text-blue-200 focus:bg-blue-900/60 focus:text-blue-50"
+                  >
                     {role.label}
                   </SelectItem>
                 ))}
@@ -158,18 +205,27 @@ export function EditUserModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="school">School</Label>
+            <Label htmlFor="school" className="text-blue-200">School</Label>
             <Select
               value={formData.schoolId || "none"}
               onValueChange={(value) => setFormData({ ...formData, schoolId: value === "none" ? null : value })}
             >
-              <SelectTrigger>
+              <SelectTrigger className="rounded-xl bg-[#0f2850] border-blue-800/40 text-blue-100">
                 <SelectValue placeholder="Select school" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
+              <SelectContent className="bg-[#0f2850] border border-blue-800/40 rounded-xl">
+                <SelectItem 
+                  value="none"
+                  className="text-blue-200 focus:bg-blue-900/60 focus:text-blue-50"
+                >
+                  None
+                </SelectItem>
                 {schools.map((school) => (
-                  <SelectItem key={school.id} value={school.id}>
+                  <SelectItem 
+                    key={school.id} 
+                    value={school.id}
+                    className="text-blue-200 focus:bg-blue-900/60 focus:text-blue-50"
+                  >
                     {school.name}
                   </SelectItem>
                 ))}
@@ -178,17 +234,21 @@ export function EditUserModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
+            <Label htmlFor="status" className="text-blue-200">Status</Label>
             <Select
               value={formData.status}
               onValueChange={(value) => setFormData({ ...formData, status: value })}
             >
-              <SelectTrigger>
+              <SelectTrigger className="rounded-xl bg-[#0f2850] border-blue-800/40 text-blue-100">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[#0f2850] border border-blue-800/40 rounded-xl">
                 {statusOptions.map((status) => (
-                  <SelectItem key={status.value} value={status.value}>
+                  <SelectItem 
+                    key={status.value} 
+                    value={status.value}
+                    className="text-blue-200 focus:bg-blue-900/60 focus:text-blue-50"
+                  >
                     {status.label}
                   </SelectItem>
                 ))}
@@ -196,18 +256,29 @@ export function EditUserModal({
             </Select>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={handleClose}
               disabled={isLoading}
+              className="rounded-xl bg-blue-900/50 text-blue-200 hover:bg-blue-900/70 border-blue-800/40"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="rounded-xl bg-blue-600/90 text-blue-50 hover:bg-blue-600 shadow-md"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </Button>
           </div>
         </form>

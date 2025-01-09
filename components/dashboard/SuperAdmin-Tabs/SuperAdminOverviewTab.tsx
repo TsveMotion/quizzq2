@@ -1,58 +1,54 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { School, Users, GraduationCap, BookOpen, FileText, Loader2 } from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
-import { Alert, AlertDescription } from "@/components/ui/alert";
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-// Colors matching the Users tab badges
-const ROLE_COLORS = {
-  SUPERADMIN: '#ef4444', // red-500
-  SCHOOLADMIN: '#3b82f6', // blue-500
-  TEACHER: '#22c55e', // green-500
-  STUDENT: '#eab308', // yellow-500
-  PRO: '#a855f7', // purple-500
-  FREE: '#9ca3af' // gray-400
-};
+import { School, Users, GraduationCap, BookOpen, Loader2, AlertCircle } from 'lucide-react';
+import { Line, Pie, ResponsiveContainer } from 'recharts';
 
 interface Stats {
   totalUsers: number;
+  newUsersThisMonth: number;
   totalSchools: number;
+  newSchoolsThisMonth: number;
   totalStudents: number;
   totalTeachers: number;
-  newUsersThisMonth: number;
-  newSchoolsThisMonth: number;
-  usersByRole: Array<{ role: string; count: number }>;
-  usersByMonth: Array<{ month: string; count: number }>;
+  usersByMonth: Array<{
+    month: string;
+    count: number;
+  }>;
+  usersByRole: Array<{
+    role: string;
+    count: number;
+  }>;
 }
+
+const ROLE_COLORS = {
+  SUPERADMIN: '#60A5FA',
+  SCHOOLADMIN: '#34D399',
+  STUDENT: '#FBBF24',
+  TEACHER: '#F87171',
+  FREE: '#A78BFA'
+};
 
 export function SuperAdminOverviewTab() {
   const [stats, setStats] = useState<Stats>({
-    totalUsers: 0,
-    totalSchools: 0,
-    totalStudents: 0,
+    totalUsers: 9,
+    newUsersThisMonth: 2,
+    totalSchools: 2,
+    newSchoolsThisMonth: 2,
+    totalStudents: 1,
     totalTeachers: 0,
-    newUsersThisMonth: 0,
-    newSchoolsThisMonth: 0,
-    usersByRole: [],
-    usersByMonth: []
+    usersByMonth: [
+      { month: "2025-01", count: 9 }
+    ],
+    usersByRole: [
+      { role: "SUPERADMIN", count: 1 },
+      { role: "SCHOOLADMIN", count: 2 },
+      { role: "FREE", count: 1 },
+      { role: "STUDENT", count: 1 },
+      { role: "TEACHER", count: 0 }
+    ]
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -96,139 +92,119 @@ export function SuperAdminOverviewTab() {
     setRetryCount(prev => prev + 1);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-96 items-center justify-center flex-col space-y-4">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-        <p className="text-sm text-muted-foreground">
-          {retryCount > 0 ? `Retrying... (Attempt ${retryCount}/3)` : 'Loading stats...'}
-        </p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <button
-          onClick={handleRetry}
-          className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              +{stats.newUsersThisMonth} this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Schools</CardTitle>
-            <School className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalSchools}</div>
-            <p className="text-xs text-muted-foreground">
-              +{stats.newSchoolsThisMonth} this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-            <GraduationCap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalStudents}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Teachers</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalTeachers}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Users by Month */}
-        <Card className="col-span-1">
-          <CardHeader>
-            <CardTitle>User Growth</CardTitle>
-            <CardDescription>User registrations over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.usersByMonth}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="count" stroke="#8884d8" name="Users" />
-                </LineChart>
-              </ResponsiveContainer>
+    <div className="h-full space-y-6">
+      {isLoading ? (
+        <div className="flex h-full items-center justify-center">
+          <div className="flex items-center space-x-4">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+            <p className="text-sm text-blue-200">Loading statistics...</p>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="flex h-full items-center justify-center">
+          <div className="text-center space-y-4">
+            <AlertCircle className="mx-auto h-8 w-8 text-red-500" />
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-red-500">{error}</p>
+              <button
+                onClick={handleRetry}
+                className="text-sm text-blue-400 hover:text-blue-300"
+              >
+                Retry
+              </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Stats Grid */}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="relative overflow-hidden rounded-lg border border-blue-200/10 bg-blue-950/50 p-6 backdrop-blur-xl">
+              <div className="space-y-2">
+                <Users className="h-6 w-6 text-blue-400" />
+                <p className="text-2xl font-bold text-blue-50">{stats.totalUsers}</p>
+                <p className="text-sm text-blue-200">Total Users</p>
+              </div>
+              <div className="absolute bottom-1 right-1 text-sm text-blue-300">
+                +{stats.newUsersThisMonth} this month
+              </div>
+            </div>
 
-        {/* Users by Role */}
-        <Card className="col-span-1">
-          <CardHeader>
-            <CardTitle>Users by Role</CardTitle>
-            <CardDescription>Distribution of users across roles</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+            <div className="relative overflow-hidden rounded-lg border border-blue-200/10 bg-blue-950/50 p-6 backdrop-blur-xl">
+              <div className="space-y-2">
+                <School className="h-6 w-6 text-blue-400" />
+                <p className="text-2xl font-bold text-blue-50">{stats.totalSchools}</p>
+                <p className="text-sm text-blue-200">Total Schools</p>
+              </div>
+              <div className="absolute bottom-1 right-1 text-sm text-blue-300">
+                +{stats.newSchoolsThisMonth} this month
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-lg border border-blue-200/10 bg-blue-950/50 p-6 backdrop-blur-xl">
+              <div className="space-y-2">
+                <GraduationCap className="h-6 w-6 text-blue-400" />
+                <p className="text-2xl font-bold text-blue-50">{stats.totalStudents}</p>
+                <p className="text-sm text-blue-200">Total Students</p>
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-lg border border-blue-200/10 bg-blue-950/50 p-6 backdrop-blur-xl">
+              <div className="space-y-2">
+                <BookOpen className="h-6 w-6 text-blue-400" />
+                <p className="text-2xl font-bold text-blue-50">{stats.totalTeachers}</p>
+                <p className="text-sm text-blue-200">Total Teachers</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Charts */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* User Growth Chart */}
+            <div className="min-h-[400px] rounded-lg border border-blue-200/10 bg-blue-950/50 p-6 backdrop-blur-xl">
+              <div className="mb-4">
+                <h3 className="text-lg font-medium text-blue-50">User Growth</h3>
+                <p className="text-sm text-blue-200">User registrations over time</p>
+              </div>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <Line
+                    data={stats.usersByMonth}
+                    dataKey="count"
+                    stroke="#60A5FA"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Users by Role Chart */}
+            <div className="min-h-[400px] rounded-lg border border-blue-200/10 bg-blue-950/50 p-6 backdrop-blur-xl">
+              <div className="mb-4">
+                <h3 className="text-lg font-medium text-blue-50">Users by Role</h3>
+                <p className="text-sm text-blue-200">Distribution of users across roles</p>
+              </div>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
                   <Pie
                     data={stats.usersByRole}
                     dataKey="count"
                     nameKey="role"
                     cx="50%"
                     cy="50%"
+                    innerRadius={60}
                     outerRadius={80}
+                    fill="#60A5FA"
                     label
-                  >
-                    {stats.usersByRole.map((entry) => (
-                      <Cell key={`cell-${entry.role}`} fill={ROLE_COLORS[entry.role as keyof typeof ROLE_COLORS] || '#9ca3af'} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+                  />
+                </ResponsiveContainer>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

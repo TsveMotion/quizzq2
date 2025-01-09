@@ -3,13 +3,14 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../../lib/auth-config';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { Role } from '@prisma/client';
 
 // POST /api/superadmin - Create a superadmin user
 export async function POST(req: Request) {
   try {
     const existingSuperadmin = await prisma.user.findFirst({
       where: {
-        role: 'superadmin',
+        role: Role.SUPERADMIN,
       },
     });
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
         email: 'superadmin@quizzq.com',
         name: 'Super Admin',
         password: hashedPassword,
-        role: 'superadmin',
+        role: Role.SUPERADMIN,
         powerLevel: 10,
       },
     });

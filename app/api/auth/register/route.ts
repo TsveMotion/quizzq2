@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         email,
         name,
         password: hashedPassword,
-        role: 'FREE', // Default role for self-registration
+        role: 'USER', // Changed from "FREE" to "USER"
         status: 'ACTIVE',
       },
       select: {

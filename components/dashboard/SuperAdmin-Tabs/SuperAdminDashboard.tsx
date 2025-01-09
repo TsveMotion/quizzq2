@@ -1,29 +1,17 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { SuperAdminOverviewTab } from "./SuperAdminOverviewTab";
+import { signOut } from "next-auth/react";
+import { cn } from "@/lib/utils";
+import OverviewTab from "./OverviewTab";
 import { UsersTab } from "./UsersTab";
 import { SchoolsTab } from "./SchoolsTab";
 import { ContactsTab } from "./ContactsTab";
 import { SettingsTab } from "./SettingsTab";
-import SystemSettingsTab from "./SystemSettingsTab";
-import { Button } from "@/components/ui/button";
-import { 
-  LayoutDashboard, 
-  Users, 
-  School, 
-  MessageSquare,
-  LogOut,
-  Settings,
-  HelpCircle,
-  Building2,
-  Cog,
-  Shield 
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { signOut } from "next-auth/react";
+import { SystemSettingsTab } from "./SystemSettingsTab";
+import { Shield, LogOut, LayoutDashboard, Users, School, MessageSquare, Settings, HelpCircle, Building2, Cog } from "lucide-react";
+import { mainNavItems } from "@/config/nav";
 
 interface NavItem {
   title: string;
@@ -44,51 +32,6 @@ interface School {
   teacherCount?: number;
 }
 
-const mainNavItems: NavItem[] = [
-  {
-    title: "Overview",
-    value: "overview",
-    icon: LayoutDashboard,
-    disabled: false,
-    section: "dashboard"
-  },
-  {
-    title: "Users",
-    value: "users",
-    icon: Users,
-    disabled: false,
-    section: "dashboard"
-  },
-  {
-    title: "Schools",
-    value: "schools",
-    icon: School,
-    disabled: false,
-    section: "dashboard"
-  },
-  {
-    title: "Contacts",
-    value: "contacts",
-    icon: MessageSquare,
-    disabled: false,
-    section: "dashboard"
-  },
-  {
-    title: "Settings",
-    value: "settings",
-    icon: Settings,
-    disabled: false,
-    section: "system"
-  },
-  {
-    title: "System",
-    value: "system",
-    icon: Cog,
-    disabled: false,
-    section: "system"
-  },
-];
-
 export default function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const router = useRouter();
@@ -101,93 +44,84 @@ export default function SuperAdminDashboard() {
   const systemItems = mainNavItems.filter(item => item.section === "system");
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen bg-[#0a1d3b] rounded-3xl overflow-hidden m-2">
       {/* Sidebar */}
-      <div className="w-64 flex flex-col border-r border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 items-center border-b border-border px-4">
-          <Shield className="mr-2 h-5 w-5" />
-          <span className="font-semibold text-foreground">SuperAdmin</span>
+      <div className="w-64 bg-[#0f2850] border-r border-blue-800/40">
+        <div className="flex h-14 items-center px-4 border-b border-blue-800/40">
+          <Shield className="mr-2 h-5 w-5 text-blue-400" />
+          <span className="font-semibold text-blue-50">SuperAdmin</span>
         </div>
         
-        <div className="flex flex-col flex-grow py-2">
-          {/* All Navigation Items */}
-          <div className="space-y-1 px-2">
-            {/* Dashboard Items */}
-            {dashboardItems.map((item) => (
-              <Button
-                key={item.value}
-                variant={activeTab === item.value ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-start gap-2",
-                  activeTab === item.value ? "bg-secondary" : "hover:bg-accent"
-                )}
-                onClick={() => setActiveTab(item.value)}
-                disabled={item.disabled}
-              >
-                {item.icon && <item.icon className="h-4 w-4" />}
-                {item.title}
-              </Button>
-            ))}
+        <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+          <div className="flex-1 p-2 space-y-1">
+            {dashboardItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.value}
+                  onClick={() => setActiveTab(item.value)}
+                  disabled={item.disabled}
+                  className={cn(
+                    "flex w-full items-center gap-x-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                    activeTab === item.value
+                      ? "bg-blue-600/90 text-blue-50 shadow-md shadow-blue-900/20"
+                      : "text-blue-200 hover:bg-blue-800/50 hover:text-blue-50 hover:shadow-sm hover:shadow-blue-900/10",
+                    item.disabled && "cursor-not-allowed opacity-50"
+                  )}
+                >
+                  {Icon && <Icon className="h-4 w-4" />}
+                  {item.title}
+                </button>
+              );
+            })}
+          </div>
 
-            {/* Separator */}
-            <div className="my-2 border-t border-border/50" />
-
-            {/* System Items */}
-            {systemItems.map((item) => (
-              <Button
-                key={item.value}
-                variant={activeTab === item.value ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-start gap-2",
-                  activeTab === item.value ? "bg-secondary" : "hover:bg-accent"
-                )}
-                onClick={() => setActiveTab(item.value)}
-                disabled={item.disabled}
-              >
-                {item.icon && <item.icon className="h-4 w-4" />}
-                {item.title}
-              </Button>
-            ))}
-            
-            {/* Separator */}
-            <div className="my-2 border-t border-border/50" />
-
-            {/* Sign Out Button */}
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </Button>
+          <div className="p-2 border-t border-blue-800/40">
+            {systemItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.value}
+                  onClick={() => {
+                    if (item.value === "sign-out") {
+                      handleSignOut();
+                    } else {
+                      setActiveTab(item.value);
+                    }
+                  }}
+                  disabled={item.disabled}
+                  className={cn(
+                    "flex w-full items-center gap-x-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                    activeTab === item.value
+                      ? "bg-blue-600/90 text-blue-50 shadow-md shadow-blue-900/20"
+                      : "text-blue-200 hover:bg-blue-800/50 hover:text-blue-50 hover:shadow-sm hover:shadow-blue-900/10",
+                    item.disabled && "cursor-not-allowed opacity-50"
+                  )}
+                >
+                  {Icon && <Icon className="h-4 w-4" />}
+                  {item.title}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 py-6 max-w-[1400px]">
-          <Tabs value={activeTab} className="h-full">
-            <TabsContent value="overview" className="mt-0">
-              <SuperAdminOverviewTab />
-            </TabsContent>
-            <TabsContent value="users" className="mt-0">
-              <UsersTab />
-            </TabsContent>
-            <TabsContent value="schools" className="mt-0">
-              <SchoolsTab />
-            </TabsContent>
-            <TabsContent value="contacts" className="mt-0">
-              <ContactsTab />
-            </TabsContent>
-            <TabsContent value="settings" className="mt-0">
-              <SettingsTab />
-            </TabsContent>
-            <TabsContent value="system" className="mt-0">
-              <SystemSettingsTab />
-            </TabsContent>
-          </Tabs>
+      <div className="flex-1 flex flex-col">
+        <div className="h-14 flex items-center px-6 border-b border-blue-800/40 bg-[#0f2850]">
+          <h1 className="text-lg font-semibold text-blue-50">
+            {mainNavItems.find((item) => item.value === activeTab)?.title || "Dashboard"}
+          </h1>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-[#0a1d3b]">
+          {activeTab === "overview" && <OverviewTab />}
+          {activeTab === "users" && <UsersTab />}
+          {activeTab === "schools" && <SchoolsTab />}
+          {activeTab === "contacts" && <ContactsTab />}
+          {activeTab === "settings" && <SettingsTab />}
+          {activeTab === "system" && <SystemSettingsTab />}
         </div>
       </div>
     </div>

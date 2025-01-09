@@ -1,6 +1,5 @@
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcrypt';
-import { ROLES } from '../lib/roles';
 
 const prisma = new PrismaClient();
 
@@ -35,7 +34,7 @@ async function createSuperAdmin() {
         email,
         password: hashedPassword,
         name: 'Super Admin',
-        role: ROLES.SUPERADMIN,
+        role: 'SUPERADMIN',
         powerLevel: 5,
         status: 'ACTIVE'
       },

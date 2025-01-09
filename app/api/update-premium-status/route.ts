@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import prisma from "@/lib/prisma";
+import { Role } from '@prisma/client';
 
 export async function POST(req: Request) {
   try {
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
         where: { email: session.user.email },
         data: {
           isPro: true,
-          role: "PRO",
+          role: Role.PROUSER,
           proStatus: "active",
           proType: "premium",
           proPlan: "premium",
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
       // Update session data
       if (session.user) {
         session.user.isPro = true;
-        session.user.role = "PRO";
+        session.user.role = Role.PROUSER;
         session.user.proStatus = "active";
       }
 

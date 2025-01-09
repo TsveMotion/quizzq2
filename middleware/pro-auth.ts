@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { prisma } from '../lib/prisma';
+import { Role } from '../lib/enums';
 
 export async function proAuthMiddleware(req: NextRequest) {
   const token = await getToken({ req });
@@ -17,7 +18,7 @@ export async function proAuthMiddleware(req: NextRequest) {
     where: { email: token.email },
   });
 
-  if (!user?.isPro || user.role !== 'PRO' || !user.proSubscriptionId) {
+  if (!user?.isPro || user.role !== Role.PROUSER || !user.proSubscriptionId) {
     return new NextResponse(
       JSON.stringify({ success: false, message: 'PRO subscription required' }),
       { status: 403, headers: { 'content-type': 'application/json' } }
@@ -34,7 +35,7 @@ export async function proAuthMiddleware(req: NextRequest) {
       where: { email: token.email },
       data: {
         isPro: false,
-        role: 'FREE',
+        role: Role.USER,
         proStatus: 'expired',
         proPlanIsActive: false,
         proPlanEndedAt: new Date(),

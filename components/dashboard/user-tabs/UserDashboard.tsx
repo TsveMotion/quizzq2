@@ -15,8 +15,8 @@ import {
   Brain,
   Target,
   History,
-  Lock,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -33,7 +33,7 @@ interface NavItem {
   icon: any;
   disabled?: boolean;
   section?: string;
-  requiresPro?: boolean;
+  freeLimit?: number;
 }
 
 const mainNavItems: NavItem[] = [
@@ -53,29 +53,26 @@ const mainNavItems: NavItem[] = [
     title: "Progress",
     value: "progress",
     icon: LineChart,
-    section: "dashboard",
-    requiresPro: true
+    section: "dashboard"
   },
   {
     title: "AI Tutor",
     value: "ai-tutor",
     icon: Brain,
     section: "features",
-    requiresPro: true
+    freeLimit: 3
   },
   {
     title: "Goals",
     value: "goals",
     icon: Target,
-    section: "features",
-    requiresPro: true
+    section: "features"
   },
   {
     title: "History",
     value: "history",
     icon: History,
-    section: "features",
-    requiresPro: true
+    section: "features"
   }
 ];
 
@@ -102,208 +99,203 @@ export function UserDashboard() {
   const user = session?.user;
   const isPremium = user?.isPro || user?.role === 'PRO';
 
-  // Function to check if feature is locked
-  const isFeatureLocked = (feature: string) => {
-    if (isPremium) return false; // All features unlocked for premium users
-    
-    // Define which features are locked for free users
-    const lockedFeatures = [
-      'ai-tutor',
-      'advanced-analytics',
-      'progress-tracking',
-      'priority-support'
-    ];
-    
-    return lockedFeatures.includes(feature);
-  };
+  // Mock usage tracking (in a real app, this would come from a database)
+  const [usageStats, setUsageStats] = useState({
+    'ai-tutor': 2,
+    'quizzes-taken': 8,
+    'goals-set': 1
+  });
 
-  const handleTabClick = async (value: string, requiresPro: boolean = false) => {
-    if (requiresPro && !isPremium) {
-      setShowCheckoutModal(true);
-      return;
+  const handleTabClick = async (value: string, freeLimit?: number) => {
+    if (!isPremium && freeLimit !== undefined) {
+      const currentUsage = usageStats[value as keyof typeof usageStats] || 0;
+      const remainingUses = freeLimit - currentUsage;
+
+      if (remainingUses <= 0) {
+        toast.error(
+          <div className="flex flex-col gap-2">
+            <div className="font-semibold">Feature limit reached</div>
+            <div className="text-sm">Upgrade to Premium for unlimited access</div>
+          </div>,
+          {
+            action: {
+              label: "Upgrade",
+              onClick: () => setShowCheckoutModal(true)
+            }
+          }
+        );
+        return;
+      } else if (remainingUses <= 2) {
+        toast.warning(
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <span>{remainingUses} uses remaining</span>
+          </div>
+        );
+      }
     }
     setActiveTab(value);
   };
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-[calc(100vh-136px)] mx-4 mt-4 mb-4 rounded-lg bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 overflow-hidden">
       {/* Sidebar */}
-      <div className="hidden lg:flex h-full w-72 flex-col gap-2 border-r bg-gray-50/40 px-6 py-8 dark:bg-gray-800/40">
-        <div className="flex h-[60px] items-center px-6">
-          <h1 className="text-2xl font-bold">QuizzQ</h1>
-          {!session?.user?.isPro && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="ml-2"
-              onClick={() => setShowCheckoutModal(true)}
-            >
-              <Crown className="h-5 w-5 text-yellow-500" />
-            </Button>
-          )}
+      <div className="w-64 bg-gray-900/40 backdrop-blur-lg border-l border-t border-b border-white/10 rounded-l-lg flex flex-col">
+        <div className="flex h-10 items-center px-4 border-b border-white/10">
+          <h1 className="text-sm font-bold text-white flex items-center gap-1.5">
+            QuizzQ
+            <Crown className="h-3 w-3 text-yellow-500" />
+          </h1>
         </div>
-        <div className="flex flex-1 flex-col gap-2">
-          <nav className="grid gap-1">
-            <div className="mb-2">
-              <h4 className="mb-1 rounded-md px-2 py-1 text-sm font-semibold">
-                Dashboard
-              </h4>
-              {mainNavItems
-                .filter((item) => item.section === "dashboard")
-                .map((item) => (
-                  <Button
-                    key={item.value}
-                    variant={activeTab === item.value ? "secondary" : "ghost"}
-                    className={cn("w-full justify-start gap-2", {
-                      "opacity-50": item.disabled
-                    })}
-                    onClick={() => handleTabClick(item.value, item.requiresPro)}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.title}
-                    {item.requiresPro && !isPremium && (
-                      <Lock className="h-4 w-4 ml-auto" />
-                    )}
-                  </Button>
-                ))}
-            </div>
-            <div className="mb-2">
-              <h4 className="mb-1 rounded-md px-2 py-1 text-sm font-semibold">
-                Features
-              </h4>
-              {mainNavItems
-                .filter((item) => item.section === "features")
-                .map((item) => (
-                  <Button
-                    key={item.value}
-                    variant={activeTab === item.value ? "secondary" : "ghost"}
-                    className={cn("w-full justify-start gap-2", {
-                      "opacity-50": item.disabled
-                    })}
-                    onClick={() => handleTabClick(item.value, item.requiresPro)}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.title}
-                    {item.requiresPro && !isPremium && (
-                      <Lock className="h-4 w-4 ml-auto" />
-                    )}
-                  </Button>
-                ))}
-            </div>
+
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+          <div className="p-2.5 space-y-2">
             <div>
-              <h4 className="mb-1 rounded-md px-2 py-1 text-sm font-semibold">
-                Settings
-              </h4>
-              {userNavItems.map((item) => (
-                <Button
-                  key={item.value}
-                  variant={activeTab === item.value ? "secondary" : "ghost"}
-                  className="w-full justify-start gap-2"
-                  onClick={() => handleTabClick(item.value)}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.title}
-                </Button>
-              ))}
+              <h2 className="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Dashboard
+              </h2>
+              <nav className="mt-2 space-y-1">
+                {mainNavItems
+                  .filter((item) => item.section === "dashboard")
+                  .map((item) => (
+                    <Button
+                      key={item.value}
+                      variant={activeTab === item.value ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full h-9 justify-start gap-2 text-sm font-medium",
+                        activeTab === item.value
+                          ? "bg-white/10 text-white"
+                          : "text-gray-400 hover:text-white hover:bg-white/5"
+                      )}
+                      onClick={() => handleTabClick(item.value, item.freeLimit)}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.title}
+                      {!isPremium && item.freeLimit && (
+                        <span className="ml-auto text-xs opacity-50">
+                          {Math.max(0, item.freeLimit - (usageStats[item.value as keyof typeof usageStats] || 0))}/{item.freeLimit}
+                        </span>
+                      )}
+                    </Button>
+                  ))}
+              </nav>
             </div>
-          </nav>
+
+            <div>
+              <h2 className="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Features
+              </h2>
+              <nav className="mt-2 space-y-1">
+                {mainNavItems
+                  .filter((item) => item.section === "features")
+                  .map((item) => (
+                    <Button
+                      key={item.value}
+                      variant={activeTab === item.value ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full h-9 justify-start gap-2 text-sm font-medium",
+                        activeTab === item.value
+                          ? "bg-white/10 text-white"
+                          : "text-gray-400 hover:text-white hover:bg-white/5"
+                      )}
+                      onClick={() => handleTabClick(item.value, item.freeLimit)}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.title}
+                      {!isPremium && item.freeLimit && (
+                        <span className="ml-auto text-xs opacity-50">
+                          {Math.max(0, item.freeLimit - (usageStats[item.value as keyof typeof usageStats] || 0))}/{item.freeLimit}
+                        </span>
+                      )}
+                    </Button>
+                  ))}
+              </nav>
+            </div>
+
+            <div>
+              <h2 className="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Settings
+              </h2>
+              <nav className="mt-2 space-y-1">
+                {userNavItems.map((item) => (
+                  <Button
+                    key={item.value}
+                    variant={activeTab === item.value ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full h-9 justify-start gap-2 text-sm font-medium",
+                      activeTab === item.value
+                        ? "bg-white/10 text-white"
+                        : "text-gray-400 hover:text-white hover:bg-white/5"
+                    )}
+                    onClick={() => handleTabClick(item.value)}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.title}
+                  </Button>
+                ))}
+                <Button
+                  variant="ghost"
+                  className="w-full h-9 justify-start gap-2 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </Button>
+              </nav>
+            </div>
+          </div>
         </div>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2"
-          onClick={() => signOut()}
-        >
-          <LogOut className="h-4 w-4" />
-          Logout
-        </Button>
+
+        {/* Premium Banner */}
+        {!isPremium && (
+          <div className="p-2.5 border-t border-white/10">
+            <div className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-2">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Sparkles className="h-4 w-4 text-yellow-300" />
+                <h5 className="text-xs font-semibold text-white">Upgrade to Premium</h5>
+              </div>
+              <p className="text-[10px] text-blue-100 mb-1.5">
+                Get unlimited access to all features
+              </p>
+              <Button 
+                className="w-full h-6 text-xs bg-white/10 text-white hover:bg-white/20"
+                onClick={() => setShowCheckoutModal(true)}
+              >
+                Upgrade Now
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="h-full px-4 py-6 lg:px-8">
-          {!session?.user?.isPro && <PremiumBanner />}
-          <Tabs value={activeTab} className="h-full space-y-6">
-            <TabsContent value="overview" className="h-full">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-t border-b border-white/10 rounded-r-lg">
+        <div className="h-10 border-b border-white/10 bg-gray-900/40 backdrop-blur-lg px-4 flex items-center">
+          <h2 className="text-sm font-semibold text-white">
+            {mainNavItems.find(item => item.value === activeTab)?.title || 
+             userNavItems.find(item => item.value === activeTab)?.title}
+          </h2>
+        </div>
+        
+        <div className="flex-1 p-2.5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+          <Tabs value={activeTab} className="h-full flex flex-col">
+            <TabsContent value="overview" className="mt-0 flex-1 flex flex-col">
               <UserOverviewTab />
             </TabsContent>
-            <TabsContent value="quizzes" className="h-full">
+            <TabsContent value="quizzes" className="mt-0 flex-1 flex flex-col">
               <UserQuizzesTab />
             </TabsContent>
-            <TabsContent value="profile" className="h-full">
+            <TabsContent value="profile" className="mt-0 flex-1 flex flex-col">
               <UserProfileTab />
             </TabsContent>
-            {isFeatureLocked('ai-tutor') ? (
-              <div className="relative">
-                <div className="opacity-50 pointer-events-none">
-                  <TabsContent value="ai-tutor" className="h-full">
-                    <div className="flex flex-col gap-4">
-                      <h2 className="text-lg font-bold">AI Tutor</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Get personalized learning recommendations with our AI-powered tutor.
-                      </p>
-                    </div>
-                  </TabsContent>
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center bg-black/5">
-                  <Lock className="w-6 h-6 text-gray-500" />
-                </div>
-              </div>
-            ) : (
-              <TabsContent value="ai-tutor" className="h-full">
-                <div className="flex flex-col gap-4">
-                  <h2 className="text-lg font-bold">AI Tutor</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Get personalized learning recommendations with our AI-powered tutor.
-                  </p>
-                </div>
-              </TabsContent>
-            )}
-            {/* Add other tab contents as needed */}
           </Tabs>
         </div>
       </div>
 
       <CheckoutModal 
-        isOpen={showCheckoutModal}
-        onClose={() => setShowCheckoutModal(false)}
-        onSuccess={() => {
-          setShowCheckoutModal(false);
-          router.refresh();
-        }}
+        isOpen={showCheckoutModal} 
+        onClose={() => setShowCheckoutModal(false)} 
       />
     </div>
-  );
-}
-
-function PremiumBanner() {
-  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  
-  return (
-    <>
-      <div className="bg-gradient-to-r from-yellow-100 to-yellow-50 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Sparkles className="h-6 w-6 text-yellow-500" />
-            <div>
-              <h3 className="font-semibold">Upgrade to Premium</h3>
-              <p className="text-sm text-muted-foreground">
-                Get access to AI Tutor, Progress Tracking, and more!
-              </p>
-            </div>
-          </div>
-          <Button 
-            onClick={() => setShowCheckoutModal(true)}
-            className="bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-600 hover:to-yellow-500 text-white"
-          >
-            Upgrade Now
-          </Button>
-        </div>
-      </div>
-      
-      <CheckoutModal 
-        isOpen={showCheckoutModal}
-        onClose={() => setShowCheckoutModal(false)}
-      />
-    </>
   );
 }

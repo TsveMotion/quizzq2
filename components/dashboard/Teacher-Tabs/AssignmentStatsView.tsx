@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AICard } from "@/components/ui/ai-card";
 import { Progress } from "@/components/ui/progress";
 import { formatDate } from "@/lib/utils";
 import useSWR from "swr";
@@ -45,7 +46,7 @@ interface AssignmentStatsViewProps {
   activeTab?: "overview" | "submissions";
 }
 
-export function AssignmentStatsView({ assignmentId, activeTab = "overview" }: AssignmentStatsViewProps) {
+export default function AssignmentStatsView({ assignmentId, activeTab = "overview" }: AssignmentStatsViewProps) {
   const { data, isLoading } = useSWR<{ data: AssignmentStats }>(
     assignmentId ? `/api/teachers/assignments/${assignmentId}/stats` : null
   );
@@ -166,62 +167,45 @@ export function AssignmentStatsView({ assignmentId, activeTab = "overview" }: As
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Submission Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold mb-2">
-              {stats.overview.submittedStudents} / {stats.overview.totalStudents}
-            </div>
-            <Progress
-              value={stats.overview.submissionRate * 100}
-              className="w-full"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Average Score</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.overview.averageScore.toFixed(1)}%
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <AICard
+          title="Total Assignments"
+          description="Number of assignments created"
+          glowColor="rgba(147, 197, 253, 0.3)"
+        >
+          <div className="text-2xl font-bold ai-text-gradient animate-glow">24</div>
+        </AICard>
+        <AICard
+          title="Active Assignments"
+          description="Currently ongoing assignments"
+          glowColor="rgba(167, 139, 250, 0.3)"
+        >
+          <div className="text-2xl font-bold ai-text-gradient animate-glow">12</div>
+        </AICard>
+        <AICard
+          title="Average Score"
+          description="Across all assignments"
+          glowColor="rgba(147, 197, 253, 0.3)"
+        >
+          <div className="text-2xl font-bold ai-text-gradient animate-glow">85%</div>
+        </AICard>
+        <AICard
+          title="Total Students"
+          description="Students assigned work"
+          glowColor="rgba(167, 139, 250, 0.3)"
+        >
+          <div className="text-2xl font-bold ai-text-gradient animate-glow">156</div>
+        </AICard>
       </div>
 
-      <Table>
-        <TableCaption>Question Performance Analysis</TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Question</TableHead>
-            <TableHead>Success Rate</TableHead>
-            <TableHead>Average Score</TableHead>
-            <TableHead>Attempts</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {questionStats.map((q) => (
-            <TableRow key={q.questionId}>
-              <TableCell className="font-medium">{q.question}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <Progress value={q.successRate} className="w-[100px]" />
-                  <span>{q.successRate}%</span>
-                </div>
-              </TableCell>
-              <TableCell>{q.averageScore.toFixed(1)}</TableCell>
-              <TableCell>
-                {q.correctAnswers} / {q.totalAttempts}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <AICard className="col-span-4" title="Recent Assignment Performance">
+          {/* Add your chart component here */}
+        </AICard>
+        <AICard className="col-span-3" title="Top Performing Students">
+          {/* Add your table component here */}
+        </AICard>
+      </div>
     </div>
   );
 }

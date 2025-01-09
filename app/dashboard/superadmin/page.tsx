@@ -12,7 +12,7 @@ export default function SuperAdminPage() {
         </div>
       }
     >
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <SuperAdminDashboard />
       </div>
     </Suspense>

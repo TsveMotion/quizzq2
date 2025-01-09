@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
         users: {
           where: {
             role: {
-              in: ['teacher', 'student']
+              in: [Role.TEACHER, Role.STUDENT]
             }
           }
         },
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
           select: {
             users: {
               where: {
-                role: 'student'
+                role: Role.STUDENT
               }
             }
           }

@@ -2,6 +2,7 @@ import { buffer } from 'micro';
 import Stripe from 'stripe';
 import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../lib/prisma';
+import { Role } from '../../../lib/enums';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-12-18.acacia',
@@ -50,7 +51,7 @@ export default async function handler(
       },
       data: {
         isPro: true,
-        role: 'PRO', 
+        role: Role.PROUSER, 
         proSubscriptionId: session.subscription as string,
         proExpiresAt: expiresAt,
         proType: 'subscription',
@@ -111,7 +112,7 @@ export default async function handler(
       },
       data: {
         isPro: false,
-        role: 'FREE', 
+        role: Role.USER, 
         proSubscriptionId: null,
         proExpiresAt: null,
         proType: null,

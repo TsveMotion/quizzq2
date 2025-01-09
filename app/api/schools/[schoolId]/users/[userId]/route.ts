@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { Role } from '@prisma/client';
 
 // PATCH /api/schools/[schoolId]/users/[userId] - Update a user
 export async function PATCH(
@@ -26,7 +27,7 @@ export async function PATCH(
     }
 
     // Check if user has access to this school
-    if (currentUser.role !== 'superadmin' && currentUser.schoolId !== params.schoolId) {
+    if (currentUser.role !== Role.SUPERADMIN && currentUser.schoolId !== params.schoolId) {
       return NextResponse.json(
         { error: 'Unauthorized access to school data' },
         { status: 403 }
@@ -78,7 +79,7 @@ export async function DELETE(
     }
 
     // Check if user has access to this school
-    if (currentUser.role !== 'superadmin' && currentUser.schoolId !== params.schoolId) {
+    if (currentUser.role !== Role.SUPERADMIN && currentUser.schoolId !== params.schoolId) {
       return NextResponse.json(
         { error: 'Unauthorized access to school data' },
         { status: 403 }

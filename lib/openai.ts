@@ -105,3 +105,143 @@ export async function generateQuestionFeedback(
     return "Unable to generate feedback at this time.";
   }
 }
+
+export interface QuizQuestion {
+  question: string;
+  correctAnswer: string;
+  explanation: string;
+  topic: string;
+  difficulty: string;
+}
+
+export interface QuizResponse {
+  feedback: string;
+  isCorrect: boolean;
+  explanation: string;
+}
+
+export async function generateQuiz(
+  subject: string,
+  topics: string[],
+  numQuestions: number,
+  difficulty: string
+): Promise<QuizQuestion[]> {
+  try {
+    // Only allow 3 or 5 questions
+    const allowedQuestions = [3, 5];
+    const limitedQuestions = allowedQuestions.includes(numQuestions) ? numQuestions : 3;
+
+    const prompt = `
+      Generate a GCSE-level ${subject} quiz with the following specifications:
+      - Number of questions: ${limitedQuestions}
+      - Topics: ${topics.join(', ')}
+      - Difficulty level: ${difficulty}
+
+      For each question, provide:
+      1. A clear, well-formatted question
+      2. The correct answer (keep it concise)
+      3. A detailed explanation
+      4. The specific topic it covers
+      5. The difficulty level (Foundation/Higher)
+
+      Format your response as a JSON array of questions:
+      [
+        {
+          "question": "string",
+          "correctAnswer": "string",
+          "explanation": "string",
+          "topic": "string",
+          "difficulty": "string"
+        }
+      ]
+
+      Make sure the questions are:
+      - Age-appropriate for GCSE students
+      - Clear and unambiguous
+      - Progressively challenging
+      - Relevant to the GCSE curriculum
+      - Have concise, specific answers
+    `;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a GCSE education expert and quiz generator. Generate high-quality, curriculum-aligned questions.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+      response_format: { type: "json_object" }
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '[]');
+    return result.questions || [];
+  } catch (error) {
+    console.error('Error generating quiz:', error);
+    throw new Error('Failed to generate quiz. Please try again.');
+  }
+}
+
+export async function checkAnswer(
+  question: string,
+  userAnswer: string,
+  correctAnswer: string,
+  subject: string,
+  topic: string
+): Promise<QuizResponse> {
+  try {
+    const prompt = `
+      As a GCSE ${subject} expert, evaluate this student's answer:
+      
+      Question: ${question}
+      Correct Answer: ${correctAnswer}
+      Student's Answer: ${userAnswer}
+      Topic: ${topic}
+
+      Provide:
+      1. Whether the answer is correct (true/false)
+      2. Brief, encouraging feedback
+      3. A concise explanation if needed
+
+      Format response as JSON:
+      {
+        "feedback": "string",
+        "isCorrect": boolean,
+        "explanation": "string"
+      }
+    `;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a supportive GCSE teacher providing constructive feedback.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.5,
+      max_tokens: 500,
+      response_format: { type: "json_object" }
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{}');
+    return {
+      feedback: result.feedback || 'No feedback available',
+      isCorrect: result.isCorrect || false,
+      explanation: result.explanation || 'No explanation available'
+    };
+  } catch (error) {
+    console.error('Error checking answer:', error);
+    throw new Error('Failed to check answer. Please try again.');
+  }
+}
