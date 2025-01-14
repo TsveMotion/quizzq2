@@ -3,7 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { ThemeProvider } from "@/components/theme-provider";
 import { UserLayout } from "@/components/dashboard/user-tabs";
-import SuperAdminLayout from "@/components/dashboard/SuperAdmin-Tabs/superadmin-layout";
+
+interface SuperAdminLayoutProps {
+  children: React.ReactNode;
+}
+
+const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({ children }) => {
+  return <div>{children}</div>;
+};
 
 export default async function DashboardLayout({
   children,

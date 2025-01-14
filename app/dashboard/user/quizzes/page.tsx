@@ -23,6 +23,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import type { Quiz, QuizAttempt } from '@/types/quiz';
+import { useRouter } from 'next/navigation';
 
 const YEAR_OPTIONS = [
   { value: 'year7', label: 'Year 7' },
@@ -64,6 +65,8 @@ export default function QuizzesPage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState('medium');
   const [selectedSubject, setSelectedSubject] = useState('mathematics');
   const [questionCount, setQuestionCount] = useState(5);
+
+  const router = useRouter();
 
   useEffect(() => {
     fetchQuizzes();
@@ -280,7 +283,7 @@ export default function QuizzesPage() {
                 <CardFooter>
                   <Button 
                     className="w-full bg-blue-600 hover:bg-blue-700"
-                    onClick={() => window.location.href = `/dashboard/user/quizzes/${quiz.id}`}
+                    onClick={() => window.location.href = `/quiz/${quiz.id}`}
                   >
                     Start Quiz
                   </Button>

@@ -129,7 +129,7 @@ export default function AITutorPage() {
                     )} />
                   </Button>
                 </div>
-                <AIUsageDisplay plan={USER_PLAN} />
+                <AIUsageDisplay plan={USER_PLAN} used={10} />
               </form>
             </div>
           </div>

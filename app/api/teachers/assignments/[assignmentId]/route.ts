@@ -3,6 +3,16 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 import { prisma } from '@/lib/prisma';
 
+interface QuestionSubmission {
+  question: {
+    id: string;
+    question: string;
+    // ... other fields
+  };
+  answer: string;
+  isCorrect: boolean;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: { assignmentId: string } }
@@ -35,6 +45,24 @@ export async function GET(
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
 
+    const submissionsWithAnswers = assignment.submissions.map(sub => ({
+      id: sub.id,
+      studentId: sub.student.id,
+      studentName: sub.student.name,
+      studentEmail: sub.student.email,
+      status: sub.status,
+      score: sub.score,
+      submittedAt: sub.submittedAt,
+      answers: sub.answers.map(ans => ({
+        id: ans.id,
+        questionId: ans.questionId,
+        answer: ans.answer,
+        score: ans.score,
+        feedback: ans.feedback,
+        isCorrect: ans.isCorrect
+      }))
+    }));
+
     return NextResponse.json({
       id: assignment.id,
       title: assignment.title,
@@ -44,23 +72,7 @@ export async function GET(
       totalMarks: assignment.totalMarks,
       className: assignment.class.name,
       questions: assignment.questions,
-      submissions: assignment.submissions.map(sub => ({
-        id: sub.id,
-        studentId: sub.student.id,
-        studentName: sub.student.name,
-        studentEmail: sub.student.email,
-        status: sub.status,
-        score: sub.score,
-        submittedAt: sub.submittedAt,
-        answers: sub.answers.map(ans => ({
-          id: ans.id,
-          questionId: ans.questionId,
-          answer: ans.answer,
-          score: ans.score,
-          feedback: ans.feedback,
-          isCorrect: ans.isCorrect
-        }))
-      }))
+      submissions: submissionsWithAnswers
     });
   } catch (error) {
     console.error('Error fetching assignment:', error);

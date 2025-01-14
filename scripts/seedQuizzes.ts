@@ -1,34 +1,49 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { quizzes } from '../prisma/quizSeed';
 
 const prisma = new PrismaClient();
 
-async function seedQuizzes() {
+async function main() {
+  // First create or find a default user
+  const defaultUser = await prisma.user.findFirst({
+    where: { role: 'ADMIN' }
+  });
+
+  if (!defaultUser) {
+    throw new Error('No admin user found. Please create one first.');
+  }
+
   console.log('Start seeding quizzes...');
   
   for (const quizData of quizzes) {
-    const { questions, ...quizInfo } = quizData;
-    
     try {
-      // Create the quiz
+      // Create the quiz with proper types
       const quiz = await prisma.quiz.create({
         data: {
-          ...quizInfo
+          title: quizData.title,
+          description: quizData.description,
+          topic: quizData.topic,
+          difficulty: quizData.difficulty,
+          isPremium: quizData.isPremium,
+          published: quizData.published,
+          totalQuestions: quizData.totalQuestions,
+          timeLimit: quizData.timeLimit,
+          user: {
+            connect: {
+              id: defaultUser.id
+            }
+          },
+          questions: {
+            create: quizData.questions.map(q => ({
+              question: q.question,
+              options: Array.isArray(q.options) ? q.options : [q.options],
+              correctAnswer: q.correctAnswer,
+              explanation: q.explanation
+            }))
+          }
         }
       });
 
-      // Create questions for the quiz
-      for (const question of questions) {
-        const { options, ...questionData } = question;
-        await prisma.quizQuestion.create({
-          data: {
-            ...questionData,
-            options: options as Prisma.InputJsonValue,
-            quizId: quiz.id
-          }
-        });
-      }
-      
       console.log(`Created quiz: ${quiz.title}`);
     } catch (error) {
       console.error(`Error creating quiz ${quizData.title}:`, error);
@@ -38,9 +53,9 @@ async function seedQuizzes() {
   console.log('Seeding quizzes finished.');
 }
 
-seedQuizzes()
-  .catch((error) => {
-    console.error('Error seeding quizzes:', error);
+main()
+  .catch((e) => {
+    console.error('Error seeding quizzes:', e);
     process.exit(1);
   })
   .finally(async () => {

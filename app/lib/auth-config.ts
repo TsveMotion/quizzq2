@@ -5,6 +5,7 @@ import { compare } from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { JWT } from "next-auth/jwt";
 import { RequestInternal } from "next-auth";
+import { Role } from '@prisma/client';
 
 // Extend the built-in types
 declare module "next-auth" {
@@ -12,7 +13,7 @@ declare module "next-auth" {
     id: string;
     name: string;
     email: string;
-    role: string;
+    role: Role;
     schoolId: string | null;
     emailVerified: Date | null;
     image: string | null;
@@ -21,7 +22,7 @@ declare module "next-auth" {
     proExpiresAt: Date | null;
     proType: string | null;
     powerLevel: number;
-    proStatus: string;
+    proStatus: string | null;
     proPlan: string | null;
     proPlanId: string | null;
     proPlanName: string | null;
@@ -43,14 +44,14 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
-    role: string;
+    role: Role;
     schoolId: string | null;
     isPro: boolean;
     proSubscriptionId: string | null;
     proExpiresAt: Date | null;
     proType: string | null;
     powerLevel: number;
-    proStatus: string;
+    proStatus: string | null;
     proPlan: string | null;
     proPlanId: string | null;
     proPlanName: string | null;
@@ -126,13 +127,14 @@ export const authOptions: NextAuthOptions = {
           throw new Error("No user found with this email");
         }
 
-        const isPasswordValid = await compare(
-          credentials.password,
-          user.password
-        );
+        if (!user?.password) {
+          return null;
+        }
 
-        if (!isPasswordValid) {
-          throw new Error("Invalid password");
+        const isValid = await compare(credentials.password, user.password);
+
+        if (!isValid) {
+          return null;
         }
 
         if (user.status !== 'ACTIVE') {
@@ -153,7 +155,7 @@ export const authOptions: NextAuthOptions = {
           proExpiresAt: user.proExpiresAt,
           proType: user.proType,
           powerLevel: user.powerLevel,
-          proStatus: user.proStatus || 'INACTIVE',
+          proStatus: user.proStatus || null,
           proPlan: user.proPlan,
           proPlanId: user.proPlanId,
           proPlanName: user.proPlanName,
@@ -180,7 +182,7 @@ export const authOptions: NextAuthOptions = {
         token.proExpiresAt = user.proExpiresAt;
         token.proType = user.proType;
         token.powerLevel = user.powerLevel;
-        token.proStatus = user.proStatus || 'INACTIVE';
+        token.proStatus = user.proStatus || null;
         token.proPlan = user.proPlan;
         token.proPlanId = user.proPlanId;
         token.proPlanName = user.proPlanName;
@@ -205,7 +207,7 @@ export const authOptions: NextAuthOptions = {
         session.user.proExpiresAt = token.proExpiresAt;
         session.user.proType = token.proType;
         session.user.powerLevel = token.powerLevel;
-        session.user.proStatus = token.proStatus || 'INACTIVE';
+        session.user.proStatus = token.proStatus || null;
         session.user.proPlan = token.proPlan;
         session.user.proPlanId = token.proPlanId;
         session.user.proPlanName = token.proPlanName;

@@ -39,35 +39,33 @@ export async function GET() {
             id: true,
             question: true,
             options: true,
-            order: true
+            correctAnswer: true,
+            explanation: true,
+            quizId: true
           }
-        },
-        submissions: {
-          where: {
-            userId: user.id
-          },
-          select: {
-            id: true,
-            score: true,
-            completedAt: true
-          }
+        }
+      }
+    });
+
+    // Get quiz submissions separately
+    const quizSubmissions = await prisma.quizSubmission.findMany({
+      where: {
+        userId: session.user.id,
+        quizId: {
+          in: quizzes.map(q => q.id)
         }
       }
     });
 
     // Type the submissions array properly
     const quizzesWithStats = quizzes.map((quiz: any) => {
-      const submissions = quiz.submissions || [];
+      const submissions = quizSubmissions.filter(sub => sub.quizId === quiz.id);
       return {
         ...quiz,
         attempts: submissions.length,
-        averageScore: submissions.length > 0 
-          ? submissions.reduce((a: number, b: { score: number }) => a + (b.score || 0), 0) / submissions.length 
-          : 0,
-        questions: quiz.questions.map((q: any) => ({
-          ...q,
-          correctAnswer: undefined // Hide correct answer
-        }))
+        averageScore: submissions.length > 0
+          ? submissions.reduce((acc: number, sub: any) => acc + sub.score, 0) / submissions.length
+          : 0
       };
     });
 

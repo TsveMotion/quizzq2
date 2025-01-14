@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     }
 
     // Create the assignment
-    const assignment = await prisma.assignment.create({
+    const createdAssignment = await prisma.assignment.create({
       data: {
         title,
         description,
@@ -90,30 +90,28 @@ export async function POST(request: Request) {
       const marks = question.marks || 10; // Default 10 marks per question if not specified
       totalMarks += marks;
       
-      await prisma.question.create({
+      const createdQuestion = await prisma.question.create({
         data: {
-          text: question.text,
-          type: question.type,
+          question: question.text,
           options: question.options,
           correctAnswer: question.correctAnswer,
-          correctAnswerIndex: question.correctAnswerIndex,
-          points: question.points,
-          marks: marks,
-          assignmentId: assignment.id,
-          order: index // Add order based on question index
+          assignmentId: createdAssignment.id,
+          type: question.type || 'MULTIPLE_CHOICE',
+          points: question.points || 10,
+          order: index + 1
         }
       });
     }
 
     // Update assignment with calculated total marks
     await prisma.assignment.update({
-      where: { id: assignment.id },
+      where: { id: createdAssignment.id },
       data: { totalMarks }
     });
 
     return NextResponse.json({
       success: true,
-      data: assignment,
+      data: createdAssignment,
     });
   } catch (error) {
     console.error("[CREATE_ASSIGNMENT]", error);

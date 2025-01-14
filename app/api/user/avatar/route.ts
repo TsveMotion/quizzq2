@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma';
 import { put } from '@vercel/blob';
 import { nanoid } from 'nanoid';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {

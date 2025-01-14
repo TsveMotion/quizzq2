@@ -1,44 +1,12 @@
+'use server';
+
 import { Suspense } from 'react';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
+import { ExtendedUser, ExtendedSchoolWithRelations, ClassWithTeacher } from '@/types';
 import { SchoolAdminDashboard } from '@/components/dashboard/SchoolAdmin-Tabs/SchoolAdminDashboard';
-import { User, School } from "@prisma/client";
-import { SchoolWithRelations, ClassWithTeacher } from '@/components/dashboard/SchoolAdmin-Tabs/types';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth-config';
-
-interface ExtendedUser extends User {
-  status: string;
-  emailVerified: Date | null;
-  powerLevel: number;
-  proStatus: string;
-  proPlan: string | null;
-  proPlanId: string | null;
-  proPlanName: string | null;
-  proPlanPrice: number | null;
-  proPlanCurrency: string | null;
-  proPlanInterval: string | null;
-  proPlanTrialPeriodDays: number | null;
-  proPlanIsActive: boolean;
-  proPlanIsTrial: boolean;
-  proPlanStartedAt: Date | null;
-  proPlanEndedAt: Date | null;
-}
-
-interface ExtendedSchoolWithRelations extends School {
-  users: ExtendedUser[];
-  classes: ClassWithTeacher[];
-  _count: {
-    users: number;
-    classes: number;
-  };
-}
-
-const LoadingSpinner = () => (
-  <div className="flex h-screen w-full items-center justify-center">
-    <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-900 border-t-transparent"></div>
-  </div>
-);
 
 export default async function SchoolAdminPage() {
   const session = await getServerSession(authOptions);
@@ -72,7 +40,7 @@ export default async function SchoolAdminPage() {
       );
     }
 
-    const school = await prisma.school.findUnique({
+    const schoolData = await prisma.school.findUnique({
       where: { id: session.user.schoolId ?? '' },
       include: {
         users: {
@@ -118,81 +86,61 @@ export default async function SchoolAdminPage() {
       }
     });
 
-    if (!school) {
+    if (!schoolData) {
       redirect('/dashboard');
     }
 
-    const teacherCount = school.users.filter((user: any) => user.role.toUpperCase() === 'TEACHER').length;
-    const studentCount = school.users.filter((user: any) => user.role.toUpperCase() === 'STUDENT').length;
+    const teacherCount = schoolData.users.filter((user: any) => user.role.toUpperCase() === 'TEACHER').length;
+    const studentCount = schoolData.users.filter((user: any) => user.role.toUpperCase() === 'STUDENT').length;
 
-    const schoolData: ExtendedSchoolWithRelations = {
-      ...school,
-      users: school?.users.map((user: any) => ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        password: '', // We don't expose the actual password
-        role: user.role,
-        powerLevel: user.powerLevel || 0,
-        status: user.status || 'INACTIVE',
-        emailVerified: user.emailVerified || null,
-        image: user.image || null,
-        schoolId: user.schoolId || null,
-        teacherId: user.teacherId || null,
-        avatar: user.avatar || null,
-        bio: user.bio || null,
-        subjects: user.subjects || [],
-        education: user.education || '',
-        experience: user.experience || '',
-        phoneNumber: user.phoneNumber || '',
-        officeHours: user.officeHours || '',
-        isPro: false,
-        proSubscriptionId: null,
-        proExpiresAt: null,
-        proType: null,
-        proStatus: user.proStatus || 'INACTIVE',
-        proPlan: null,
-        proPlanId: null,
-        proPlanName: null,
-        proPlanPrice: null,
-        proPlanCurrency: null,
-        proPlanInterval: null,
-        proPlanTrialPeriodDays: null,
-        proPlanIsActive: !!user.proPlanIsActive,
-        proPlanIsTrial: !!user.proPlanIsTrial,
-        proPlanStartedAt: null,
-        proPlanEndedAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      })) || [],
-      classes: school?.classes.map((cls: any) => ({
-        id: cls.id,
-        name: cls.name,
-        description: cls.description,
-        schoolId: cls.schoolId,
-        teacherId: cls.teacherId,
-        createdAt: cls.createdAt,
-        updatedAt: cls.updatedAt,
-        teacher: cls.teacher,
-        students: [],
-        classTeachers: [],
-        _count: {
-          assignments: 0,
-          quizzes: 0,
-          students: 0
-        }
-      })) || [],
+    const users = schoolData.users.map((user: any) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status || 'INACTIVE',
+      powerLevel: user.powerLevel || 0,
+      emailVerified: user.emailVerified || null,
+      image: user.image || null,
+      schoolId: user.schoolId || null,
+      teacherId: user.teacherId || null,
+      avatar: user.avatar || null,
+      bio: user.bio || null,
+      subjects: user.subjects || [],
+      education: user.education || '',
+      experience: user.experience || '',
+      phoneNumber: user.phoneNumber || '',
+      officeHours: user.officeHours || '',
+      isPro: user.isPro || false,
+      subscriptionStatus: user.proStatus || 'inactive',
+      subscriptionPlan: user.proPlan || 'free',
+      subscriptionId: user.proSubscriptionId || null,
+      subscriptionEndDate: user.proExpiresAt || null
+    })) as ExtendedUser[];
+
+    const classes = schoolData.classes.map((cls: any) => ({
+      ...cls,
+      students: [],
       _count: {
-        users: school?._count?.users || 0,
-        classes: school?._count?.classes || 0
-      },
+        assignments: 0,
+        quizzes: 0,
+        students: 0
+      }
+    })) as ClassWithTeacher[];
+
+    const schoolWithUsers: ExtendedSchoolWithRelations = {
+      ...schoolData,
+      users,
+      classes,
+      _count: {
+        users: schoolData._count?.users || 0,
+        classes: schoolData._count?.classes || 0
+      }
     };
 
     return (
-      <Suspense fallback={<LoadingSpinner />}>
-        <div className="min-h-screen bg-background">
-          <SchoolAdminDashboard school={schoolData} />
-        </div>
+      <Suspense fallback={<div>Loading...</div>}>
+        <SchoolAdminDashboard school={schoolWithUsers} />
       </Suspense>
     );
 

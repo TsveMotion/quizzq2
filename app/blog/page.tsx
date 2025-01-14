@@ -22,7 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import cn from 'classnames';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 interface BlogPost {
   id: string;
@@ -46,6 +46,12 @@ interface ChatMessage {
   createdAt: Date;
   likes: number;
   replyTo?: string;
+}
+
+interface CreatePostModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
 }
 
 const generateAuthorHash = () => {
@@ -292,9 +298,7 @@ export default function BlogPage() {
                               </CardTitle>
                               <CardDescription className="text-indigo-200/70">
                                 {post.author.name} •{' '}
-                                {formatDistanceToNow(new Date(post.createdAt), {
-                                  addSuffix: true,
-                                })}
+                                {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
                               </CardDescription>
                             </div>
                           </div>
@@ -408,9 +412,7 @@ export default function BlogPage() {
                                 Anonymous_{message.authorHash.slice(0, 6)}
                               </span>
                               <span className="text-xs text-indigo-200/70">
-                                {formatDistanceToNow(new Date(message.createdAt), {
-                                  addSuffix: true,
-                                })}
+                                {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
                               </span>
                             </div>
                             <p className="text-indigo-100/90">{message.content}</p>

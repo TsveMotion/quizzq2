@@ -3,6 +3,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import { compare } from "bcrypt";
+import { Role } from '@prisma/client';
 
 export const authOptions: NextAuthOptions = {
   pages: {
@@ -62,12 +63,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error("No user found with this email");
         }
 
-        const isPasswordValid = await compare(
+        if (!user?.password) {
+          throw new Error('Invalid credentials');
+        }
+
+        const isValidPassword = await compare(
           credentials.password,
           user.password
         );
 
-        if (!isPasswordValid) {
+        if (!isValidPassword) {
           throw new Error("Invalid password");
         }
 
@@ -133,7 +138,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.email = token.email as string;
         session.user.name = token.name as string;
-        session.user.role = token.role as string;
+        session.user.role = token.role as Role;
         session.user.schoolId = token.schoolId as string | null;
         session.user.isPro = token.isPro as boolean;
         session.user.proSubscriptionId = token.proSubscriptionId as string | null;

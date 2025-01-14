@@ -38,7 +38,7 @@ export function UserManagement() {
                 <Badge>TEACHER</Badge>
               </TableCell>
               <TableCell>
-                <Badge variant="success">Active</Badge>
+                <Badge variant="default">Active</Badge>
               </TableCell>
               <TableCell>
                 <Badge variant="secondary">Pro</Badge>

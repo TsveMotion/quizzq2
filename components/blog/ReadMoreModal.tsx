@@ -32,6 +32,8 @@ interface ReadMoreModalProps {
 }
 
 export default function ReadMoreModal({ post, isOpen, onClose }: ReadMoreModalProps) {
+  const timeAgo = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl bg-[#0A0118] border-indigo-500/20">
@@ -49,7 +51,7 @@ export default function ReadMoreModal({ post, isOpen, onClose }: ReadMoreModalPr
           <div>
             <p className="text-sm font-medium text-indigo-300">{post.author.name}</p>
             <p className="text-xs text-slate-400">
-              {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+              {timeAgo}
             </p>
           </div>
         </div>

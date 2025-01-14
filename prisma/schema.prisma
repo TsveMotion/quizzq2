@@ -12,6 +12,9 @@ enum Role {
   TEACHER
   ADMIN
   SUPERADMIN
+  STUDENT
+  SCHOOLADMIN
+  PROUSER
 }
 
 model User {
@@ -40,6 +43,24 @@ model User {
   subscriptionId     String?
   subscriptionEndDate DateTime?
   
+  // Pro subscription fields
+  isPro             Boolean            @default(false)
+  proSubscriptionId String?
+  proExpiresAt      DateTime?
+  proType           String?
+  proStatus         String?            @default("INACTIVE")
+  proPlan           String?
+  proPlanId         String?
+  proPlanName       String?
+  proPlanPrice      Float?
+  proPlanCurrency   String?
+  proPlanInterval   String?
+  proPlanTrialPeriodDays Int?
+  proPlanIsActive   Boolean            @default(false)
+  proPlanIsTrial    Boolean            @default(false)
+  proPlanStartedAt  DateTime?
+  proPlanEndedAt    DateTime?
+  
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @default(now()) @updatedAt
   accounts        Account[]
@@ -60,6 +81,7 @@ model User {
   likedPosts      BlogPostLike[]       // Added for blog functionality
   quizzes         AIQuiz[]             // Added for quiz functionality
   quizAttempts    AIQuizAttempt[]      // Added for quiz attempts
+  createdQuizzes  Quiz[]               // Added for user-created quizzes
 
   @@index([schoolId])
   @@index([teacherId])
@@ -203,14 +225,15 @@ model QuestionSubmission {
   id           String   @id @default(cuid())
   questionId   String
   submissionId String
-  answer       String?
+  answer       String
   score        Float?
   feedback     String?
+  isCorrect    Boolean  @default(false)
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  updatedAt    DateTime @updatedAt
   
-  question     Question           @relation(fields: [questionId], references: [id])
-  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id])
+  question    Question          @relation(fields: [questionId], references: [id])
+  submission  HomeworkSubmission @relation(fields: [submissionId], references: [id])
 
   @@index([questionId])
   @@index([submissionId])
@@ -402,6 +425,39 @@ model AIQuizAnswer {
 
   @@index([questionId])
   @@index([submissionId])
+}
+
+model Quiz {
+  id             String        @id @default(cuid())
+  userId         String
+  title          String
+  topic          String
+  difficulty     String
+  timeLimit      Int          @default(30)
+  isPremium      Boolean      @default(false)
+  published      Boolean      @default(false)
+  totalQuestions Int
+  description    String?
+  questions      QuizQuestion[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  user           User         @relation(fields: [userId], references: [id])
+  score          Float?
+  order          Int?
+
+  @@index([userId])
+}
+
+model QuizQuestion {
+  id            String   @id @default(cuid())
+  question      String
+  options       String[]
+  correctAnswer String
+  explanation   String?
+  quizId        String
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([quizId])
 }
 
 model BlogPost {

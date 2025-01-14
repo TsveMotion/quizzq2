@@ -1,140 +1,113 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface Question {
   id: string;
   question: string;
   options: string[];
-  order: number;
+  correctAnswer: string;
 }
 
 interface Quiz {
   id: string;
   title: string;
-  description: string;
-  timeLimit: number;
+  topic: string;
+  difficulty: string;
   questions: Question[];
 }
 
-export default function QuizPage({ params }: { params: { id: string } }) {
+export default function QuizPage() {
+  const params = useParams();
   const router = useRouter();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<{[key: string]: string}>({});
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchQuiz = async () => {
+      if (!params?.id) {
+        return null;
+      }
+
       try {
         const response = await fetch(`/api/quiz/${params.id}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch quiz');
-        }
+        if (!response.ok) throw new Error('Failed to fetch quiz');
         const data = await response.json();
         setQuiz(data);
-        setTimeLeft(data.timeLimit * 60); // Convert minutes to seconds
-        setIsLoading(false);
       } catch (error) {
         console.error('Error fetching quiz:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load quiz. Please try again.',
-          variant: 'destructive',
-        });
-        router.push('/dashboard');
+        toast.error('Failed to load quiz');
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchQuiz();
-  }, [params.id, router, toast]);
+  }, [params?.id]);
 
-  useEffect(() => {
-    if (!quiz || timeLeft <= 0) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [quiz, timeLeft]);
-
-  const handleAnswerSelect = (questionId: string, answer: string) => {
-    setAnswers((prev) => ({
+  const handleAnswer = (answer: string) => {
+    if (!quiz) return;
+    setAnswers(prev => ({
       ...prev,
-      [questionId]: answer,
+      [quiz.questions[currentQuestionIndex].id]: answer
     }));
   };
 
   const handleNext = () => {
-    if (currentQuestionIndex < (quiz?.questions.length || 0) - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
+    if (!quiz) return;
+    if (currentQuestionIndex < quiz.questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
+      setCurrentQuestionIndex(prev => prev - 1);
     }
   };
 
   const handleSubmit = async () => {
     if (!quiz) return;
-
+    
     try {
       const response = await fetch(`/api/quiz/${quiz.id}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          answers,
-          timeLeft,
-        }),
+        body: JSON.stringify({ answers }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to submit quiz');
-      }
-
+      if (!response.ok) throw new Error('Failed to submit quiz');
+      
       router.push(`/quiz/${quiz.id}/result`);
     } catch (error) {
       console.error('Error submitting quiz:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to submit quiz. Please try again.',
-        variant: 'destructive',
-      });
+      toast.error('Failed to submit quiz');
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      <div className="flex justify-center items-center min-h-screen bg-background text-foreground">
+        Loading...
       </div>
     );
   }
 
   if (!quiz) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-4">Quiz not found</h1>
-        <Button onClick={() => router.push('/dashboard')}>Back to Dashboard</Button>
+      <div className="flex justify-center items-center min-h-screen bg-background text-foreground">
+        Quiz not found
       </div>
     );
   }
@@ -143,52 +116,74 @@ export default function QuizPage({ params }: { params: { id: string } }) {
   const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
 
   return (
-    <div className="flex min-h-screen flex-col overflow-auto">
-      <Card className="p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-2">{quiz.title}</h1>
-          <p className="text-gray-600 mb-4">{quiz.description}</p>
-          <div className="flex justify-between items-center mb-4">
-            <span>Question {currentQuestionIndex + 1} of {quiz.questions.length}</span>
-            <span>Time Left: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span>
-          </div>
-          <Progress value={progress} className="w-full" />
-        </div>
-
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold mb-4">{currentQuestion.question}</h2>
-          <div className="space-y-4">
-            {currentQuestion.options.map((option, index) => (
-              <div
-                key={index}
-                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                  answers[currentQuestion.id] === option
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-gray-100'
-                }`}
-                onClick={() => handleAnswerSelect(currentQuestion.id, option)}
+    <div className="container mx-auto py-8 px-4 min-h-screen bg-background text-foreground">
+      <div className="max-w-3xl mx-auto">
+        <Card className="mb-8 border-primary/20">
+          <CardHeader className="border-b border-primary/10">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-2xl font-bold text-primary">{quiz.title}</h1>
+              <span className="text-sm text-muted-foreground">
+                Question {currentQuestionIndex + 1} of {quiz.questions.length}
+              </span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </CardHeader>
+          
+          <CardContent className="pt-6">
+            <div className="mb-6">
+              <h2 className="text-xl mb-4">{currentQuestion.question}</h2>
+              <RadioGroup
+                value={answers[currentQuestion.id] || ''}
+                onValueChange={handleAnswer}
+                className="space-y-3"
               >
-                {option}
-              </div>
-            ))}
-          </div>
-        </div>
+                {currentQuestion.options.map((option, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <RadioGroupItem
+                      value={option}
+                      id={`option-${index}`}
+                      className="border-primary"
+                    />
+                    <Label
+                      htmlFor={`option-${index}`}
+                      className="text-foreground cursor-pointer"
+                    >
+                      {option}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          </CardContent>
 
-        <div className="flex justify-between">
-          <Button
-            onClick={handlePrevious}
-            disabled={currentQuestionIndex === 0}
-            variant="outline"
-          >
-            Previous
-          </Button>
-          {currentQuestionIndex === quiz.questions.length - 1 ? (
-            <Button onClick={handleSubmit}>Submit Quiz</Button>
-          ) : (
-            <Button onClick={handleNext}>Next</Button>
-          )}
-        </div>
-      </Card>
+          <CardFooter className="flex justify-between border-t border-primary/10 pt-4">
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentQuestionIndex === 0}
+            >
+              Previous
+            </Button>
+            {currentQuestionIndex === quiz.questions.length - 1 ? (
+              <Button
+                onClick={handleSubmit}
+                disabled={!answers[currentQuestion.id]}
+                className="bg-primary hover:bg-primary/90"
+              >
+                Submit Quiz
+              </Button>
+            ) : (
+              <Button
+                onClick={handleNext}
+                disabled={!answers[currentQuestion.id]}
+                variant="default"
+              >
+                Next
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }

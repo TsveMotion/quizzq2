@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { User2, Mail, BookOpen, Crown } from "lucide-react";
+import { Role } from '@prisma/client';
 
 export function ProfileTab() {
   const { data: session } = useSession();
@@ -92,7 +93,7 @@ export function ProfileTab() {
                 <span>Subscription</span>
               </div>
               <span className="text-purple-400 font-medium">
-                {session?.user?.role === 'pro' ? 'Pro' : 'Free'}
+                {session?.user?.role === Role.PROUSER ? 'Pro' : 'Free'}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#2a2b2e]/50">

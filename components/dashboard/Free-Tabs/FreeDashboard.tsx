@@ -23,6 +23,7 @@ import { FreeOverviewTab } from "./FreeOverviewTab";
 import { FreeQuizzesTab } from "./FreeQuizzesTab";
 import { FreeProfileTab } from "./FreeProfileTab";
 import { useSession } from "next-auth/react";
+import { Role } from '@prisma/client';
 
 interface NavItem {
   title: string;
@@ -91,7 +92,7 @@ export function FreeDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const router = useRouter();
   const { data: session } = useSession();
-  const isPro = session?.user?.role === 'PRO';
+  const isPro = session?.user?.role === Role.PROUSER;
 
   const handleSignOut = async () => {
     await signOut({ redirect: true, callbackUrl: "/" });

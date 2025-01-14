@@ -1,162 +1,136 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { toast } from "sonner";
-
-interface QuestionResult {
-  id: string;
-  question: string;
-  userAnswer: string;
-  correctAnswer: string;
-  explanation: string;
-  isCorrect: boolean;
-  order: number;
-}
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { XCircle } from 'lucide-react';
 
 interface QuizResult {
-  id: string;
-  title: string;
-  subject: string;
-  topic: string;
-  difficulty: string;
+  quizId: string;
   score: number;
+  completedAt: string;
   totalQuestions: number;
   correctAnswers: number;
-  timeTaken: number;
-  questions: QuestionResult[];
+  questions: {
+    question: string;
+    correctAnswer: string;
+    userAnswer: string;
+    isCorrect: boolean;
+    explanation: string;
+  }[];
 }
 
-export default function QuizResultPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export default function QuizResultPage() {
+  const params = useParams();
   const [result, setResult] = useState<QuizResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!params?.id) {
+      return;
+    }
+
     const fetchResult = async () => {
       try {
         const response = await fetch(`/api/quiz/${params.id}/result`);
-        if (!response.ok) throw new Error('Failed to fetch quiz result');
+        if (!response.ok) {
+          throw new Error('Failed to fetch quiz result');
+        }
         const data = await response.json();
         setResult(data);
-      } catch (error) {
-        console.error('Error fetching quiz result:', error);
-        toast.error('Failed to load quiz result');
-        router.push('/dashboard');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
       }
     };
 
     fetchResult();
-  }, [params.id, router]);
+  }, [params?.id]);
 
   if (loading) {
+    return <div className="flex justify-center items-center min-h-screen bg-[#0d0d1f] text-white">Loading...</div>;
+  }
+
+  if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-[#0d0d1f] text-white">
+        <p className="text-red-500">{error}</p>
+        <Link href="/dashboard/user/quizzes">
+          <Button className="bg-[#3b82f6] hover:bg-[#2563eb] text-white">Back to Quizzes</Button>
+        </Link>
       </div>
     );
   }
 
   if (!result) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-red-500">Result not found</p>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-[#0d0d1f] text-white">
+        <p>No result found</p>
+        <Link href="/dashboard/user/quizzes">
+          <Button className="bg-[#3b82f6] hover:bg-[#2563eb] text-white">Back to Quizzes</Button>
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
-      <Card className="p-8 bg-gray-900/40 border-white/10 mb-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Quiz Complete!</h1>
-          <p className="text-gray-400 mb-6">{result.title}</p>
-          <div className="flex justify-center gap-2 mb-6">
-            <Badge>{result.subject}</Badge>
-            <Badge variant="secondary">{result.topic}</Badge>
-            <Badge variant={result.difficulty === 'EASY' ? 'default' : result.difficulty === 'MEDIUM' ? 'secondary' : 'destructive'}>
-              {result.difficulty}
-            </Badge>
-          </div>
-          <div className="grid grid-cols-3 gap-4 max-w-md mx-auto">
-            <div className="p-4 bg-white/5 rounded-lg">
-              <div className="text-2xl font-bold mb-1">{result.score}%</div>
-              <div className="text-sm text-gray-400">Score</div>
-            </div>
-            <div className="p-4 bg-white/5 rounded-lg">
-              <div className="text-2xl font-bold mb-1">{result.correctAnswers}/{result.totalQuestions}</div>
-              <div className="text-sm text-gray-400">Correct</div>
-            </div>
-            <div className="p-4 bg-white/5 rounded-lg">
-              <div className="text-2xl font-bold mb-1">{Math.floor(result.timeTaken / 60)}:{(result.timeTaken % 60).toString().padStart(2, '0')}</div>
-              <div className="text-sm text-gray-400">Time</div>
-            </div>
+    <div className="min-h-screen bg-[#0d0d1f] text-white p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-[#111827] rounded-lg p-8 mb-8">
+          <h1 className="text-2xl font-bold text-center text-[#3b82f6] mb-6">Quiz Results</h1>
+          <div className="text-center">
+            <p className="text-6xl font-bold text-[#3b82f6] mb-2">{result.score}%</p>
+            <p className="text-gray-400">
+              {result.correctAnswers} correct out of {result.totalQuestions} questions
+            </p>
           </div>
         </div>
 
         <div className="space-y-6">
-          {result.questions.map((question, index) => (
-            <Card key={question.id} className="p-6 bg-white/5 border-white/10">
+          {result.questions.map((q, index) => (
+            <div key={index} className="bg-[#111827] rounded-lg p-6">
               <div className="flex items-start gap-4">
-                <div className="mt-1">
-                  {question.isCorrect ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  )}
-                </div>
+                {!q.isCorrect && (
+                  <XCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-1" />
+                )}
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold mb-4">
-                    {index + 1}. {question.question}
-                  </h3>
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-400">Your answer:</span>
-                      <span className={question.isCorrect ? 'text-green-500' : 'text-red-500'}>
-                        {question.userAnswer}
+                  <h3 className="text-white mb-4">Question {index + 1}</h3>
+                  <p className="text-white mb-4">{q.question}</p>
+                  <div className="space-y-2">
+                    <p>
+                      <span className="text-gray-400">Your answer: </span>
+                      <span className={q.isCorrect ? 'text-green-500' : 'text-red-500'}>
+                        {q.userAnswer}
                       </span>
-                    </div>
-                    {!question.isCorrect && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-400">Correct answer:</span>
-                        <span className="text-green-500">{question.correctAnswer}</span>
-                      </div>
+                    </p>
+                    {!q.isCorrect && (
+                      <p>
+                        <span className="text-gray-400">Correct answer: </span>
+                        <span className="text-green-500">{q.correctAnswer}</span>
+                      </p>
                     )}
-                  </div>
-                  {question.explanation && (
-                    <div className="bg-white/5 p-4 rounded-md">
-                      <div className="text-sm text-gray-400 mb-1">Explanation:</div>
-                      <div className="text-sm">{question.explanation}</div>
+                    <div className="mt-4">
+                      <p className="text-[#3b82f6] mb-2">Explanation:</p>
+                      <p className="text-gray-400 bg-[#1a2234] p-4 rounded">
+                        {q.explanation}
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
-      </Card>
 
-      <div className="flex justify-center gap-4">
-        <Button
-          variant="outline"
-          onClick={() => router.push('/dashboard')}
-          className="bg-white/10 border-white/10 hover:bg-white/20"
-        >
-          Back to Dashboard
-        </Button>
-        <Button
-          onClick={() => router.push(`/quiz/${result.id}`)}
-          className="bg-primary hover:bg-primary/90"
-        >
-          Retake Quiz
-        </Button>
+        <div className="mt-8 flex justify-center">
+          <Link href="/dashboard/user/quizzes">
+            <Button className="bg-[#3b82f6] hover:bg-[#2563eb] text-white">Back to Quizzes</Button>
+          </Link>
+        </div>
       </div>
     </div>
   );

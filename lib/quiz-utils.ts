@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma';
+import prisma from './prisma';
 
 export async function getQuizGenerationCount(userId: string): Promise<number> {
   // Get today's date range

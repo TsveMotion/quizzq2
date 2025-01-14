@@ -2,7 +2,28 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const quizzes = [
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
+  order: number;
+}
+
+interface Quiz {
+  title: string;
+  description: string;
+  subject: string;
+  topic: string;
+  difficulty: string;
+  isPremium: boolean;
+  published: boolean;
+  totalQuestions: number;
+  timeLimit: number;
+  questions: QuizQuestion[];
+}
+
+export const quizzes: Quiz[] = [
   // English Language
   {
     title: "Grammar Fundamentals",
@@ -255,28 +276,41 @@ export const quizzes = [
   }
 ];
 
-async function seedQuizzes() {
-  console.log('Start seeding quizzes...');
-  
-  for (const quizData of quizzes) {
-    const { questions, ...quizInfo } = quizData;
-    
+async function main() {
+  // First, get or create the admin user
+  const adminUser = await prisma.user.findFirst({
+    where: {
+      role: 'ADMIN'
+    }
+  });
+
+  if (!adminUser) {
+    throw new Error('Admin user not found. Please run setup-db.ts first.');
+  }
+
+  for (const quizInfo of quizzes) {
+    const { questions, ...quizData } = quizInfo;
     const quiz = await prisma.quiz.create({
       data: {
-        ...quizInfo,
+        ...quizData,
+        user: {
+          connect: {
+            id: adminUser.id
+          }
+        },
         questions: {
           create: questions.map(q => ({
-            ...q,
-            options: JSON.stringify(q.options)
+            question: q.question,
+            options: Array.isArray(q.options) ? q.options : [q.options],
+            correctAnswer: q.correctAnswer,
+            explanation: q.explanation,
+            order: q.order
           }))
         }
       }
     });
-    
-    console.log(`Created quiz with id: ${quiz.id}`);
+    console.log(`Created quiz: ${quiz.title}`);
   }
-  
-  console.log('Seeding quizzes finished.');
 }
 
-export { seedQuizzes };
+export { main };

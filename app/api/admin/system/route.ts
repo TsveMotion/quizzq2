@@ -3,12 +3,13 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth-config';
 import { prisma } from "@/lib/prisma";
 import { cookies } from 'next/headers';
+import { Role } from '@prisma/client';
 
 // GET /api/admin/system - Get system settings
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'superadmin') {
+    if (!session?.user || session.user.role !== Role.SUPERADMIN) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'superadmin') {
+    if (!session?.user || session.user.role !== Role.SUPERADMIN) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

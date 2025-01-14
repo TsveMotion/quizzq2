@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { OpenAI } from 'openai';
 import { getQuizGenerationCount } from '@/lib/quiz-utils';
 
 export async function GET() {
@@ -78,21 +79,20 @@ export async function POST() {
     }
 
     // Generate quiz using OpenAI
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4",
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+    const systemPrompt = "You are a quiz generator. Create a quiz with 5 multiple-choice questions. The response should be in JSON format with the following structure: { title: string, topic: string, questions: Array<{ question: string, options: string[], correctAnswer: string, explanation: string }> }";
+    const prompt = "Generate a quiz about a random interesting topic.";
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
       messages: [
-        {
-          role: "system",
-          content: "You are a quiz generator. Create a quiz with 5 multiple-choice questions. The response should be in JSON format with the following structure: { title: string, topic: string, questions: Array<{ question: string, options: string[], correctAnswer: string, explanation: string }> }"
-        },
-        {
-          role: "user",
-          content: "Generate a quiz about a random interesting topic."
-        }
-      ],
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt }
+      ]
     });
 
-    const quizData = JSON.parse(completion.data.choices[0].message?.content || '{}');
+    const quizData = JSON.parse(completion.choices[0].message?.content || '{}');
 
     // Save quiz to database
     const quiz = await prisma.aIQuiz.create({

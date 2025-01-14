@@ -61,12 +61,18 @@ export function ClassesTab() {
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   useEffect(() => {
-    if (session?.user?.schoolId) {
-      fetchData(session.user.schoolId);
+    if (!session?.user?.schoolId) {
+      console.error('No school ID in session');
+      return;
     }
-  }, [session]);
+    fetchData(session.user.schoolId);
+  }, [session?.user?.schoolId]);
 
-  const fetchData = async (schoolId: string) => {
+  const fetchData = async (schoolId: string | null | undefined) => {
+    if (!schoolId) {
+      console.error('No school ID provided');
+      return;
+    }
     try {
       const [classesRes, teachersRes, studentsRes] = await Promise.all([
         fetch(`/api/schools/${schoolId}/classes`),
@@ -140,6 +146,10 @@ export function ClassesTab() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
+  }
+
+  if (!session?.user?.schoolId) {
+    return;
   }
 
   return (
@@ -281,7 +291,7 @@ export function ClassesTab() {
           setIsModalOpen(false);
           fetchData(session.user.schoolId);
         }}
-        schoolId={session.user.schoolId}
+        schoolId={session?.user?.schoolId || ''}
         teachers={teachers}
       />
     </div>

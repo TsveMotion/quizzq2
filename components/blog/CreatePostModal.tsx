@@ -18,9 +18,10 @@ import { toast } from 'sonner';
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
+export default function CreatePostModal({ isOpen, onClose, onSuccess }: CreatePostModalProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState('');
@@ -67,6 +68,9 @@ export default function CreatePostModal({ isOpen, onClose }: CreatePostModalProp
       toast.success('Post created successfully!');
       onClose();
       router.refresh();
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Error creating post:', error);
       toast.error('Failed to create post');

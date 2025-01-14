@@ -45,7 +45,8 @@ export async function POST(request: Request) {
         {
           "question": "Question text",
           "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-          "correctAnswer": "Correct option text"
+          "correctAnswer": "Correct option text",
+          "explanation": "Detailed explanation of why this answer is correct and why other options are incorrect"
         }
       ]
     }`;
@@ -56,7 +57,11 @@ export async function POST(request: Request) {
       response_format: { type: "json_object" },
     });
 
-    const quizData = JSON.parse(completion.choices[0].message.content);
+    const content = completion.choices[0].message.content;
+    if (!content) {
+      return NextResponse.json({ error: 'No content generated' }, { status: 500 });
+    }
+    const quizData = JSON.parse(content);
 
     // Create quiz in database
     const quiz = await prisma.aIQuiz.create({
@@ -70,6 +75,7 @@ export async function POST(request: Request) {
             question: q.question,
             options: q.options,
             correctAnswer: q.correctAnswer,
+            explanation: q.explanation
           })),
         },
       },

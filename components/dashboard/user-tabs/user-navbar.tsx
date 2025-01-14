@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { PricingModal } from "@/components/stripe/PricingModal";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Session } from "next-auth";
+import { Role } from '@prisma/client';
 
 const routes = [
   {
@@ -133,7 +134,7 @@ export default function UserNavbar({ initialSession }: UserNavbarProps) {
                 </Button>
               </Link>
             ))}
-            {currentSession?.user?.role !== 'pro' && (
+            {currentSession?.user?.role !== Role.PROUSER && (
               <Button
                 variant="ghost"
                 className="w-full justify-start gap-2 px-3 py-2 text-purple-300 hover:text-purple-200 hover:bg-purple-500/20 transition-colors"
@@ -178,7 +179,7 @@ export default function UserNavbar({ initialSession }: UserNavbarProps) {
               </Button>
             </Link>
           ))}
-          {currentSession?.user?.role !== 'pro' && (
+          {currentSession?.user?.role !== Role.PROUSER && (
             <Button
               variant="ghost"
               className="w-full justify-start gap-2 px-3 py-2 text-purple-300 hover:text-purple-200 hover:bg-purple-500/20 transition-colors"

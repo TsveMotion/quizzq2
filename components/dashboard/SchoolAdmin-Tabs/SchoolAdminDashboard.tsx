@@ -24,8 +24,13 @@ import { ClassesTab } from "./ClassesTab";
 import { CalendarTab } from "./CalendarTab";
 import { ReportsTab } from "./ReportsTab";
 import { SettingsTab } from "./SettingsTab";
+import { ExtendedSchoolWithRelations } from '@/types';
 
-export function SchoolAdminDashboard() {
+interface SchoolAdminDashboardProps {
+  school: ExtendedSchoolWithRelations;
+}
+
+export function SchoolAdminDashboard({ school }: SchoolAdminDashboardProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 

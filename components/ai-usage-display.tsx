@@ -1,56 +1,38 @@
-import { Progress } from "@/components/ui/progress";
-import { useAIUsage } from "@/hooks/use-ai-usage";
-import { useEffect } from "react";
+import React from 'react';
+import { Progress } from '@/components/ui/progress';
+
+type Limit = {
+  value: number;
+  label: string;
+};
 
 interface AIUsageDisplayProps {
+  used: number;
   plan: 'free' | 'pro' | 'forever';
 }
 
-export function AIUsageDisplay({ plan }: AIUsageDisplayProps) {
-  const { dailyUsage, monthlyUsage, lifetimeUsage, resetDailyUsage, resetMonthlyUsage } = useAIUsage();
+const limits: Record<string, Limit> = {
+  free: { value: 10, label: 'daily' },
+  pro: { value: 1000, label: 'monthly' },
+  forever: { value: Infinity, label: 'unlimited' }
+};
 
-  const limits = {
-    free: { daily: 10, label: 'Daily Usage' },
-    pro: { monthly: 1000, label: 'Monthly Usage' },
-    forever: { lifetime: 10000, label: 'Lifetime Usage' }
-  };
-
-  const currentLimit = limits[plan];
-  const usage = plan === 'free' ? dailyUsage : 
-                plan === 'pro' ? monthlyUsage : 
-                lifetimeUsage;
-  const max = plan === 'free' ? currentLimit.daily : 
-              plan === 'pro' ? currentLimit.monthly : 
-              currentLimit.lifetime;
-
-  useEffect(() => {
-    // Check if we need to reset daily usage
-    const now = new Date();
-    const lastReset = new Date(useAIUsage.getState().lastResetDate);
-    if (now.getDate() !== lastReset.getDate()) {
-      resetDailyUsage();
-    }
-
-    // Check if we need to reset monthly usage
-    if (now.getMonth() !== lastReset.getMonth()) {
-      resetMonthlyUsage();
-    }
-  }, [resetDailyUsage, resetMonthlyUsage]);
-
-  const percentage = (usage / max) * 100;
+export const AIUsageDisplay: React.FC<AIUsageDisplayProps> = ({ used, plan }) => {
+  const limit = limits[plan];
+  const percentage = limit.value === Infinity ? 0 : (used / limit.value) * 100;
 
   return (
-    <div className="space-y-2">
-      <div className="flex justify-between text-sm">
-        <span className="text-white/70">{currentLimit.label}</span>
-        <span className="text-white font-medium">
-          {usage} / {max} {plan === 'forever' ? 'Lifetime' : plan === 'pro' ? 'Monthly' : 'Daily'}
+    <div className="w-full">
+      <div className="flex justify-between mb-2">
+        <span className="text-sm text-gray-500">
+          {used} / {limit.value === Infinity ? '∞' : limit.value} {limit.label} credits used
         </span>
+        <span className="text-sm text-gray-500">{Math.round(percentage)}%</span>
       </div>
-      <Progress value={percentage} className="h-2" 
-        indicatorClassName={percentage >= 90 ? 'bg-red-500' : 
-                           percentage >= 70 ? 'bg-yellow-500' : 
-                           'bg-green-500'} />
+      <Progress
+        value={percentage}
+        className={percentage >= 90 ? 'bg-red-200' : 'bg-gray-200'}
+      />
     </div>
   );
-}
+};
