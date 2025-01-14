@@ -10,6 +10,46 @@ interface ExtendedUser extends User {
   proPlanEndedAt: Date | null;
 }
 
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      schoolId: string | null;
+      isPro: boolean;
+      proSubscriptionId: string | null;
+      proExpiresAt: Date | null;
+      proType: string | null;
+      powerLevel: number;
+      proStatus: string;
+      proPlan: string | null;
+      emailVerified: Date | null;
+      image: string | null;
+    }
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    schoolId: string | null;
+    isPro: boolean;
+    proSubscriptionId: string | null;
+    proExpiresAt: Date | null;
+    proType: string | null;
+    powerLevel: number;
+    proStatus: string;
+    proPlan: string | null;
+    emailVerified: Date | null;
+    image: string | null;
+  }
+}
+
 export const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
@@ -49,45 +89,34 @@ export const authOptions: AuthOptions = {
               proPlanInterval: true,
               proPlanTrialPeriodDays: true,
               proPlanIsActive: true,
-              proPlanIsTrial: true,
-              proPlanStartedAt: true,
-              proPlanEndedAt: true
             }
           });
 
-          if (!user) {
+          if (!user || !user.password) {
             return null;
           }
 
-          const isPasswordValid = await compare(credentials.password, user.password);
+          const isValidPassword = await compare(credentials.password, user.password);
 
-          if (!isPasswordValid) {
+          if (!isValidPassword) {
             return null;
           }
 
           return {
-            ...user,
-            role: user.role || 'USER',
-            schoolId: user.schoolId || null,
-            emailVerified: user.emailVerified || null,
-            image: user.image || null,
-            isPro: user.isPro || false,
-            proSubscriptionId: user.proSubscriptionId || null,
-            proExpiresAt: user.proExpiresAt || null,
-            proType: user.proType || null,
-            powerLevel: user.powerLevel || 0,
-            proStatus: user.proStatus || 'INACTIVE',
-            proPlan: user.proPlan || null,
-            proPlanId: user.proPlanId || null,
-            proPlanName: user.proPlanName || null,
-            proPlanPrice: user.proPlanPrice || null,
-            proPlanCurrency: user.proPlanCurrency || null,
-            proPlanInterval: user.proPlanInterval || null,
-            proPlanTrialPeriodDays: user.proPlanTrialPeriodDays || null,
-            proPlanIsActive: user.proPlanIsActive || false,
-            proPlanIsTrial: user.proPlanIsTrial || false,
-            proPlanStartedAt: user.proPlanStartedAt || null,
-            proPlanEndedAt: user.proPlanEndedAt || null
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            schoolId: user.schoolId,
+            emailVerified: user.emailVerified,
+            image: user.image,
+            isPro: user.isPro,
+            proSubscriptionId: user.proSubscriptionId,
+            proExpiresAt: user.proExpiresAt,
+            proType: user.proType,
+            powerLevel: user.powerLevel,
+            proStatus: user.proStatus,
+            proPlan: user.proPlan,
           };
         } catch (error) {
           return null;
@@ -117,20 +146,20 @@ export const authOptions: AuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id as string;
-        session.user.email = token.email as string;
-        session.user.name = token.name as string;
-        session.user.role = token.role as string;
-        session.user.schoolId = token.schoolId as string | null;
-        session.user.isPro = token.isPro as boolean;
-        session.user.proSubscriptionId = token.proSubscriptionId as string | null;
-        session.user.proExpiresAt = token.proExpiresAt as Date | null;
-        session.user.proType = token.proType as string | null;
-        session.user.powerLevel = token.powerLevel as number;
-        session.user.proStatus = token.proStatus as string;
-        session.user.proPlan = token.proPlan as string | null;
-        session.user.emailVerified = token.emailVerified as Date | null;
-        session.user.image = token.image as string | null;
+        session.user.id = token.id;
+        session.user.email = token.email;
+        session.user.name = token.name;
+        session.user.role = token.role;
+        session.user.schoolId = token.schoolId;
+        session.user.isPro = token.isPro;
+        session.user.proSubscriptionId = token.proSubscriptionId;
+        session.user.proExpiresAt = token.proExpiresAt;
+        session.user.proType = token.proType;
+        session.user.powerLevel = token.powerLevel;
+        session.user.proStatus = token.proStatus;
+        session.user.proPlan = token.proPlan;
+        session.user.emailVerified = token.emailVerified;
+        session.user.image = token.image;
       }
       return session;
     }
@@ -140,6 +169,6 @@ export const authOptions: AuthOptions = {
     strategy: "jwt"
   },
   pages: {
-    signIn: "/auth/signin"
+    signIn: "/signin"
   }
 };

@@ -7,6 +7,13 @@ datasource db {
   url = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  TEACHER
+  ADMIN
+  SUPERADMIN
+}
+
 model User {
   id              String               @id @default(cuid())
   email           String               @unique
@@ -26,22 +33,13 @@ model User {
   experience      String?
   phoneNumber     String?
   officeHours     String?
-  isPro           Boolean              @default(false)
-  proSubscriptionId String?
-  proExpiresAt    DateTime?
-  proType         String?
-  proStatus       String?
-  proPlan         String?
-  proPlanId       String?
-  proPlanName     String?
-  proPlanPrice    Float?
-  proPlanCurrency String?
-  proPlanInterval String?
-  proPlanTrialPeriodDays Int?
-  proPlanIsActive Boolean?
-  proPlanIsTrial  Boolean?
-  proPlanStartedAt DateTime?
-  proPlanEndedAt  DateTime?
+  
+  // Subscription fields
+  subscriptionStatus String           @default("inactive")
+  subscriptionPlan   String           @default("free")
+  subscriptionId     String?
+  subscriptionEndDate DateTime?
+  
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @default(now()) @updatedAt
   accounts        Account[]
@@ -60,6 +58,8 @@ model User {
   quizSubmissions QuizSubmission[]
   blogPosts       BlogPost[]           // Added for blog functionality
   likedPosts      BlogPostLike[]       // Added for blog functionality
+  quizzes         AIQuiz[]             // Added for quiz functionality
+  quizAttempts    AIQuizAttempt[]      // Added for quiz attempts
 
   @@index([schoolId])
   @@index([teacherId])
@@ -82,25 +82,26 @@ model School {
   logo        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
-  classes     Class[]
+  classes     Class[]  @relation
   users       User[]
 
   @@map("schools")
 }
 
 model Class {
-  id            String               @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
   description   String?
   schoolId      String
   teacherId     String
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @default(now()) @updatedAt
-  school        School              @relation(fields: [schoolId], references: [id])
-  teacher       User                @relation("TeacherClasses", fields: [teacherId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+  
+  school        School   @relation(fields: [schoolId], references: [id])
+  teacher       User     @relation("TeacherClasses", fields: [teacherId], references: [id])
   classTeachers ClassTeacher[]
-  students      User[]              @relation("StudentClasses")
-  assignments   Assignment[]        @relation("ClassAssignments")
+  students      User[]   @relation("StudentClasses")
+  assignments   Assignment[]
 
   @@index([schoolId])
   @@index([teacherId])
@@ -110,11 +111,14 @@ model ClassTeacher {
   id        String   @id @default(cuid())
   classId   String
   teacherId String
+  role      String   @default("ASSISTANT")
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  updatedAt DateTime @updatedAt
+  
   class     Class    @relation(fields: [classId], references: [id])
   teacher   User     @relation(fields: [teacherId], references: [id])
 
+  @@unique([classId, teacherId])
   @@index([classId])
   @@index([teacherId])
 }
@@ -132,7 +136,7 @@ model Assignment {
   totalMarks    Int                   @default(100)
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @default(now()) @updatedAt
-  class         Class                 @relation("ClassAssignments", fields: [classId], references: [id])
+  class         Class                 @relation(fields: [classId], references: [id])
   teacher       User                  @relation("TeacherAssignments", fields: [teacherId], references: [id])
   attachments   AssignmentAttachment[]
   questions     Question[]
@@ -140,57 +144,6 @@ model Assignment {
 
   @@index([classId])
   @@index([teacherId])
-}
-
-model AssignmentAttachment {
-  id           String     @id @default(cuid())
-  assignmentId String
-  name         String
-  url          String
-  type         String
-  size         Int
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @default(now()) @updatedAt
-  assignment   Assignment @relation(fields: [assignmentId], references: [id])
-
-  @@index([assignmentId])
-}
-
-model Question {
-  id                String               @id @default(cuid())
-  assignmentId      String
-  type             String               // MCQ, SHORT_ANSWER, LONG_ANSWER
-  text             String
-  question         String               @default("")
-  options          Json?                // For MCQ
-  correctAnswer    String?
-  correctAnswerIndex Int?
-  points           Int                  @default(1)
-  marks            Int                  @default(1)
-  order            Int
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @default(now()) @updatedAt
-  assignment       Assignment           @relation(fields: [assignmentId], references: [id])
-  submissions      QuestionSubmission[]
-
-  @@index([assignmentId])
-}
-
-model QuestionSubmission {
-  id          String    @id @default(cuid())
-  questionId  String
-  submissionId String
-  answer      String?
-  score       Int?
-  feedback    String?
-  isCorrect   Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt
-  question    Question  @relation(fields: [questionId], references: [id])
-  submission  HomeworkSubmission @relation(fields: [submissionId], references: [id])
-
-  @@index([questionId])
-  @@index([submissionId])
 }
 
 model HomeworkSubmission {
@@ -213,6 +166,54 @@ model HomeworkSubmission {
 
   @@index([assignmentId])
   @@index([studentId])
+}
+
+model AssignmentAttachment {
+  id           String     @id @default(cuid())
+  assignmentId String
+  name         String
+  url          String
+  type         String
+  size         Int
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+
+  @@index([assignmentId])
+}
+
+model Question {
+  id               String               @id @default(cuid())
+  assignmentId     String
+  type            String               @default("MULTIPLE_CHOICE")
+  question        String
+  options         Json?
+  correctAnswer   String?
+  points          Int                  @default(1)
+  order           Int                  @default(0)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @default(now()) @updatedAt
+  assignment      Assignment           @relation(fields: [assignmentId], references: [id])
+  submissions     QuestionSubmission[]
+
+  @@index([assignmentId])
+}
+
+model QuestionSubmission {
+  id           String   @id @default(cuid())
+  questionId   String
+  submissionId String
+  answer       String?
+  score        Float?
+  feedback     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+  
+  question     Question           @relation(fields: [questionId], references: [id])
+  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id])
+
+  @@index([questionId])
+  @@index([submissionId])
 }
 
 model Account {
@@ -313,67 +314,94 @@ model StripeSession {
   @@map("stripe_sessions")
 }
 
-model Quiz {
-  id          String    @id @default(cuid())
-  title       String    @unique
-  description String    @default("")
-  subject     String    @default("")
-  topic       String    @default("")
-  difficulty  String    @default("EASY")
-  isPremium   Boolean   @default(false)
-  published   Boolean   @default(true)
-  totalQuestions Int    @default(0)
-  timeLimit   Int       @default(10) // in minutes
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  questions   QuizQuestion[]
-  submissions QuizSubmission[]
+model AIQuiz {
+  id            String           @id @default(cuid())
+  title         String
+  topic         String
+  difficulty    String          @default("medium")
+  questions     AIQuizQuestion[]
+  userId        String
+  user          User            @relation(fields: [userId], references: [id])
+  attempts      AIQuizAttempt[]
+  submissions   QuizSubmission[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
-  @@index([subject])
-  @@index([topic])
+  @@index([userId])
 }
 
-model QuizQuestion {
-  id            String    @id @default(cuid())
+model AIQuizQuestion {
+  id            String               @id @default(cuid())
+  question      String
+  options       String[]
+  correctAnswer String
+  explanation   String
   quizId        String
-  question      String    @default("")
-  options       Json      // Array of strings
-  correctAnswer String    @default("")
-  explanation   String?
-  order         Int       @default(0)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  quiz          Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  answers       QuizAnswer[]
+  quiz          AIQuiz              @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers       AIQuizAnswerAttempt[]
+  quizAnswers   AIQuizAnswer[]
 
-  @@unique([quizId, order])
+  @@index([quizId])
+}
+
+model AIQuizAttempt {
+  id          String               @id @default(cuid())
+  quizId      String
+  quiz        AIQuiz              @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                @relation(fields: [userId], references: [id])
+  score       Int
+  answers     AIQuizAnswerAttempt[]
+  completedAt DateTime            @default(now())
+
+  @@index([userId])
+  @@index([quizId])
+}
+
+model AIQuizAnswerAttempt {
+  id            String         @id @default(cuid())
+  questionId    String
+  question      AIQuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attemptId     String
+  attempt       AIQuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  selectedAnswer String
+  isCorrect     Boolean
+
+  @@index([questionId])
+  @@index([attemptId])
 }
 
 model QuizSubmission {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   userId        String
   quizId        String
-  score         Float     @default(0)
-  totalCorrect  Int       @default(0)
-  timeTaken     Int       @default(0) // in seconds
-  completedAt   DateTime  @default(now())
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  quiz          Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  answers       QuizAnswer[]
+  score         Float         @default(0)
+  totalCorrect  Int          @default(0)
+  timeTaken     Int          @default(0) // in seconds
+  completedAt   DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz          AIQuiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers       AIQuizAnswer[]
+
+  @@index([userId])
+  @@index([quizId])
 }
 
-model QuizAnswer {
-  id            String    @id @default(cuid())
+model AIQuizAnswer {
+  id            String        @id @default(cuid())
   questionId    String
   submissionId  String
-  answer        String    @default("")
-  isCorrect     Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  question      QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer        String       @default("")
+  isCorrect     Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  question      AIQuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
   submission    QuizSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@index([submissionId])
 }
 
 model BlogPost {
@@ -445,14 +473,4 @@ model ChatRoom {
   updatedAt   DateTime  @default(now()) @updatedAt
   isArchived  Boolean   @default(false)
   lastActive  DateTime  @default(now())
-}
-
-enum Role {
-  USER
-  PROUSER
-  STUDENT
-  TEACHER
-  SCHOOLADMIN
-  ADMIN
-  SUPERADMIN
 }

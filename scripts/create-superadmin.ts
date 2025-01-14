@@ -1,27 +1,30 @@
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcrypt';
 
-async function createSuperAdmin() {
+async function updateSuperAdmin() {
   const client = new PrismaClient();
   try {
     const hashedPassword = await hash('superadmin', 10);
-    await client.user.create({
+    await client.user.update({
+      where: {
+        email: 'admin@quizzq.com'
+      },
       data: {
-        email: 'superadmin@quizzq.com',
         name: 'Super Admin',
         password: hashedPassword,
         role: 'SUPERADMIN',
-        status: 'ACTIVE',
         powerLevel: 100,
-        isPro: true
-      }
+        status: 'ACTIVE',
+        subscriptionStatus: 'active',
+        subscriptionPlan: 'forever'
+      },
     });
-    console.log('Super admin created successfully');
+    console.log('Super admin updated successfully');
   } catch (error) {
-    console.error('Error creating super admin:', error);
+    console.error('Error updating super admin:', error);
   } finally {
     await client.$disconnect();
   }
 }
 
-createSuperAdmin();
+updateSuperAdmin();

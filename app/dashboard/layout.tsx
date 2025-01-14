@@ -1,8 +1,9 @@
-import { ThemeProvider } from 'next-themes'
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
-import { UserNavbar } from "@/components/dashboard/user-tabs";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth-config";
+import { ThemeProvider } from "@/components/theme-provider";
+import { UserLayout } from "@/components/dashboard/user-tabs";
+import SuperAdminLayout from "@/components/dashboard/SuperAdmin-Tabs/superadmin-layout";
 
 export default async function DashboardLayout({
   children,
@@ -11,23 +12,24 @@ export default async function DashboardLayout({
 }) {
   const session = await getServerSession(authOptions);
 
-  if (!session) {
-    redirect('/auth');
+  if (!session?.user) {
+    redirect("/signin");
   }
 
-  return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="dark"
-      disableTransitionOnChange
-      forcedTheme="dark"
-    >
-      <div className="min-h-screen bg-[#1A1D23]">
-        <UserNavbar initialSession={session} />
-        <main className="md:pl-64">
-          {children}
-        </main>
-      </div>
-    </ThemeProvider>
-  );
+  // Redirect based on user role
+  switch (session.user.role) {
+    case "SUPERADMIN":
+      return <SuperAdminLayout>{children}</SuperAdminLayout>;
+    default:
+      return (
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <UserLayout>{children}</UserLayout>
+        </ThemeProvider>
+      );
+  }
 }

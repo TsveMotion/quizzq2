@@ -1,6 +1,7 @@
 'use client';
 
 import { UserLayout } from "@/components/dashboard/user-tabs";
+import UserNavbar from "@/components/dashboard/user-tabs/user-navbar";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 
@@ -19,5 +20,14 @@ export default function UserDashboardLayout({
     redirect("/signin");
   }
 
-  return <UserLayout>{children}</UserLayout>;
+  return (
+    <UserLayout>
+      <div className="relative min-h-screen bg-[#1a237e]">
+        <UserNavbar initialSession={null} />
+        <main className="px-4 pt-24 min-h-screen">
+          {children}
+        </main>
+      </div>
+    </UserLayout>
+  );
 }

@@ -20,7 +20,8 @@ import {
   Home,
   BookOpen,
   History,
-  Target
+  Target,
+  BrainCircuit
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PricingModal } from "@/components/stripe/PricingModal";
@@ -39,6 +40,12 @@ const routes = [
     href: "/dashboard/user/ai-tutor",
     icon: Bot,
     description: "Practice with AI assistance"
+  },
+  {
+    title: "Quizzes",
+    href: "/dashboard/user/quizzes",
+    icon: BrainCircuit,
+    description: "Take AI-generated quizzes"
   },
   {
     title: "Study History",
@@ -61,10 +68,10 @@ const routes = [
 ];
 
 interface UserNavbarProps {
-  initialSession: Session;
+  initialSession: Session | null;
 }
 
-export function UserNavbar({ initialSession }: UserNavbarProps) {
+export default function UserNavbar({ initialSession }: UserNavbarProps) {
   const { data: session } = useSession();
   const currentSession = session || initialSession;
   const pathname = usePathname();
