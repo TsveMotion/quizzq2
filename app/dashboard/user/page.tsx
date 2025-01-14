@@ -4,7 +4,7 @@ import { UserOverview } from "@/components/dashboard/user-tabs";
 
 export default function UserDashboardPage() {
   return (
-    <div className="p-6">
+    <div className="space-y-4 max-w-7xl mx-auto">
       <UserOverview />
     </div>
   );

@@ -143,7 +143,7 @@ export function UserNavbar({ initialSession }: UserNavbarProps) {
         </SheetContent>
       </Sheet>
 
-      <nav className="hidden md:flex flex-col gap-4 p-5 border-r border-white/10 fixed left-0 top-16 h-[calc(100vh-4rem)] bg-[#1a237e]/95 backdrop-blur-sm w-72 z-40">
+      <nav className="hidden md:flex flex-col gap-4 p-5 border-r border-white/10 fixed left-0 top-16 h-[calc(100vh-4rem)] bg-[#1a237e]/95 backdrop-blur-sm w-[18rem] z-40">
         <div className="flex items-center gap-3 px-2 py-2 border-b border-white/10 mb-2">
           <Avatar className="h-8 w-8">
             <AvatarImage src={currentSession?.user?.image || ''} />
