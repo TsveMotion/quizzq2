@@ -3,6 +3,9 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['bcrypt']
   },
+  images: {
+    domains: ['lh3.googleusercontent.com'],
+  },
   webpack: (config) => {
     config.externals = [...config.externals, 'bcrypt'];
     return config;

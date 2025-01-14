@@ -187,7 +187,7 @@ export default function Home() {
   };
 
   return (
-    <>
+    <div className="flex flex-col min-h-screen overflow-auto">
       <MaintenanceBanner />
       <div className="min-h-screen bg-[#1a237e]">
         {/* Hero Section */}
@@ -674,6 +674,6 @@ export default function Home() {
           </Button>
         </motion.div>
       </div>
-    </>
+    </div>
   );
 }

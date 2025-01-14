@@ -143,7 +143,7 @@ export default function QuizPage({ params }: { params: { id: string } }) {
   const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="flex min-h-screen flex-col overflow-auto">
       <Card className="p-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-2">{quiz.title}</h1>

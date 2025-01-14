@@ -9,6 +9,7 @@ import {
   GraduationCap,
   UserCog,
   Settings,
+  Sparkles,
 } from 'lucide-react';
 import {
   Card,
@@ -24,7 +25,7 @@ const roles = [
     title: "Super Admin",
     description: "Full system access and control",
     icon: Shield,
-    color: "text-red-500",
+    color: "text-blue-300",
     permissions: [
       "Manage all school settings",
       "Create and manage admin accounts",
@@ -37,7 +38,7 @@ const roles = [
     title: "School Admin",
     description: "School-level administration",
     icon: School,
-    color: "text-blue-500",
+    color: "text-blue-300",
     permissions: [
       "Manage school settings",
       "Create teacher accounts",
@@ -50,7 +51,7 @@ const roles = [
     title: "Teacher",
     description: "Class management and quiz creation",
     icon: UserCog,
-    color: "text-green-500",
+    color: "text-blue-300",
     permissions: [
       "Create and manage quizzes",
       "Grade assignments",
@@ -63,7 +64,7 @@ const roles = [
     title: "Student",
     description: "Quiz taking and progress tracking",
     icon: GraduationCap,
-    color: "text-purple-500",
+    color: "text-blue-300",
     permissions: [
       "Take assigned quizzes",
       "View personal progress",
@@ -97,19 +98,30 @@ export default function UserRolesPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-4"
       >
-        <div className="flex items-center gap-2">
-          <Users className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">User Roles</h1>
-        </div>
-        <p className="text-xl text-muted-foreground">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6 inline-block rounded-full bg-white/20 px-4 py-1.5 backdrop-blur-md"
+        >
+          <span className="flex items-center text-sm font-medium text-white">
+            <Sparkles className="mr-2 h-4 w-4 text-blue-200" />
+            User Roles
+          </span>
+        </motion.div>
+
+        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-blue-100 to-white">
+          User Roles
+        </h1>
+        <p className="text-xl text-white/80">
           Understanding user roles and their permissions in QUIZZQ
         </p>
       </motion.div>
 
-      <Alert>
-        <Settings className="h-4 w-4" />
-        <AlertTitle>Role Management</AlertTitle>
-        <AlertDescription>
+      <Alert className="bg-white/10 border-white/20 backdrop-blur-sm">
+        <Settings className="h-4 w-4 text-blue-300" />
+        <AlertTitle className="text-white">Role Management</AlertTitle>
+        <AlertDescription className="text-white/80">
           User roles determine what actions and features are available to each user.
           Make sure to assign appropriate roles based on user responsibilities.
         </AlertDescription>
@@ -125,16 +137,16 @@ export default function UserRolesPage() {
           const Icon = role.icon;
           return (
             <motion.div key={role.title} variants={item}>
-              <Card>
+              <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Icon className={`h-6 w-6 ${role.color}`} />
-                    <CardTitle>{role.title}</CardTitle>
+                    <CardTitle className="text-white">{role.title}</CardTitle>
                   </div>
-                  <CardDescription>{role.description}</CardDescription>
+                  <CardDescription className="text-white/60">{role.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <h3 className="font-semibold mb-2">Key Permissions</h3>
+                  <h3 className="font-semibold mb-2 text-white">Key Permissions</h3>
                   <ul className="space-y-2">
                     {role.permissions.map((permission, index) => (
                       <motion.li
@@ -144,8 +156,8 @@ export default function UserRolesPage() {
                         transition={{ delay: 0.1 * index }}
                         className="flex items-center gap-2"
                       >
-                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                        <span className="text-muted-foreground">{permission}</span>
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-300" />
+                        <span className="text-white/60">{permission}</span>
                       </motion.li>
                     ))}
                   </ul>
@@ -160,10 +172,10 @@ export default function UserRolesPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="bg-muted p-6 rounded-lg"
+        className="bg-white/10 border border-white/20 backdrop-blur-sm p-6 rounded-lg"
       >
-        <h2 className="text-xl font-semibold mb-4">Role Assignment Guidelines</h2>
-        <ul className="space-y-2 text-muted-foreground">
+        <h2 className="text-xl font-semibold mb-4 text-white">Role Assignment Guidelines</h2>
+        <ul className="space-y-2 text-white/60">
           <li>• Assign roles based on user responsibilities and requirements</li>
           <li>• Regularly review and update role assignments</li>
           <li>• Follow the principle of least privilege</li>

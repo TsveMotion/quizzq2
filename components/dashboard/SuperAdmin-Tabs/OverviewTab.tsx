@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { Loader2, Users, School, GraduationCap, BookOpen } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, MessageSquare } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -9,329 +9,213 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
 } from 'recharts';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  createdAt: string;
-  schoolId: string | null;
-}
-
-interface School {
-  id: string;
-  name: string;
-  users: User[];
-  _count: {
-    users: number;
-  };
-}
-
-interface Stats {
-  totalUsers: number;
-  newUsersThisMonth: number;
-  totalSchools: number;
-  newSchoolsThisMonth: number;
-  totalStudents: number;
-  totalTeachers: number;
-  usersByMonth: Array<{
-    month: string;
-    count: number;
-  }>;
-  usersByRole: Array<{
-    role: string;
-    count: number;
-  }>;
-}
-
-const ROLE_COLORS = {
-  SUPERADMIN: '#60A5FA',
-  SCHOOLADMIN: '#34D399',
-  STUDENT: '#FBBF24',
-  TEACHER: '#F87171',
-  FREE: '#A78BFA'
-};
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
 export default function OverviewTab() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [schools, setSchools] = useState<School[]>([]);
-  const [stats, setStats] = useState<Stats>({
-    totalUsers: 0,
-    newUsersThisMonth: 0,
-    totalSchools: 0,
-    newSchoolsThisMonth: 0,
-    totalStudents: 0,
-    totalTeachers: 0,
-    usersByMonth: [],
-    usersByRole: []
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        // Fetch users and schools in parallel
-        const [usersResponse, schoolsResponse] = await Promise.all([
-          fetch('/api/admin/users', {
-            credentials: 'include',
-            headers: {
-              'Cache-Control': 'no-cache'
-            }
-          }),
-          fetch('/api/admin/schools', {
-            credentials: 'include',
-            headers: {
-              'Cache-Control': 'no-cache'
-            }
-          })
-        ]);
-
-        if (!usersResponse.ok || !schoolsResponse.ok) {
-          throw new Error('Failed to fetch data');
-        }
-
-        const [usersData, schoolsData] = await Promise.all([
-          usersResponse.json(),
-          schoolsResponse.json()
-        ]);
-
-        setUsers(usersData);
-        setSchools(schoolsData);
-      } catch (error) {
-        console.error('Error fetching overview data:', error);
-        setError('Failed to load dashboard data');
-      } finally {
-        setIsLoading(false);
+  const [currentUser] = useState({ name: "Grace" });
+  const [stats] = useState({
+    performance: {
+      lastSixMonths: [95.4, 92.1, 93.5, 94.2, 95.1, 95.4],
+      metrics: {
+        progress: 82,
+        impact: 85,
+        engagement: 88,
+        teaching: 90,
+        learning: 87,
+        behavior: 93
       }
-    };
-
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    if (users.length && schools.length) {
-      const studentCount = users.filter(user => user.role.toLowerCase() === 'student').length;
-      const teacherCount = users.filter(user => user.role.toLowerCase() === 'teacher').length;
-      const schoolAdminCount = users.filter(user => user.role.toLowerCase() === 'schooladmin').length;
-      const superAdminCount = users.filter(user => user.role.toLowerCase() === 'superadmin').length;
-      const schoolCount = schools.length;
-      const totalUsers = users.length;
-
-      const usersByRole = [
-        { role: 'SUPERADMIN', count: superAdminCount },
-        { role: 'SCHOOLADMIN', count: schoolAdminCount },
-        { role: 'STUDENT', count: studentCount },
-        { role: 'TEACHER', count: teacherCount },
-      ].filter(item => item.count > 0);
-
-      const usersByMonth = processUserGrowthData(users);
-
-      setStats({
-        totalUsers,
-        newUsersThisMonth: 0, // Not implemented
-        totalSchools: schoolCount,
-        newSchoolsThisMonth: 0, // Not implemented
-        totalStudents: studentCount,
-        totalTeachers: teacherCount,
-        usersByMonth,
-        usersByRole
-      });
-    }
-  }, [users, schools]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center space-x-4">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-          <p className="text-sm text-blue-200">Loading statistics...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-full items-center justify-center text-red-500">
-        <p>{error}</p>
-      </div>
-    );
-  }
+    },
+    linkedTeachers: [
+      { id: 1, name: "Mary Johnson", role: "Teacher", avatar: "/avatars/mary.jpg", online: true },
+      { id: 2, name: "James Brown", role: "Assistant Teacher", avatar: "/avatars/james.jpg", online: true }
+    ],
+    upcomingEvents: [
+      { 
+        id: 1, 
+        title: "Electronics lesson", 
+        time: "9:30 AM", 
+        date: "Today", 
+        icon: BookOpen,
+        color: "blue" 
+      },
+      { 
+        id: 2, 
+        title: "Robotics lesson", 
+        time: "11:00 AM", 
+        date: "Today",
+        icon: BookOpen,
+        color: "purple"
+      }
+    ]
+  });
 
   return (
-    <div className="p-6 space-y-8">
-      {/* Stats Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-blue-800/40 bg-[#0f2850] p-6 shadow-lg shadow-blue-900/20 hover:shadow-xl hover:shadow-blue-900/30 transition-all duration-300">
-          <div className="space-y-2">
-            <Users className="h-6 w-6 text-blue-400" />
-            <p className="text-2xl font-bold text-blue-50">{stats.totalUsers}</p>
-            <p className="text-sm text-blue-200">Total Users</p>
-          </div>
-          <div className="mt-2 text-sm text-blue-300">
-            +{stats.newUsersThisMonth} this month
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-blue-800/40 bg-[#0f2850] p-6 shadow-lg shadow-blue-900/20 hover:shadow-xl hover:shadow-blue-900/30 transition-all duration-300">
-          <div className="space-y-2">
-            <School className="h-6 w-6 text-blue-400" />
-            <p className="text-2xl font-bold text-blue-50">{stats.totalSchools}</p>
-            <p className="text-sm text-blue-200">Total Schools</p>
-          </div>
-          <div className="mt-2 text-sm text-blue-300">
-            +{stats.newSchoolsThisMonth} this month
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-blue-800/40 bg-[#0f2850] p-6 shadow-lg shadow-blue-900/20 hover:shadow-xl hover:shadow-blue-900/30 transition-all duration-300">
-          <div className="space-y-2">
-            <GraduationCap className="h-6 w-6 text-blue-400" />
-            <p className="text-2xl font-bold text-blue-50">{stats.totalStudents}</p>
-            <p className="text-sm text-blue-200">Total Students</p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-blue-800/40 bg-[#0f2850] p-6 shadow-lg shadow-blue-900/20 hover:shadow-xl hover:shadow-blue-900/30 transition-all duration-300">
-          <div className="space-y-2">
-            <BookOpen className="h-6 w-6 text-blue-400" />
-            <p className="text-2xl font-bold text-blue-50">{stats.totalTeachers}</p>
-            <p className="text-sm text-blue-200">Total Teachers</p>
-          </div>
+    <div className="h-full p-6 overflow-hidden">
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-xl font-semibold text-blue-50">
+            Hello {currentUser.name}!
+          </h1>
+          <p className="text-sm text-blue-200">You have 5 new tasks for today! let's start!</p>
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* User Growth Chart */}
-        <div className="rounded-2xl border border-blue-800/40 bg-[#0f2850] p-6 shadow-lg shadow-blue-900/20">
-          <div className="mb-6">
-            <h3 className="text-lg font-medium text-blue-50">User Growth</h3>
-            <p className="text-sm text-blue-200">User registrations over time</p>
-          </div>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats.usersByMonth}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e3a8a" />
-                <XAxis dataKey="month" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#0f2850',
-                    border: '1px solid #1e3a8a',
-                    borderRadius: '1rem',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                  }}
-                  labelStyle={{ color: '#94a3b8' }}
-                  itemStyle={{ color: '#94a3b8' }}
-                />
-                <Legend wrapperStyle={{ color: '#94a3b8' }} />
-                <Line 
-                  type="monotone" 
-                  dataKey="count" 
-                  name="Users" 
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ fill: '#3b82f6', stroke: '#3b82f6', strokeWidth: 2 }}
-                  activeDot={{ r: 6, fill: '#3b82f6', stroke: '#3b82f6' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+      {/* Content */}
+      <div className="grid grid-cols-12 gap-6 mt-6 h-[calc(100%-4rem)]">
+        {/* Performance Section */}
+        <div className="col-span-8">
+          <div className="bg-[#0a1d3b] rounded-lg p-6 h-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-blue-50">Performance</h2>
+              <div className="flex gap-2">
+                <button className="px-3 py-1 text-xs rounded-full bg-blue-500/20 text-blue-300 font-medium">Standard</button>
+                <button className="px-3 py-1 text-xs rounded-full text-blue-300 hover:bg-blue-500/10">My unit</button>
+                <button className="px-3 py-1 text-xs rounded-full text-blue-300 hover:bg-blue-500/10">Standard</button>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-blue-50">95.4</span>
+                <span className="text-sm text-blue-300">The best lessons</span>
+              </div>
+              <div className="h-48 mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={stats.performance.lastSixMonths.map((value, index) => ({
+                    month: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'][index],
+                    value
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e40af" />
+                    <XAxis 
+                      dataKey="month" 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#60a5fa', fontSize: 12 }}
+                    />
+                    <YAxis 
+                      domain={[80, 100]} 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#60a5fa', fontSize: 12 }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: '#0f2850',
+                        border: '1px solid #1e40af',
+                        borderRadius: '0.5rem',
+                        color: '#60a5fa'
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#60a5fa"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: "#60a5fa" }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-3 gap-4">
+              {Object.entries(stats.performance.metrics).map(([key, value]) => (
+                <div key={key} className="flex flex-col items-center">
+                  <div className="relative">
+                    <svg className="w-20 h-20 transform -rotate-90">
+                      <circle
+                        className="text-blue-900/50"
+                        strokeWidth="6"
+                        stroke="currentColor"
+                        fill="transparent"
+                        r="32"
+                        cx="40"
+                        cy="40"
+                      />
+                      <circle
+                        className="text-blue-500"
+                        strokeWidth="6"
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="transparent"
+                        r="32"
+                        cx="40"
+                        cy="40"
+                        strokeDasharray={`${value * 2} 200`}
+                      />
+                    </svg>
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                      <span className="text-base font-semibold text-blue-50">{value}%</span>
+                    </div>
+                  </div>
+                  <span className="mt-2 text-xs text-blue-200 capitalize">{key} rate</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Users by Role Chart */}
-        <div className="rounded-2xl border border-blue-800/40 bg-[#0f2850] p-6 shadow-lg shadow-blue-900/20">
-          <div className="mb-6">
-            <h3 className="text-lg font-medium text-blue-50">Users by Role</h3>
-            <p className="text-sm text-blue-200">Distribution of users across roles</p>
+        {/* Right Column */}
+        <div className="col-span-4 flex flex-col gap-4 min-h-0">
+          {/* Calendar */}
+          <div className="bg-[#0a1d3b] rounded-lg shadow-lg shadow-black/10 p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-base font-semibold text-blue-50">Calendar</h2>
+              <button className="text-xs text-blue-300 hover:text-blue-200">Today</button>
+            </div>
+            <div className="space-y-3">
+              {stats.upcomingEvents.map(event => (
+                <div key={event.id} className="flex items-center gap-3 p-2 rounded-lg bg-blue-900/30">
+                  <div className="p-1.5 rounded-lg bg-blue-500/20">
+                    <event.icon className="w-4 h-4 text-blue-300" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-50">{event.title}</p>
+                    <p className="text-xs text-blue-300">{event.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={stats.usersByRole}
-                  dataKey="count"
-                  nameKey="role"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  label={(entry) => entry.role}
-                >
-                  {stats.usersByRole.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={ROLE_COLORS[entry.role as keyof typeof ROLE_COLORS] || '#94a3b8'} 
-                    />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#0f2850',
-                    border: '1px solid #1e3a8a',
-                    borderRadius: '1rem',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                  }}
-                  labelStyle={{ color: '#94a3b8' }}
-                  itemStyle={{ color: '#94a3b8' }}
-                />
-                <Legend 
-                  wrapperStyle={{ color: '#94a3b8' }}
-                  formatter={(value) => <span style={{ color: '#94a3b8' }}>{value}</span>}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+
+          {/* Linked Teachers */}
+          <div className="bg-[#0a1d3b] rounded-lg shadow-lg shadow-black/10 p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-base font-semibold text-blue-50">Linked Teachers</h2>
+              <button className="text-xs text-blue-400 hover:text-blue-300">See all</button>
+            </div>
+            <div className="space-y-3">
+              {stats.linkedTeachers.map(teacher => (
+                <div key={teacher.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <img
+                        src={teacher.avatar}
+                        alt={teacher.name}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                      {teacher.online && (
+                        <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-400 rounded-full border-2 border-[#0a1d3b]" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-50">{teacher.name}</p>
+                      <p className="text-xs text-blue-300">{teacher.role}</p>
+                    </div>
+                  </div>
+                  <button className="p-1.5 hover:bg-blue-800/50 rounded-full transition-colors">
+                    <MessageSquare className="w-4 h-4 text-blue-300" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-// Helper function to process user growth data
-function processUserGrowthData(users: User[]) {
-  if (!users.length) return [];
-
-  // Sort users by creation date
-  const sortedUsers = [...users].sort((a, b) => 
-    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
-
-  // Get the date range
-  const startDate = new Date(sortedUsers[0].createdAt);
-  const endDate = new Date();
-  const months: Date[] = [];
-
-  // Generate array of months between start and end date
-  let currentDate = new Date(startDate);
-  while (currentDate <= endDate) {
-    months.push(new Date(currentDate));
-    currentDate.setMonth(currentDate.getMonth() + 1);
-  }
-
-  // Count cumulative users for each month
-  return months.map(month => {
-    const count = sortedUsers.filter(user => 
-      new Date(user.createdAt) <= month
-    ).length;
-
-    return {
-      month: month.toISOString().slice(0, 7),
-      count
-    };
-  });
 }

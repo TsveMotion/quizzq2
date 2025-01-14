@@ -13,6 +13,8 @@ import {
   MessageCircle,
   Scale,
   History,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import {
   Card,
@@ -22,13 +24,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from '@/components/ui/button';
 
 const gradingFeatures = [
   {
     title: "Automatic Grading",
     description: "Instant grading for objective questions",
     icon: Calculator,
-    color: "text-blue-500",
+    color: "text-blue-300",
     details: [
       "Multiple choice grading",
       "True/False evaluation",
@@ -40,7 +43,7 @@ const gradingFeatures = [
     title: "Manual Grading",
     description: "Teacher evaluation for subjective questions",
     icon: FileCheck,
-    color: "text-green-500",
+    color: "text-blue-300",
     details: [
       "Essay grading",
       "Project evaluation",
@@ -52,7 +55,7 @@ const gradingFeatures = [
     title: "Grading Scales",
     description: "Flexible scoring systems",
     icon: Scale,
-    color: "text-purple-500",
+    color: "text-blue-300",
     details: [
       "Percentage scoring",
       "Letter grades",
@@ -64,7 +67,7 @@ const gradingFeatures = [
     title: "Feedback System",
     description: "Comprehensive feedback mechanisms",
     icon: MessageCircle,
-    color: "text-orange-500",
+    color: "text-blue-300",
     details: [
       "Automated feedback",
       "Teacher comments",
@@ -76,7 +79,7 @@ const gradingFeatures = [
     title: "Grade Analytics",
     description: "Detailed performance insights",
     icon: BarChart,
-    color: "text-pink-500",
+    color: "text-blue-300",
     details: [
       "Class averages",
       "Individual progress",
@@ -88,7 +91,7 @@ const gradingFeatures = [
     title: "Grade History",
     description: "Track grade changes and updates",
     icon: History,
-    color: "text-yellow-500",
+    color: "text-blue-300",
     details: [
       "Grade logs",
       "Change history",
@@ -121,19 +124,30 @@ export default function GradingSystemPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-4"
       >
-        <div className="flex items-center gap-2">
-          <Calculator className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Grading System</h1>
-        </div>
-        <p className="text-xl text-muted-foreground">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6 inline-block rounded-full bg-white/20 px-4 py-1.5 backdrop-blur-md"
+        >
+          <span className="flex items-center text-sm font-medium text-white">
+            <Sparkles className="mr-2 h-4 w-4 text-blue-200" />
+            Grading System
+          </span>
+        </motion.div>
+
+        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-blue-100 to-white">
+          Grading System
+        </h1>
+        <p className="text-xl text-white/80">
           Learn about QUIZZQ&apos;s comprehensive grading and feedback system
         </p>
       </motion.div>
 
-      <Alert>
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Important Note</AlertTitle>
-        <AlertDescription>
+      <Alert className="bg-white/10 border-white/20 backdrop-blur-sm">
+        <AlertTriangle className="h-4 w-4 text-blue-300" />
+        <AlertTitle className="text-white">Important Note</AlertTitle>
+        <AlertDescription className="text-white/80">
           Always review automated grades for accuracy and provide constructive feedback
           to help students improve their performance.
         </AlertDescription>
@@ -149,13 +163,13 @@ export default function GradingSystemPage() {
           const Icon = feature.icon;
           return (
             <motion.div key={feature.title} variants={item}>
-              <Card>
+              <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
                 <CardHeader>
                   <div className="flex items-center gap-2">
-                    <Icon className={`h-6 w-6 ${feature.color}`} />
-                    <CardTitle>{feature.title}</CardTitle>
+                    <Icon className="h-6 w-6 text-blue-300" />
+                    <CardTitle className="text-white">{feature.title}</CardTitle>
                   </div>
-                  <CardDescription>{feature.description}</CardDescription>
+                  <CardDescription className="text-white/60">{feature.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
@@ -167,8 +181,8 @@ export default function GradingSystemPage() {
                         transition={{ delay: 0.1 * index }}
                         className="flex items-center gap-2"
                       >
-                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                        <span className="text-muted-foreground">{detail}</span>
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-300" />
+                        <span className="text-white/80">{detail}</span>
                       </motion.li>
                     ))}
                   </ul>
@@ -183,9 +197,9 @@ export default function GradingSystemPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
-        className="bg-gradient-to-r from-primary/10 via-primary/5 to-background p-6 rounded-lg"
+        className="bg-white/10 border border-white/20 backdrop-blur-sm p-6 rounded-lg"
       >
-        <h2 className="text-2xl font-bold mb-4">Grading Process</h2>
+        <h2 className="text-2xl font-bold mb-4 text-white">Grading Process</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
             { title: "Quiz submission", icon: FileCheck },
@@ -202,12 +216,12 @@ export default function GradingSystemPage() {
                 transition={{ delay: 0.1 * index }}
                 className="flex items-center gap-4"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-blue-200 border border-blue-200/20 backdrop-blur-sm">
                   {index + 1}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Icon className="h-5 w-5 text-primary" />
-                  <p className="font-medium">{step.title}</p>
+                  <Icon className="h-5 w-5 text-blue-300" />
+                  <p className="font-medium text-white">{step.title}</p>
                 </div>
               </motion.div>
             );
@@ -219,16 +233,45 @@ export default function GradingSystemPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="bg-muted p-6 rounded-lg"
+        className="bg-white/10 border border-white/20 backdrop-blur-sm p-6 rounded-lg"
       >
-        <h2 className="text-xl font-semibold mb-4">Grading Tips</h2>
-        <ul className="space-y-2 text-muted-foreground">
-          <li>• Set clear grading criteria before assigning quizzes</li>
-          <li>• Use rubrics for consistent evaluation</li>
-          <li>• Provide constructive feedback for improvement</li>
-          <li>• Monitor class performance trends</li>
-          <li>• Adjust difficulty based on analytics</li>
+        <h2 className="text-2xl font-bold mb-4 text-white">Grading Tips</h2>
+        <ul className="space-y-2">
+          {[
+            "Set clear grading criteria before assigning quizzes",
+            "Use rubrics for consistent evaluation",
+            "Provide constructive feedback for improvement",
+            "Monitor class performance trends",
+            "Adjust difficulty based on analytics",
+          ].map((tip, index) => (
+            <motion.li
+              key={tip}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 * index }}
+              className="flex items-center gap-2 text-white/80"
+            >
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-300" />
+              {tip}
+            </motion.li>
+          ))}
         </ul>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+        className="flex justify-between items-center"
+      >
+        <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 gap-2">
+          <ArrowRight className="h-4 w-4 rotate-180" />
+          Back to Quiz System
+        </Button>
+        <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 gap-2">
+          Question Types
+          <ArrowRight className="h-4 w-4" />
+        </Button>
       </motion.div>
     </div>
   );

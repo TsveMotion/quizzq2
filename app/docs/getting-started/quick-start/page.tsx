@@ -25,6 +25,7 @@ import {
   UserPlus,
   Layout,
   Send,
+  Sparkles,
 } from "lucide-react";
 
 const steps = [
@@ -72,22 +73,36 @@ export default function QuickStartPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-4"
       >
-        <h1 className="text-3xl font-bold tracking-tight">Quick Start Guide</h1>
-        <p className="text-lg text-muted-foreground">
-          Get up and running with QUIZZQ in minutes
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6 inline-block rounded-full bg-white/20 px-4 py-1.5 backdrop-blur-md"
+        >
+          <span className="flex items-center text-sm font-medium text-white">
+            <Sparkles className="mr-2 h-4 w-4 text-blue-200" />
+            Quick Start Guide
+          </span>
+        </motion.div>
+
+        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-blue-100 to-white">
+          Get Started with QuizzQ
+        </h1>
+        <p className="text-lg text-white/80">
+          Get up and running with QuizzQ in minutes
         </p>
       </motion.div>
 
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Before you begin</AlertTitle>
-        <AlertDescription>
-          Make sure you have received your school&apos;s administrator credentials from the QUIZZQ team.
+      <Alert className="bg-white/10 border-white/20 text-white">
+        <AlertCircle className="h-4 w-4 text-blue-300" />
+        <AlertTitle className="text-white">Before you begin</AlertTitle>
+        <AlertDescription className="text-white/80">
+          Make sure you have received your school&apos;s administrator credentials from the QuizzQ team.
         </AlertDescription>
       </Alert>
 
       <div className="space-y-6">
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           {steps.map((section, index) => {
             const Icon = section.role === "admin" 
               ? School 
@@ -103,7 +118,11 @@ export default function QuickStartPage() {
                   setActiveRole(index);
                   setActiveStep(0);
                 }}
-                className="gap-2"
+                className={`gap-2 ${
+                  activeRole === index
+                    ? "bg-white text-blue-600"
+                    : "border-white/20 text-white hover:bg-white/10"
+                }`}
               >
                 <Icon className="h-4 w-4" />
                 {section.title}
@@ -112,10 +131,10 @@ export default function QuickStartPage() {
           })}
         </div>
 
-        <Card className="relative overflow-hidden">
+        <Card className="relative overflow-hidden bg-white/10 border-white/20 backdrop-blur-sm">
           <div className="absolute top-0 left-0 w-full h-1">
             <motion.div
-              className="h-full bg-primary"
+              className="h-full bg-blue-500"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}
@@ -123,15 +142,15 @@ export default function QuickStartPage() {
           </div>
 
           <CardHeader>
-            <CardTitle>{steps[activeRole].title}</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-white">{steps[activeRole].title}</CardTitle>
+            <CardDescription className="text-white/60">
               Follow these steps to get started
             </CardDescription>
           </CardHeader>
 
           <CardContent>
             <div className="relative">
-              <div className="absolute left-8 top-0 bottom-0 w-px bg-muted-foreground/20" />
+              <div className="absolute left-8 top-0 bottom-0 w-px bg-white/20" />
               
               <div className="space-y-8">
                 {steps[activeRole].steps.map((step, index) => {
@@ -150,10 +169,10 @@ export default function QuickStartPage() {
                       <motion.div
                         className={`absolute left-7 -translate-x-1/2 flex h-4 w-4 items-center justify-center rounded-full ${
                           isComplete
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-blue-500 text-white"
                             : isActive
-                            ? "bg-primary/20 text-primary"
-                            : "bg-muted-foreground/20"
+                            ? "bg-blue-500/20 text-blue-200"
+                            : "bg-white/20"
                         }`}
                         animate={{
                           scale: isActive ? 1.2 : 1,
@@ -163,17 +182,17 @@ export default function QuickStartPage() {
                       </motion.div>
 
                       <div
-                        className={`rounded-lg border p-4 ${
-                          isActive ? "bg-muted" : ""
+                        className={`rounded-lg border border-white/20 p-4 transition-colors ${
+                          isActive ? "bg-white/10" : "bg-transparent"
                         }`}
                       >
                         <div className="flex items-center gap-4">
                           <Icon className={`h-6 w-6 ${
-                            isActive ? "text-primary" : "text-muted-foreground"
+                            isActive ? "text-blue-300" : "text-white/60"
                           }`} />
                           <div className="flex-1">
                             <h3 className={`font-medium ${
-                              isActive ? "text-primary" : ""
+                              isActive ? "text-white" : "text-white/80"
                             }`}>
                               {step.title}
                             </h3>
@@ -193,16 +212,17 @@ export default function QuickStartPage() {
             variant="outline"
             onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
             disabled={activeStep === 0}
+            className="border-white/20 text-white hover:bg-white/10 disabled:text-white/40"
           >
             Previous Step
           </Button>
           <Button
             onClick={() => setActiveStep(Math.min(steps[activeRole].steps.length - 1, activeStep + 1))}
             disabled={activeStep === steps[activeRole].steps.length - 1}
-            className="gap-2"
+            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white disabled:opacity-50"
           >
             Next Step
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </div>

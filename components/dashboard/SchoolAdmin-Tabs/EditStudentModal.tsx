@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,7 +22,7 @@ interface EditStudentModalProps {
     id: string;
     name: string;
     email: string;
-  };
+  } | null;
   schoolId: string;
 }
 
@@ -34,12 +34,21 @@ export function EditStudentModal({
   schoolId,
 }: EditStudentModalProps) {
   const { toast } = useToast();
-  const [name, setName] = useState(student.name);
-  const [email, setEmail] = useState(student.email);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (student) {
+      setName(student.name);
+      setEmail(student.email);
+    }
+  }, [student]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!student) return;
+    
     setIsLoading(true);
 
     try {
@@ -78,35 +87,39 @@ export function EditStudentModal({
     }
   };
 
+  if (!student) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="bg-blue-900 border-blue-800/40">
         <DialogHeader>
-          <DialogTitle>Edit Student</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-blue-50">Edit Student</DialogTitle>
+          <DialogDescription className="text-blue-200">
             Update the student&apos;s information. Click save when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name" className="text-blue-200">Name</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Student's name"
+                className="bg-blue-800/20 border-blue-800/40 text-blue-50 placeholder:text-blue-400"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-blue-200">Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="student@school.com"
+                className="bg-blue-800/20 border-blue-800/40 text-blue-50 placeholder:text-blue-400"
                 required
               />
             </div>
@@ -117,10 +130,15 @@ export function EditStudentModal({
               variant="outline"
               onClick={onClose}
               disabled={isLoading}
+              className="border-blue-800/40 text-blue-200 hover:bg-blue-800/20"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               {isLoading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>

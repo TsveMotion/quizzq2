@@ -11,6 +11,7 @@ import {
   UserCog,
   Shield,
   GraduationCap,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,42 +28,42 @@ const features = [
     description: "Import multiple users at once using CSV files",
     icon: Upload,
     href: "/docs/user-management/bulk-import",
-    color: "text-blue-500",
+    color: "text-blue-300",
   },
   {
     title: "User Roles",
     description: "Manage different user roles and permissions",
     icon: Shield,
     href: "/docs/user-management/roles",
-    color: "text-green-500",
+    color: "text-blue-300",
   },
   {
     title: "Student Management",
     description: "Add, edit, and organize student accounts",
     icon: GraduationCap,
     href: "/docs/user-management/students",
-    color: "text-purple-500",
+    color: "text-blue-300",
   },
   {
     title: "Teacher Management",
     description: "Manage teacher accounts and assignments",
     icon: UserCog,
     href: "/docs/user-management/teachers",
-    color: "text-orange-500",
+    color: "text-blue-300",
   },
   {
     title: "Templates",
     description: "Download CSV templates for bulk imports",
     icon: Download,
     href: "/docs/user-management/templates",
-    color: "text-pink-500",
+    color: "text-blue-300",
   },
   {
     title: "Data Management",
     description: "Export and manage user data",
     icon: FileSpreadsheet,
     href: "/docs/user-management/data",
-    color: "text-yellow-500",
+    color: "text-blue-300",
   },
 ];
 
@@ -89,11 +90,22 @@ export default function UserManagementPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-4"
       >
-        <div className="flex items-center gap-2">
-          <Users className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-        </div>
-        <p className="text-xl text-muted-foreground">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6 inline-block rounded-full bg-white/20 px-4 py-1.5 backdrop-blur-md"
+        >
+          <span className="flex items-center text-sm font-medium text-white">
+            <Sparkles className="mr-2 h-4 w-4 text-blue-200" />
+            User Management
+          </span>
+        </motion.div>
+
+        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-blue-100 to-white">
+          User Management
+        </h1>
+        <p className="text-xl text-white/80">
           Efficiently manage your school&apos;s users with our comprehensive tools and features
         </p>
       </motion.div>
@@ -109,13 +121,13 @@ export default function UserManagementPage() {
           return (
             <motion.div key={feature.title} variants={item}>
               <a href={feature.href}>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                <Card className="bg-white/10 border-white/20 backdrop-blur-sm hover:bg-white/15 transition-all cursor-pointer">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <Icon className={`h-6 w-6 ${feature.color}`} />
-                      <CardTitle>{feature.title}</CardTitle>
+                      <CardTitle className="text-white">{feature.title}</CardTitle>
                     </div>
-                    <CardDescription>{feature.description}</CardDescription>
+                    <CardDescription className="text-white/60">{feature.description}</CardDescription>
                   </CardHeader>
                 </Card>
               </a>
@@ -128,19 +140,19 @@ export default function UserManagementPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
-        className="bg-muted rounded-lg p-6"
+        className="bg-white/10 border border-white/20 backdrop-blur-sm rounded-lg p-6"
       >
-        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+        <h3 className="text-lg font-semibold mb-4 text-white">Quick Actions</h3>
         <div className="flex flex-wrap gap-4">
-          <Button variant="default" className="gap-2">
+          <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white gap-2">
             <UserPlus className="h-4 w-4" />
             Add New User
           </Button>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 gap-2">
             <Upload className="h-4 w-4" />
             Bulk Import
           </Button>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 gap-2">
             <Download className="h-4 w-4" />
             Download Template
           </Button>

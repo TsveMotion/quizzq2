@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,44 +48,62 @@ interface ClassesTabProps {
   onClassesChange: (classes: ClassWithTeacher[]) => void;
 }
 
-export function ClassesTab({ 
-  classes,
-  teachers,
-  students,
-  isLoading,
-  searchTerm,
-  setSearchTerm,
-  schoolId,
-  onClassesChange
-}: ClassesTabProps) {
+export function ClassesTab() {
+  const { data: session } = useSession();
   const { toast } = useToast();
+  const [classes, setClasses] = useState<ClassWithTeacher[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [classToDelete, setClassToDelete] = useState<ClassWithTeacher | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
-  const fetchClasses = useCallback(async () => {
+  useEffect(() => {
+    if (session?.user?.schoolId) {
+      fetchData(session.user.schoolId);
+    }
+  }, [session]);
+
+  const fetchData = async (schoolId: string) => {
     try {
-      const response = await fetch(`/api/schools/${schoolId}/classes`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch classes');
-      }
-      const classesData = await response.json();
-      onClassesChange(classesData);
+      const [classesRes, teachersRes, studentsRes] = await Promise.all([
+        fetch(`/api/schools/${schoolId}/classes`),
+        fetch(`/api/schools/${schoolId}/teachers`),
+        fetch(`/api/schools/${schoolId}/students`)
+      ]);
+
+      const [classesData, teachersData, studentsData] = await Promise.all([
+        classesRes.json(),
+        teachersRes.json(),
+        studentsRes.json()
+      ]);
+
+      if (!classesRes.ok) throw new Error('Failed to fetch classes');
+      if (!teachersRes.ok) throw new Error('Failed to fetch teachers');
+      if (!studentsRes.ok) throw new Error('Failed to fetch students');
+
+      setClasses(classesData);
+      setTeachers(teachersData);
+      setStudents(studentsData);
     } catch (error) {
-      console.error('Error fetching classes:', error);
+      console.error('Error fetching data:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch classes",
+        description: "Failed to fetch data",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-  }, [schoolId, onClassesChange, toast]);
+  };
 
   const handleDeleteClass = async () => {
-    if (!classToDelete) return;
+    if (!classToDelete || !session?.user?.schoolId) return;
 
     try {
-      const response = await fetch(`/api/schools/${schoolId}/classes/${classToDelete.id}`, {
+      const response = await fetch(`/api/schools/${session.user.schoolId}/classes/${classToDelete.id}`, {
         method: 'DELETE',
       });
 
@@ -92,7 +111,7 @@ export function ClassesTab({
         throw new Error('Failed to delete class');
       }
 
-      onClassesChange(classes.filter(c => c.id !== classToDelete.id));
+      setClasses(classes.filter(c => c.id !== classToDelete.id));
       setClassToDelete(null);
       setIsModalOpen(false);
 
@@ -114,10 +133,6 @@ export function ClassesTab({
     cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cls.teacher.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  useEffect(() => {
-    fetchClasses();
-  }, [fetchClasses]);
 
   if (isLoading) {
     return (
@@ -264,9 +279,9 @@ export function ClassesTab({
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => {
           setIsModalOpen(false);
-          fetchClasses();
+          fetchData(session.user.schoolId);
         }}
-        schoolId={schoolId}
+        schoolId={session.user.schoolId}
         teachers={teachers}
       />
     </div>

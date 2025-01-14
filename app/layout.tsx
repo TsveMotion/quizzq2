@@ -1,3 +1,5 @@
+'use client';
+
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { SpeedInsights } from "@vercel/speed-insights/next"
@@ -8,33 +10,37 @@ import { ThemeProvider } from 'next-themes'
 import { Header } from '@/components/ui/header'
 import { Footer } from '@/components/ui/footer'
 import { TailwindIndicator } from '@/components/ui/tailwind-indicator'
+import { usePathname } from 'next/navigation'
 
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata = {
-  title: 'QuizzQ - AI-Powered Learning Platform',
-  description: 'An intelligent quiz platform powered by AI',
-}
+const inter = Inter({ 
+  subsets: ['latin'],
+  variable: '--font-inter',
+});
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname();
+  const isDashboard = pathname?.includes('/dashboard');
+
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className={cn(
-        "min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900",
-        "font-sans antialiased",
+        "min-h-screen font-sans antialiased",
+        !isDashboard && "overflow-auto bg-background",
+        isDashboard && "overflow-hidden bg-[#12141C]",
         inter.className
       )}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem={false}
+          disableTransitionOnChange
           forcedTheme="dark"
         >
           <Providers>
@@ -43,12 +49,12 @@ export default function RootLayout({
               <main className="flex-1">
                 {children}
               </main>
-              <Footer />
+              {!pathname?.includes('dashboard') && !pathname?.includes('admin') && <Footer />}
             </div>
+            <Analytics />
+            <SpeedInsights />
+            <TailwindIndicator />
           </Providers>
-          <TailwindIndicator />
-          <SpeedInsights />
-          <Analytics />
         </ThemeProvider>
       </body>
     </html>

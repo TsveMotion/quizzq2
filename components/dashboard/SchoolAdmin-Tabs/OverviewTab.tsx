@@ -1,261 +1,109 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useTheme } from 'next-themes';
-import { School, User, Class } from '@prisma/client';
+import { Card } from "@/components/ui/card";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-} from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+  Users,
+  GraduationCap,
+  BookOpen,
+  Calendar,
+  TrendingUp,
+  Award,
+} from "lucide-react";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-);
-
-// Theme colors
-const themeColors = {
-  light: {
-    primary: '#6366F1',
-    secondary: '#8B5CF6',
-    tertiary: '#A855F7',
-    background: 'white',
-    text: '#1F2937',
-    border: '#E5E7EB',
-    gridLines: '#F3F4F6',
-  },
-  dark: {
-    primary: '#818CF8',
-    secondary: '#A78BFA',
-    tertiary: '#C084FC',
-    background: '#1F2937',
-    text: '#F9FAFB',
-    border: '#374151',
-    gridLines: '#374151',
-  },
-};
-
-interface OverviewTabProps {
-  school: School & {
-    users: User[];
-    classes: Class[];
-    _count: {
-      users: number;
-      classes: number;
-    };
-  };
-}
-
-interface ActivityData {
-  date: string;
-  count: number;
-}
-
-interface ClassStats {
-  name: string;
-  studentCount: number;
-  teacherName: string;
-  assignmentCount: number;
-}
-
-export const OverviewTab = ({ school }: OverviewTabProps) => {
-  const [activityData, setActivityData] = useState<ActivityData[]>([]);
-  const [classStats, setClassStats] = useState<ClassStats[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { theme = 'light' } = useTheme();
-  const colors = themeColors[theme as keyof typeof themeColors];
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const [activityResponse, classResponse] = await Promise.all([
-          fetch('/api/activity/stats'),
-          fetch('/api/classes/stats')
-        ]);
-
-        if (!activityResponse.ok || !classResponse.ok) {
-          throw new Error('Failed to fetch data');
-        }
-
-        const [activityData, classData] = await Promise.all([
-          activityResponse.json(),
-          classResponse.json()
-        ]);
-
-        setActivityData(activityData);
-        setClassStats(Array.isArray(classData) ? classData : []);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setActivityData([]);
-        setClassStats([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // Calculate statistics
-  const totalTeachers = school.users.filter(user => user.role === 'TEACHER').length;
-  const totalStudents = school.users.filter(user => user.role === 'STUDENT').length;
-  const totalClasses = school._count.classes;
-
-  // Chart options
-  const commonOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        labels: {
-          color: colors.text,
-        },
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: {
-          color: colors.gridLines,
-        },
-        ticks: {
-          color: colors.text,
-        },
-      },
-      x: {
-        grid: {
-          color: colors.gridLines,
-        },
-        ticks: {
-          color: colors.text,
-        },
-      },
-    },
-  };
-
-  // Prepare data for user distribution chart
-  const userDistributionData = {
-    labels: ['Teachers', 'Students'],
-    datasets: [
-      {
-        data: [totalTeachers, totalStudents],
-        backgroundColor: [colors.primary, colors.secondary],
-        borderColor: [colors.primary, colors.secondary],
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  // Prepare data for classes overview
-  const classesData = {
-    labels: (classStats || []).map(cls => cls.name),
-    datasets: [
-      {
-        label: 'Students',
-        data: (classStats || []).map(cls => cls.studentCount),
-        backgroundColor: colors.primary,
-        borderColor: colors.primary,
-        borderWidth: 1,
-      },
-      {
-        label: 'Assignments',
-        data: (classStats || []).map(cls => cls.assignmentCount),
-        backgroundColor: colors.secondary,
-        borderColor: colors.secondary,
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  // Prepare monthly activity data
-  const monthlyActivityData = {
-    labels: activityData.map(item => item.date),
-    datasets: [
-      {
-        label: 'User Activity',
-        data: activityData.map(item => item.count),
-        borderColor: colors.primary,
-        backgroundColor: `${colors.primary}20`,
-        tension: 0.4,
-      },
-    ],
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex h-[400px] items-center justify-center">
-        <div className="text-lg text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
+export function OverviewTab() {
   return (
-    <div className="space-y-6 p-6">
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-lg bg-card p-6 shadow-sm">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Teachers</h3>
-          <p className="mt-2 text-3xl font-bold text-card-foreground">{totalTeachers}</p>
-        </div>
-        <div className="rounded-lg bg-card p-6 shadow-sm">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Students</h3>
-          <p className="mt-2 text-3xl font-bold text-card-foreground">{totalStudents}</p>
-        </div>
-        <div className="rounded-lg bg-card p-6 shadow-sm">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Classes</h3>
-          <p className="mt-2 text-3xl font-bold text-card-foreground">{totalClasses}</p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-blue-50">Hello Principal!</h2>
+        <p className="text-blue-200">Here's what's happening at your school today</p>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* User Distribution */}
-        <div className="h-[400px] rounded-lg bg-card p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-medium">User Distribution</h3>
-          <div className="h-[300px]">
-            <Doughnut
-              data={userDistributionData}
-              options={{
-                ...commonOptions,
-                cutout: '60%',
-              }}
-            />
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card className="p-6 bg-blue-800/20 border-blue-800/40">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-blue-500/20 rounded-xl">
+              <Users className="h-6 w-6 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-blue-200">Total Students</p>
+              <h3 className="text-2xl font-bold text-blue-50">1,234</h3>
+            </div>
           </div>
-        </div>
+        </Card>
 
-        {/* Monthly Activity */}
-        <div className="h-[400px] rounded-lg bg-card p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-medium">Monthly Activity</h3>
-          <div className="h-[300px]">
-            <Line data={monthlyActivityData} options={commonOptions} />
+        <Card className="p-6 bg-blue-800/20 border-blue-800/40">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-blue-500/20 rounded-xl">
+              <GraduationCap className="h-6 w-6 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-blue-200">Total Teachers</p>
+              <h3 className="text-2xl font-bold text-blue-50">89</h3>
+            </div>
           </div>
-        </div>
+        </Card>
 
-        {/* Classes Overview */}
-        <div className="col-span-1 h-[400px] rounded-lg bg-card p-6 shadow-sm lg:col-span-2">
-          <h3 className="mb-4 text-lg font-medium">Classes Overview</h3>
-          <div className="h-[300px]">
-            <Bar data={classesData} options={commonOptions} />
+        <Card className="p-6 bg-blue-800/20 border-blue-800/40">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-blue-500/20 rounded-xl">
+              <BookOpen className="h-6 w-6 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-blue-200">Active Courses</p>
+              <h3 className="text-2xl font-bold text-blue-50">156</h3>
+            </div>
           </div>
-        </div>
+        </Card>
+      </div>
+
+      {/* Performance Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-6 bg-blue-800/20 border-blue-800/40">
+          <h3 className="text-lg font-semibold text-blue-50 mb-4">School Performance</h3>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-blue-200">Average Attendance</span>
+              <span className="text-blue-50 font-medium">94%</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-blue-200">Academic Progress</span>
+              <span className="text-blue-50 font-medium">87%</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-blue-200">Student Satisfaction</span>
+              <span className="text-blue-50 font-medium">92%</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 bg-blue-800/20 border-blue-800/40">
+          <h3 className="text-lg font-semibold text-blue-50 mb-4">Upcoming Events</h3>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3">
+              <Calendar className="h-4 w-4 text-blue-400" />
+              <div>
+                <p className="text-blue-50">Parent-Teacher Meeting</p>
+                <p className="text-sm text-blue-200">Tomorrow, 2:00 PM</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Award className="h-4 w-4 text-blue-400" />
+              <div>
+                <p className="text-blue-50">Annual Sports Day</p>
+                <p className="text-sm text-blue-200">Next Week, Monday</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <TrendingUp className="h-4 w-4 text-blue-400" />
+              <div>
+                <p className="text-blue-50">Academic Review</p>
+                <p className="text-sm text-blue-200">Next Week, Friday</p>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
-};
+}

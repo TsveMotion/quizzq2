@@ -11,6 +11,7 @@ import {
   Bell,
   BarChart,
   Building2,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,42 +28,42 @@ const features = [
     description: "Configure your school's basic information and settings",
     icon: Building2,
     href: "/docs/school-administration/setup",
-    color: "text-blue-500",
+    color: "text-blue-300",
   },
   {
     title: "Class Management",
     description: "Create and manage classes, assign teachers and students",
     icon: BookOpen,
     href: "/docs/school-administration/classes",
-    color: "text-green-500",
+    color: "text-blue-300",
   },
   {
     title: "Academic Calendar",
     description: "Set up terms, holidays, and important dates",
     icon: Calendar,
     href: "/docs/school-administration/calendar",
-    color: "text-purple-500",
+    color: "text-blue-300",
   },
   {
     title: "Notifications",
     description: "Configure school-wide notification settings",
     icon: Bell,
     href: "/docs/school-administration/notifications",
-    color: "text-orange-500",
+    color: "text-blue-300",
   },
   {
     title: "Reports & Analytics",
     description: "Access school-wide performance metrics and reports",
     icon: BarChart,
     href: "/docs/school-administration/reports",
-    color: "text-pink-500",
+    color: "text-blue-300",
   },
   {
     title: "Staff Management",
     description: "Manage administrative staff and their roles",
     icon: Users,
     href: "/docs/school-administration/staff",
-    color: "text-yellow-500",
+    color: "text-blue-300",
   },
 ];
 
@@ -89,11 +90,22 @@ export default function SchoolAdministrationPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-4"
       >
-        <div className="flex items-center gap-2">
-          <School className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">School Administration</h1>
-        </div>
-        <p className="text-xl text-muted-foreground">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6 inline-block rounded-full bg-white/20 px-4 py-1.5 backdrop-blur-md"
+        >
+          <span className="flex items-center text-sm font-medium text-white">
+            <Sparkles className="mr-2 h-4 w-4 text-blue-200" />
+            School Administration
+          </span>
+        </motion.div>
+
+        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-blue-100 to-white">
+          School Administration
+        </h1>
+        <p className="text-xl text-white/80">
           Manage your school&apos;s settings, classes, and administrative functions
         </p>
       </motion.div>
@@ -109,13 +121,13 @@ export default function SchoolAdministrationPage() {
           return (
             <motion.div key={feature.title} variants={item}>
               <a href={feature.href}>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                <Card className="bg-white/10 border-white/20 backdrop-blur-sm hover:bg-white/15 transition-all cursor-pointer">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <Icon className={`h-6 w-6 ${feature.color}`} />
-                      <CardTitle>{feature.title}</CardTitle>
+                      <CardTitle className="text-white">{feature.title}</CardTitle>
                     </div>
-                    <CardDescription>{feature.description}</CardDescription>
+                    <CardDescription className="text-white/60">{feature.description}</CardDescription>
                   </CardHeader>
                 </Card>
               </a>
@@ -128,9 +140,9 @@ export default function SchoolAdministrationPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
-        className="bg-gradient-to-r from-primary/10 via-primary/5 to-background p-6 rounded-lg"
+        className="bg-white/10 border border-white/20 backdrop-blur-sm p-6 rounded-lg"
       >
-        <h2 className="text-2xl font-bold mb-4">Getting Started</h2>
+        <h2 className="text-2xl font-bold mb-4 text-white">Getting Started</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
             { title: "Complete school profile", icon: Building2 },
@@ -147,12 +159,12 @@ export default function SchoolAdministrationPage() {
                 transition={{ delay: 0.1 * index }}
                 className="flex items-center gap-4"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-blue-200">
                   {index + 1}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Icon className="h-5 w-5 text-primary" />
-                  <p className="font-medium">{step.title}</p>
+                  <Icon className="h-5 w-5 text-blue-300" />
+                  <p className="font-medium text-white/80">{step.title}</p>
                 </div>
               </motion.div>
             );
@@ -164,19 +176,19 @@ export default function SchoolAdministrationPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="bg-muted rounded-lg p-6"
+        className="bg-white/10 border border-white/20 backdrop-blur-sm rounded-lg p-6"
       >
-        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+        <h3 className="text-lg font-semibold mb-4 text-white">Quick Actions</h3>
         <div className="flex flex-wrap gap-4">
-          <Button variant="default" className="gap-2">
+          <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white gap-2">
             <Settings className="h-4 w-4" />
             School Settings
           </Button>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 gap-2">
             <BookOpen className="h-4 w-4" />
             Manage Classes
           </Button>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 gap-2">
             <BarChart className="h-4 w-4" />
             View Reports
           </Button>

@@ -69,18 +69,24 @@ export default withAuth(
         return NextResponse.redirect(new URL('/signin', req.url));
       }
 
-      // All users go to /dashboard/user except special roles
+      // Route users based on their role
       const userRole = token.role?.toLowerCase();
-      if (userRole === 'superadmin' || userRole === 'schooladmin' || userRole === 'teacher') {
-        const correctPath = `/dashboard/${userRole}`;
-        if (!pathname.startsWith(correctPath)) {
-          return NextResponse.redirect(new URL(correctPath, req.url));
-        }
-      } else {
-        // All other users (including 'free' and 'pro') go to /dashboard/user
-        if (!pathname.startsWith('/dashboard/user')) {
-          return NextResponse.redirect(new URL('/dashboard/user', req.url));
-        }
+      
+      switch (userRole) {
+        case 'superadmin':
+        case 'schooladmin':
+        case 'teacher':
+        case 'student':
+          const correctPath = `/dashboard/${userRole}`;
+          if (!pathname.startsWith(correctPath)) {
+            return NextResponse.redirect(new URL(correctPath, req.url));
+          }
+          break;
+        default:
+          // All other users (including 'free' and 'pro') go to /dashboard/user
+          if (!pathname.startsWith('/dashboard/user')) {
+            return NextResponse.redirect(new URL('/dashboard/user', req.url));
+          }
       }
     }
 
@@ -99,6 +105,7 @@ export default withAuth(
           return true;
         }
 
+        // Require authentication for all other routes
         return true;
       },
     },
@@ -107,5 +114,13 @@ export default withAuth(
 
 // Match all routes except static files
 export const config = {
-  matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
 };

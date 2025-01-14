@@ -63,6 +63,7 @@ import NextAuth from "next-auth";
 import { AuthOptions } from "next-auth";
 import { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { User } from "@prisma/client";
@@ -89,6 +90,10 @@ interface ExtendedUser extends User {
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma) as any, // Type assertion needed due to version mismatch
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {

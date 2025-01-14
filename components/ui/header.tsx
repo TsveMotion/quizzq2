@@ -37,42 +37,42 @@ export function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-white/5 backdrop-blur-lg transition-all duration-300">
-      <div className="container flex h-16 items-center px-4">
+    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#1a237e] transition-all duration-300">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo - Left */}
-        <Link href="/" className="flex items-center space-x-2">
-          <Brain className="h-6 w-6 text-blue-400 animate-pulse" />
-          <span className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-            QuizzQ
-          </span>
-        </Link>
-
-        {/* Navigation - Center (Hidden on Mobile) */}
-        <div className="hidden md:flex flex-1 justify-center">
-          <nav className="flex items-center space-x-6">
-            {navigationLinks.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "relative py-2 text-sm font-medium transition-colors hover:text-white group",
-                  pathname === href ? "text-white" : "text-white/70"
-                )}
-              >
-                {label}
-                <span
-                  className={cn(
-                    "absolute inset-x-0 -bottom-[1px] h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 transform origin-left transition-transform duration-300",
-                    pathname === href ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
-                  )}
-                />
-              </Link>
-            ))}
-          </nav>
+        <div className="w-[200px] flex-shrink-0">
+          <Link href="/" className="flex items-center space-x-2">
+            <Brain className="h-6 w-6 text-blue-400 animate-pulse" />
+            <span className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              QuizzQ
+            </span>
+          </Link>
         </div>
 
+        {/* Navigation - Center */}
+        <nav className="hidden md:flex items-center justify-center space-x-6">
+          {navigationLinks.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "relative py-2 text-sm font-medium transition-colors hover:text-white group",
+                pathname === href ? "text-white" : "text-white/70"
+              )}
+            >
+              {label}
+              <span
+                className={cn(
+                  "absolute inset-x-0 -bottom-[1px] h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 transform origin-left transition-transform duration-300",
+                  pathname === href ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                )}
+              />
+            </Link>
+          ))}
+        </nav>
+
         {/* Actions - Right */}
-        <div className="flex flex-1 justify-end items-center space-x-3 md:flex-none">
+        <div className="w-[200px] flex justify-end items-center space-x-3">
           {session ? (
             <>
               {!pathname?.includes('/dashboard') && (

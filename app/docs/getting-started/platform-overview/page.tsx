@@ -9,6 +9,7 @@ import {
   BookOpen,
   Settings,
   BarChart,
+  Sparkles,
 } from 'lucide-react';
 import {
   Card,
@@ -23,31 +24,31 @@ const sections = [
     title: "User Management",
     description: "Manage students, teachers, and administrators",
     icon: Users,
-    color: "text-blue-500",
+    color: "text-blue-300",
   },
   {
     title: "School Administration",
     description: "Configure school settings and manage classes",
     icon: School,
-    color: "text-green-500",
+    color: "text-blue-300",
   },
   {
     title: "Quiz System",
     description: "Create and manage quizzes and assessments",
     icon: BookOpen,
-    color: "text-purple-500",
+    color: "text-blue-300",
   },
   {
     title: "Settings & Configuration",
     description: "Customize the platform to your needs",
     icon: Settings,
-    color: "text-orange-500",
+    color: "text-blue-300",
   },
   {
     title: "Analytics & Reports",
     description: "Track performance and generate insights",
     icon: BarChart,
-    color: "text-pink-500",
+    color: "text-blue-300",
   },
 ];
 
@@ -74,12 +75,23 @@ export default function PlatformOverviewPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-4"
       >
-        <div className="flex items-center gap-2">
-          <Layout className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Platform Overview</h1>
-        </div>
-        <p className="text-xl text-muted-foreground">
-          Learn about the key components and features of the QUIZZQ platform
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6 inline-block rounded-full bg-white/20 px-4 py-1.5 backdrop-blur-md"
+        >
+          <span className="flex items-center text-sm font-medium text-white">
+            <Sparkles className="mr-2 h-4 w-4 text-blue-200" />
+            Platform Overview
+          </span>
+        </motion.div>
+
+        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-blue-100 to-white">
+          Platform Overview
+        </h1>
+        <p className="text-xl text-white/80">
+          Learn about the key components and features of the QuizzQ platform
         </p>
       </motion.div>
 
@@ -93,18 +105,18 @@ export default function PlatformOverviewPage() {
           const Icon = section.icon;
           return (
             <motion.div key={section.title} variants={item}>
-              <Card>
+              <Card className="bg-white/10 border-white/20 backdrop-blur-sm hover:bg-white/15 transition-all">
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Icon className={`h-6 w-6 ${section.color}`} />
-                    <CardTitle>{section.title}</CardTitle>
+                    <CardTitle className="text-white">{section.title}</CardTitle>
                   </div>
-                  <CardDescription>{section.description}</CardDescription>
+                  <CardDescription className="text-white/60">{section.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="prose dark:prose-invert max-w-none">
-                    <h3>Key Features</h3>
-                    <ul>
+                    <h3 className="text-white">Key Features</h3>
+                    <ul className="text-white/80 space-y-2">
                       {section.title === "User Management" && (
                         <>
                           <li>User role management and permissions</li>
@@ -153,13 +165,13 @@ export default function PlatformOverviewPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="bg-muted p-6 rounded-lg"
+        className="bg-white/10 border border-white/20 backdrop-blur-sm p-6 rounded-lg"
       >
-        <h2 className="text-xl font-semibold mb-4">Getting Started</h2>
-        <p className="text-muted-foreground mb-4">
-          To get started with QUIZZQ, we recommend following these steps:
+        <h2 className="text-xl font-semibold mb-4 text-white">Getting Started</h2>
+        <p className="text-white/80 mb-4">
+          To get started with QuizzQ, we recommend following these steps:
         </p>
-        <ol className="space-y-2 list-decimal list-inside text-muted-foreground">
+        <ol className="space-y-2 list-decimal list-inside text-white/70">
           <li>Complete your school profile setup</li>
           <li>Import or add your users (teachers and students)</li>
           <li>Create classes and assign teachers</li>

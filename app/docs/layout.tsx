@@ -120,15 +120,15 @@ export default function DocsLayout({
   );
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#1a237e]">
       {/* Sidebar */}
-      <div className="w-80 border-r bg-background flex flex-col">
-        <div className="p-4 border-b">
+      <div className="w-80 border-r border-white/10 bg-white/5 backdrop-blur-md flex flex-col">
+        <div className="p-4 border-b border-white/10">
           <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-white/60" />
             <Input
               placeholder="Search documentation..."
-              className="pl-8"
+              className="pl-8 bg-white/10 border-white/20 text-white placeholder:text-white/60"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -138,8 +138,8 @@ export default function DocsLayout({
           <div className="space-y-6">
             {filteredSections.map((section) => (
               <div key={section.href} className="space-y-2">
-                <h4 className="font-medium flex items-center gap-2 text-sm">
-                  <section.icon className="h-4 w-4" />
+                <h4 className="font-medium flex items-center gap-2 text-sm text-white/80">
+                  <section.icon className="h-4 w-4 text-blue-300" />
                   {section.title}
                 </h4>
                 <div className="space-y-1">
@@ -148,8 +148,8 @@ export default function DocsLayout({
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "block text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-2 py-1 transition-colors",
-                        pathname === item.href && "text-foreground bg-accent"
+                        "block text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-md px-2 py-1 transition-colors",
+                        pathname === item.href && "text-white bg-white/10"
                       )}
                     >
                       {item.title}
@@ -164,7 +164,7 @@ export default function DocsLayout({
 
       {/* Main content */}
       <div className="flex-1 overflow-auto">
-        <div className="h-full py-6 px-8">
+        <div className="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10 overflow-auto">
           {children}
         </div>
       </div>

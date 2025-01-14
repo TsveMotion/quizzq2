@@ -10,7 +10,7 @@ datasource db {
 model User {
   id              String               @id @default(cuid())
   email           String               @unique
-  password        String
+  password        String?              // Made optional for OAuth users
   name            String
   role            Role                 @default(USER)
   powerLevel      Int                  @default(1)
@@ -58,6 +58,9 @@ model User {
   enrolledClasses Class[]              @relation("StudentClasses")
   stripeSessions  StripeSession[]
   quizSubmissions QuizSubmission[]
+  blogPosts       BlogPost[]           // Added for blog functionality
+  likedPosts      BlogPostLike[]       // Added for blog functionality
+
   @@index([schoolId])
   @@index([teacherId])
   @@map("users")
@@ -371,6 +374,77 @@ model QuizAnswer {
   updatedAt     DateTime  @updatedAt
   question      QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
   submission    QuizSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+}
+
+model BlogPost {
+  id         String         @id @default(cuid())
+  title      String
+  content    String        @db.Text
+  coverImage String?
+  likes      Int           @default(0)
+  views      Int           @default(0)
+  tags       String[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  authorId   String
+  author     User          @relation(fields: [authorId], references: [id])
+  likedBy    BlogPostLike[]
+  comments   Comment[]
+
+  @@index([authorId])
+}
+
+model BlogPostLike {
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId])
+  @@index([postId])
+}
+
+model Comment {
+  id          String    @id @default(cuid())
+  content     String    @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  postId      String
+  post        BlogPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  likes       Int       @default(0)
+  parentId    String?   // For nested comments
+  parent      Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies     Comment[] @relation("CommentReplies")
+  isAnonymous Boolean   @default(false)
+  authorHash  String?   // Hash to identify anonymous authors while keeping them anonymous
+
+  @@index([postId])
+  @@index([parentId])
+}
+
+model AnonymousChat {
+  id          String    @id @default(cuid())
+  content     String    @db.Text
+  createdAt   DateTime  @default(now())
+  authorHash  String    // Hash to identify anonymous authors while keeping them anonymous
+  roomId      String    // To group chats by discussion/topic
+  likes       Int       @default(0)
+  replyTo     String?   // ID of the message being replied to
+  
+  @@index([roomId])
+  @@index([authorHash])
+}
+
+model ChatRoom {
+  id          String    @id @default(cuid())
+  name        String
+  description String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  isArchived  Boolean   @default(false)
+  lastActive  DateTime  @default(now())
 }
 
 enum Role {
