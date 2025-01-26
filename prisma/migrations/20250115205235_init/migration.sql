@@ -4,32 +4,21 @@ CREATE TYPE "Role" AS ENUM ('USER', 'TEACHER', 'ADMIN', 'SUPERADMIN', 'STUDENT',
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
+    "name" TEXT,
     "email" TEXT NOT NULL,
-    "password" TEXT,
-    "name" TEXT NOT NULL,
-    "role" "Role" NOT NULL DEFAULT 'USER',
-    "powerLevel" INTEGER NOT NULL DEFAULT 1,
-    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "email_verified" TIMESTAMP(3),
     "image" TEXT,
+    "password" TEXT NOT NULL,
+    "role" "Role" NOT NULL DEFAULT 'USER',
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "schoolId" TEXT,
     "teacherId" TEXT,
-    "avatar" TEXT,
-    "bio" TEXT,
-    "subjects" TEXT,
-    "education" TEXT,
-    "experience" TEXT,
-    "phoneNumber" TEXT,
-    "officeHours" TEXT,
-    "subscriptionStatus" TEXT NOT NULL DEFAULT 'inactive',
-    "subscriptionPlan" TEXT NOT NULL DEFAULT 'free',
-    "subscriptionId" TEXT,
-    "subscriptionEndDate" TIMESTAMP(3),
+    "powerLevel" INTEGER NOT NULL DEFAULT 1,
     "isPro" BOOLEAN NOT NULL DEFAULT false,
     "proSubscriptionId" TEXT,
     "proExpiresAt" TIMESTAMP(3),
     "proType" TEXT,
-    "proStatus" TEXT DEFAULT 'INACTIVE',
+    "proStatus" TEXT,
     "proPlan" TEXT,
     "proPlanId" TEXT,
     "proPlanName" TEXT,
@@ -41,6 +30,11 @@ CREATE TABLE "users" (
     "proPlanIsTrial" BOOLEAN NOT NULL DEFAULT false,
     "proPlanStartedAt" TIMESTAMP(3),
     "proPlanEndedAt" TIMESTAMP(3),
+    "subscriptionPlan" TEXT NOT NULL DEFAULT 'free',
+    "aiDailyUsage" INTEGER NOT NULL DEFAULT 0,
+    "aiMonthlyUsage" INTEGER NOT NULL DEFAULT 0,
+    "aiLifetimeUsage" INTEGER NOT NULL DEFAULT 0,
+    "aiLastResetDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -165,11 +159,12 @@ CREATE TABLE "QuestionSubmission" (
     "id" TEXT NOT NULL,
     "questionId" TEXT NOT NULL,
     "submissionId" TEXT NOT NULL,
-    "answer" TEXT,
+    "answer" TEXT NOT NULL,
     "score" DOUBLE PRECISION,
     "feedback" TEXT,
+    "isCorrect" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "QuestionSubmission_pkey" PRIMARY KEY ("id")
 );
@@ -348,6 +343,38 @@ CREATE TABLE "AIQuizAnswer" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "AIQuizAnswer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Quiz" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "topic" TEXT NOT NULL,
+    "difficulty" TEXT NOT NULL,
+    "timeLimit" INTEGER NOT NULL DEFAULT 30,
+    "isPremium" BOOLEAN NOT NULL DEFAULT false,
+    "published" BOOLEAN NOT NULL DEFAULT false,
+    "totalQuestions" INTEGER NOT NULL,
+    "description" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "score" DOUBLE PRECISION,
+    "order" INTEGER,
+
+    CONSTRAINT "Quiz_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "QuizQuestion" (
+    "id" TEXT NOT NULL,
+    "question" TEXT NOT NULL,
+    "options" TEXT[],
+    "correctAnswer" TEXT NOT NULL,
+    "explanation" TEXT,
+    "quizId" TEXT NOT NULL,
+
+    CONSTRAINT "QuizQuestion_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -531,6 +558,12 @@ CREATE INDEX "AIQuizAnswer_questionId_idx" ON "AIQuizAnswer"("questionId");
 CREATE INDEX "AIQuizAnswer_submissionId_idx" ON "AIQuizAnswer"("submissionId");
 
 -- CreateIndex
+CREATE INDEX "Quiz_userId_idx" ON "Quiz"("userId");
+
+-- CreateIndex
+CREATE INDEX "QuizQuestion_quizId_idx" ON "QuizQuestion"("quizId");
+
+-- CreateIndex
 CREATE INDEX "BlogPost_authorId_idx" ON "BlogPost"("authorId");
 
 -- CreateIndex
@@ -643,6 +676,12 @@ ALTER TABLE "AIQuizAnswer" ADD CONSTRAINT "AIQuizAnswer_questionId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "AIQuizAnswer" ADD CONSTRAINT "AIQuizAnswer_submissionId_fkey" FOREIGN KEY ("submissionId") REFERENCES "QuizSubmission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Quiz" ADD CONSTRAINT "Quiz_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "QuizQuestion" ADD CONSTRAINT "QuizQuestion_quizId_fkey" FOREIGN KEY ("quizId") REFERENCES "Quiz"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

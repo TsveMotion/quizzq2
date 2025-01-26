@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth-config';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -16,7 +16,14 @@ export async function GET() {
       },
       select: {
         id: true,
-        quizId: true,
+        quiz: {
+          select: {
+            id: true,
+            title: true,
+            topic: true,
+            difficulty: true,
+          },
+        },
         score: true,
         completedAt: true,
       },
@@ -43,11 +50,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { quizId, answers } = body;
+    const { id, answers } = body;
 
     // Get the quiz to calculate the score
     const quiz = await prisma.aIQuiz.findUnique({
-      where: { id: quizId },
+      where: { id: body.id },
       include: { questions: true },
     });
 
@@ -64,7 +71,7 @@ export async function POST(req: Request) {
     // Save attempt
     const attempt = await prisma.aIQuizAttempt.create({
       data: {
-        quizId,
+        id: body.id,
         userId: session.user.id,
         score,
         answers: {

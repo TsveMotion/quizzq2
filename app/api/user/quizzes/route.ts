@@ -41,7 +41,7 @@ export async function GET() {
             options: true,
             correctAnswer: true,
             explanation: true,
-            quizId: true
+            id: true
           }
         }
       }
@@ -51,7 +51,7 @@ export async function GET() {
     const quizSubmissions = await prisma.quizSubmission.findMany({
       where: {
         userId: session.user.id,
-        quizId: {
+        id: {
           in: quizzes.map(q => q.id)
         }
       }
@@ -59,7 +59,7 @@ export async function GET() {
 
     // Type the submissions array properly
     const quizzesWithStats = quizzes.map((quiz: any) => {
-      const submissions = quizSubmissions.filter(sub => sub.quizId === quiz.id);
+      const submissions = quizSubmissions.filter(sub => sub.id === quiz.id);
       return {
         ...quiz,
         attempts: submissions.length,
@@ -89,11 +89,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const { quizId, answers } = await req.json();
+    const { id, answers } = await req.json();
 
-    if (!quizId || !answers) {
+    if (!id || !answers) {
       return NextResponse.json(
-        { error: 'Quiz ID and answers are required' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
@@ -112,12 +112,12 @@ export async function POST(req: Request) {
     // Create quiz submission
     const submission = await prisma.quizSubmission.create({
       data: {
-        quizId,
+        id,
         userId: user.id,
         completedAt: new Date(),
         answers: {
           create: answers.map((answer: any) => ({
-            questionId: answer.questionId,
+            id: answer.id,
             answer: answer.answer,
             isCorrect: answer.isCorrect
           }))

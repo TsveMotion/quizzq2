@@ -1,77 +1,55 @@
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import NextAuth from "next-auth";
-import { AuthOptions } from "next-auth";
-import { JWT } from "next-auth/jwt";
-import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
+import NextAuth, { NextAuthOptions } from "next-auth";
+import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
-import prisma from "@/lib/prisma";
-import { User, Role } from "@prisma/client";
+import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { Role } from "@prisma/client";
+import { CustomPrismaAdapter } from "@/lib/custom-prisma-adapter";
 
-declare module "next-auth" {
-  interface User {
-    id: string;
-    email: string;
-    name: string;
-    role: Role;
-    schoolId: string | null;
-    powerLevel: number;
-    emailVerified: Date | null;
-    image: string | null;
-    isPro: boolean;
-    proSubscriptionId: string | null;
-    proExpiresAt: Date | null;
-    proType: string | null;
-    proStatus: string | null;
-    proPlan: string | null;
-    proPlanId: string | null;
-    proPlanName: string | null;
-    proPlanPrice: number | null;
-    proPlanCurrency: string | null;
-    proPlanInterval: string | null;
-    proPlanTrialPeriodDays: number | null;
-    proPlanIsActive: boolean;
-    proPlanIsTrial: boolean;
-    proPlanStartedAt: Date | null;
-    proPlanEndedAt: Date | null;
-  }
-
-  interface Session {
-    user: User;
-  }
+export interface UserType {
+  id: string;
+  name: string | null;
+  email: string;
+  email_verified: Date | null;
+  image: string | null;
+  role: Role;
+  status: string;
+  schoolId: string | null;
+  teacherId: string | null;
+  powerLevel: number;
+  isPro: boolean;
+  proSubscriptionId: string | null;
+  proExpiresAt: Date | null;
+  proType: string | null;
+  proStatus: string | null;
+  proPlan: string | null;
+  proPlanId: string | null;
+  proPlanName: string | null;
+  proPlanPrice: number | null;
+  proPlanCurrency: string | null;
+  proPlanInterval: string | null;
+  proPlanTrialPeriodDays: number | null;
+  proPlanIsActive: boolean;
+  proPlanIsTrial: boolean;
+  proPlanStartedAt: Date | null;
+  proPlanEndedAt: Date | null;
+  subscriptionPlan: string;
+  aiDailyUsage: number;
+  aiMonthlyUsage: number;
+  aiLifetimeUsage: number;
+  aiLastResetDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    email: string;
-    name: string;
-    role: Role;
-    schoolId: string | null;
-    powerLevel: number;
-    emailVerified: Date | null;
-    image: string | null;
-    isPro: boolean;
-    proSubscriptionId: string | null;
-    proExpiresAt: Date | null;
-    proType: string | null;
-    proStatus: string | null;
-    proPlan: string | null;
-    proPlanId: string | null;
-    proPlanName: string | null;
-    proPlanPrice: number | null;
-    proPlanCurrency: string | null;
-    proPlanInterval: string | null;
-    proPlanTrialPeriodDays: number | null;
-    proPlanIsActive: boolean;
-    proPlanIsTrial: boolean;
-    proPlanStartedAt: Date | null;
-    proPlanEndedAt: Date | null;
-  }
-}
-
-export const authOptions: AuthOptions = {
-  adapter: PrismaAdapter(prisma) as any, // Type assertion needed due to version mismatch
+export const authOptions: NextAuthOptions = {
+  adapter: CustomPrismaAdapter(prisma),
+  session: {
+    strategy: "jwt",
+  },
+  pages: {
+    signIn: "/signin",
+  },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -80,37 +58,80 @@ export const authOptions: AuthOptions = {
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" }
+        email: { label: "email", type: "text" },
+        password: { label: "password", type: "password" },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error("Invalid credentials");
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+          where: {
+            email: credentials.email,
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            email_verified: true,
+            password: true,
+            image: true,
+            role: true,
+            status: true,
+            schoolId: true,
+            teacherId: true,
+            powerLevel: true,
+            isPro: true,
+            proSubscriptionId: true,
+            proExpiresAt: true,
+            proType: true,
+            proStatus: true,
+            proPlan: true,
+            proPlanId: true,
+            proPlanName: true,
+            proPlanPrice: true,
+            proPlanCurrency: true,
+            proPlanInterval: true,
+            proPlanTrialPeriodDays: true,
+            proPlanIsActive: true,
+            proPlanIsTrial: true,
+            proPlanStartedAt: true,
+            proPlanEndedAt: true,
+            subscriptionPlan: true,
+            aiDailyUsage: true,
+            aiMonthlyUsage: true,
+            aiLifetimeUsage: true,
+            aiLastResetDate: true,
+            createdAt: true,
+            updatedAt: true
+          },
         });
 
-        if (!user || !user.password) {
-          return null;
+        if (!user) {
+          throw new Error("No user found");
         }
 
-        const isValid = await compare(credentials.password, user.password);
+        const isPasswordValid = await compare(
+          credentials.password,
+          user.password
+        );
 
-        if (!isValid) {
-          return null;
+        if (!isPasswordValid) {
+          throw new Error("Invalid password");
         }
 
         return {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
-          schoolId: user.schoolId,
-          powerLevel: user.powerLevel,
-          emailVerified: user.emailVerified,
           image: user.image,
+          role: user.role,
+          email_verified: user.email_verified,
+          status: user.status,
+          schoolId: user.schoolId,
+          teacherId: user.teacherId,
+          powerLevel: user.powerLevel,
           isPro: user.isPro,
           proSubscriptionId: user.proSubscriptionId,
           proExpiresAt: user.proExpiresAt,
@@ -123,85 +144,94 @@ export const authOptions: AuthOptions = {
           proPlanCurrency: user.proPlanCurrency,
           proPlanInterval: user.proPlanInterval,
           proPlanTrialPeriodDays: user.proPlanTrialPeriodDays,
-          proPlanIsActive: user.proPlanIsActive ?? false,
-          proPlanIsTrial: user.proPlanIsTrial ?? false,
-          proPlanStartedAt: user.proPlanStartedAt ?? null,
-          proPlanEndedAt: user.proPlanEndedAt ?? null
+          proPlanIsActive: user.proPlanIsActive,
+          proPlanIsTrial: user.proPlanIsTrial,
+          proPlanStartedAt: user.proPlanStartedAt,
+          proPlanEndedAt: user.proPlanEndedAt,
+          subscriptionPlan: user.subscriptionPlan,
+          aiDailyUsage: user.aiDailyUsage,
+          aiMonthlyUsage: user.aiMonthlyUsage,
+          aiLifetimeUsage: user.aiLifetimeUsage,
+          aiLastResetDate: user.aiLastResetDate,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
         };
-      }
-    })
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
-        token.role = user.role;
-        token.schoolId = user.schoolId;
-        token.powerLevel = user.powerLevel;
-        token.emailVerified = user.emailVerified;
-        token.image = user.image;
-        token.isPro = user.isPro;
-        token.proSubscriptionId = user.proSubscriptionId;
-        token.proExpiresAt = user.proExpiresAt;
-        token.proType = user.proType;
-        token.proStatus = user.proStatus;
-        token.proPlan = user.proPlan;
-        token.proPlanId = user.proPlanId;
-        token.proPlanName = user.proPlanName;
-        token.proPlanPrice = user.proPlanPrice;
-        token.proPlanCurrency = user.proPlanCurrency;
-        token.proPlanInterval = user.proPlanInterval;
-        token.proPlanTrialPeriodDays = user.proPlanTrialPeriodDays;
-        token.proPlanIsActive = user.proPlanIsActive;
-        token.proPlanIsTrial = user.proPlanIsTrial;
-        token.proPlanStartedAt = user.proPlanStartedAt;
-        token.proPlanEndedAt = user.proPlanEndedAt;
+        return {
+          ...token,
+          role: user.role,
+          status: user.status,
+          schoolId: user.schoolId,
+          teacherId: user.teacherId,
+          powerLevel: user.powerLevel,
+          isPro: user.isPro,
+          proSubscriptionId: user.proSubscriptionId,
+          proExpiresAt: user.proExpiresAt,
+          proType: user.proType,
+          proStatus: user.proStatus,
+          proPlan: user.proPlan,
+          proPlanId: user.proPlanId,
+          proPlanName: user.proPlanName,
+          proPlanPrice: user.proPlanPrice,
+          proPlanCurrency: user.proPlanCurrency,
+          proPlanInterval: user.proPlanInterval,
+          proPlanTrialPeriodDays: user.proPlanTrialPeriodDays,
+          proPlanIsActive: user.proPlanIsActive,
+          proPlanIsTrial: user.proPlanIsTrial,
+          proPlanStartedAt: user.proPlanStartedAt,
+          proPlanEndedAt: user.proPlanEndedAt,
+          subscriptionPlan: user.subscriptionPlan,
+          aiDailyUsage: user.aiDailyUsage,
+          aiMonthlyUsage: user.aiMonthlyUsage,
+          aiLifetimeUsage: user.aiLifetimeUsage,
+          aiLastResetDate: user.aiLastResetDate
+        };
       }
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.email = token.email;
-        session.user.name = token.name;
-        session.user.role = token.role;
-        session.user.schoolId = token.schoolId;
-        session.user.powerLevel = token.powerLevel;
-        session.user.emailVerified = token.emailVerified;
-        session.user.image = token.image;
-        session.user.isPro = token.isPro;
-        session.user.proSubscriptionId = token.proSubscriptionId;
-        session.user.proExpiresAt = token.proExpiresAt;
-        session.user.proType = token.proType;
-        session.user.proStatus = token.proStatus;
-        session.user.proPlan = token.proPlan;
-        session.user.proPlanId = token.proPlanId;
-        session.user.proPlanName = token.proPlanName;
-        session.user.proPlanPrice = token.proPlanPrice;
-        session.user.proPlanCurrency = token.proPlanCurrency;
-        session.user.proPlanInterval = token.proPlanInterval;
-        session.user.proPlanTrialPeriodDays = token.proPlanTrialPeriodDays;
-        session.user.proPlanIsActive = token.proPlanIsActive;
-        session.user.proPlanIsTrial = token.proPlanIsTrial;
-        session.user.proPlanStartedAt = token.proPlanStartedAt;
-        session.user.proPlanEndedAt = token.proPlanEndedAt;
-      }
-      return session;
-    }
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.sub,
+          role: token.role,
+          status: token.status,
+          schoolId: token.schoolId,
+          teacherId: token.teacherId,
+          powerLevel: token.powerLevel,
+          isPro: token.isPro,
+          proSubscriptionId: token.proSubscriptionId,
+          proExpiresAt: token.proExpiresAt,
+          proType: token.proType,
+          proStatus: token.proStatus,
+          proPlan: token.proPlan,
+          proPlanId: token.proPlanId,
+          proPlanName: token.proPlanName,
+          proPlanPrice: token.proPlanPrice,
+          proPlanCurrency: token.proPlanCurrency,
+          proPlanInterval: token.proPlanInterval,
+          proPlanTrialPeriodDays: token.proPlanTrialPeriodDays,
+          proPlanIsActive: token.proPlanIsActive,
+          proPlanIsTrial: token.proPlanIsTrial,
+          proPlanStartedAt: token.proPlanStartedAt,
+          proPlanEndedAt: token.proPlanEndedAt,
+          subscriptionPlan: token.subscriptionPlan,
+          aiDailyUsage: token.aiDailyUsage,
+          aiMonthlyUsage: token.aiMonthlyUsage,
+          aiLifetimeUsage: token.aiLifetimeUsage,
+          aiLastResetDate: token.aiLastResetDate
+        },
+      };
+    },
   },
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  pages: {
-    signIn: '/signin',
-  },
-  debug: process.env.NODE_ENV === 'development',
 };
 
 const handler = NextAuth(authOptions);
 export default handler;
-export type { AuthOptions };
+export type { NextAuthOptions };

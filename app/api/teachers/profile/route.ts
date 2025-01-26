@@ -1,114 +1,132 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-config';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { getAuthSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { Role } from "@prisma/client";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    const session = await getAuthSession();
+
+    if (!session) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
       where: {
-        email: session.user.email,
+        id: session.user.id,
       },
       select: {
         id: true,
         name: true,
         email: true,
-        avatar: true,
-        bio: true,
-        subjects: true,
-        education: true,
-        experience: true,
-        phoneNumber: true,
-        officeHours: true,
+        email_verified: true,
+        image: true,
+        role: true,
+        status: true,
+        schoolId: true,
+        teacherId: true,
+        powerLevel: true,
+        isPro: true,
+        proSubscriptionId: true,
+        proExpiresAt: true,
+        proType: true,
+        proStatus: true,
+        proPlan: true,
+        proPlanId: true,
+        proPlanName: true,
+        proPlanPrice: true,
+        proPlanCurrency: true,
+        proPlanInterval: true,
+        proPlanTrialPeriodDays: true,
+        proPlanIsActive: true,
+        proPlanIsTrial: true,
+        proPlanStartedAt: true,
+        proPlanEndedAt: true,
+        subscriptionPlan: true,
+        aiDailyUsage: true,
+        aiMonthlyUsage: true,
+        aiLifetimeUsage: true,
+        aiLastResetDate: true,
+        createdAt: true,
+        updatedAt: true
       }
     });
 
     if (!user) {
-      return new NextResponse('User not found', { status: 404 });
+      return new NextResponse("User not found", { status: 404 });
     }
 
-    // Parse JSON fields
-    const profile = {
-      ...user,
-      subjects: user.subjects ? JSON.parse(user.subjects) : [],
-      officeHours: user.officeHours ? JSON.parse(user.officeHours) : [],
-      preferences: {
-        theme: 'system',
-        emailNotifications: true,
-        pushNotifications: true,
-        language: 'en',
-        timezone: 'UTC',
-      }
-    };
+    if (user.role !== Role.TEACHER) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
 
-    return NextResponse.json(profile);
+    return NextResponse.json(user);
   } catch (error) {
-    console.error('Error fetching teacher profile:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    console.error("[TEACHER_PROFILE_GET]", error);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }
 
-export async function PUT(request: Request) {
+export async function PATCH(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    const session = await getAuthSession();
+
+    if (!session) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const data = await request.json();
+    const body = await req.json();
+    const { name } = body;
 
     const user = await prisma.user.update({
       where: {
-        email: session.user.email,
+        id: session.user.id,
       },
       data: {
-        name: data.name,
-        avatar: data.avatar,
-        bio: data.bio,
-        subjects: Array.isArray(data.subjects) ? JSON.stringify(data.subjects) : data.subjects,
-        education: data.education,
-        experience: data.experience,
-        phoneNumber: data.phoneNumber,
-        officeHours: Array.isArray(data.officeHours) ? JSON.stringify(data.officeHours) : data.officeHours,
+        name,
       },
       select: {
         id: true,
         name: true,
         email: true,
-        avatar: true,
-        bio: true,
-        subjects: true,
-        education: true,
-        experience: true,
-        phoneNumber: true,
-        officeHours: true,
+        email_verified: true,
+        image: true,
+        role: true,
+        status: true,
+        schoolId: true,
+        teacherId: true,
+        powerLevel: true,
+        isPro: true,
+        proSubscriptionId: true,
+        proExpiresAt: true,
+        proType: true,
+        proStatus: true,
+        proPlan: true,
+        proPlanId: true,
+        proPlanName: true,
+        proPlanPrice: true,
+        proPlanCurrency: true,
+        proPlanInterval: true,
+        proPlanTrialPeriodDays: true,
+        proPlanIsActive: true,
+        proPlanIsTrial: true,
+        proPlanStartedAt: true,
+        proPlanEndedAt: true,
+        subscriptionPlan: true,
+        aiDailyUsage: true,
+        aiMonthlyUsage: true,
+        aiLifetimeUsage: true,
+        aiLastResetDate: true,
+        createdAt: true,
+        updatedAt: true
       }
     });
 
-    // Parse JSON fields for response
-    const profile = {
-      ...user,
-      subjects: user.subjects ? JSON.parse(user.subjects) : [],
-      officeHours: user.officeHours ? JSON.parse(user.officeHours) : [],
-      preferences: {
-        theme: 'system',
-        emailNotifications: true,
-        pushNotifications: true,
-        language: 'en',
-        timezone: 'UTC',
-      }
-    };
-
-    return NextResponse.json(profile);
+    return NextResponse.json(user);
   } catch (error) {
-    console.error('Error updating teacher profile:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    console.error("[TEACHER_PROFILE_PATCH]", error);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }

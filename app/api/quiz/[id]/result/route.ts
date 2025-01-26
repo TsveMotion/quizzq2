@@ -16,7 +16,7 @@ export async function GET(
     // Get the latest attempt for this quiz by the user
     const attempt = await prisma.aIQuizAttempt.findFirst({
       where: {
-        quizId: params.id,
+        id: params.id,
         userId: session.user.id,
       },
       orderBy: {
@@ -38,7 +38,7 @@ export async function GET(
 
     // Format the results
     const formattedResults = {
-      quizId: attempt.quizId,
+      id: attempt.id,
       score: attempt.score,
       completedAt: attempt.completedAt,
       totalQuestions: attempt.quiz.questions.length,

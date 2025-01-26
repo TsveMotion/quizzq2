@@ -1,10 +1,12 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider = "postgresql"
   url = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -18,70 +20,59 @@ enum Role {
 }
 
 model User {
-  id              String               @id @default(cuid())
-  email           String               @unique
-  password        String?              // Made optional for OAuth users
-  name            String
-  role            Role                 @default(USER)
-  powerLevel      Int                  @default(1)
-  status          String               @default("ACTIVE")
-  emailVerified   DateTime?            @map("email_verified")
-  image           String?
-  schoolId        String?
-  teacherId       String?
-  avatar          String?
-  bio             String?
-  subjects        String?
-  education       String?
-  experience      String?
-  phoneNumber     String?
-  officeHours     String?
-  
-  // Subscription fields
-  subscriptionStatus String           @default("inactive")
-  subscriptionPlan   String           @default("free")
-  subscriptionId     String?
-  subscriptionEndDate DateTime?
-  
-  // Pro subscription fields
-  isPro             Boolean            @default(false)
-  proSubscriptionId String?
-  proExpiresAt      DateTime?
-  proType           String?
-  proStatus         String?            @default("INACTIVE")
-  proPlan           String?
-  proPlanId         String?
-  proPlanName       String?
-  proPlanPrice      Float?
-  proPlanCurrency   String?
-  proPlanInterval   String?
+  id                      String    @id @default(cuid())
+  name                    String?
+  email                   String    @unique
+  email_verified          DateTime?
+  image                   String?
+  password                String?
+  role                    Role      @default(USER)
+  status                  String    @default("ACTIVE")
+  schoolId                String?
+  teacherId               String?
+  powerLevel             Int       @default(1)
+  isPro                   Boolean   @default(false)
+  proSubscriptionId      String?
+  proExpiresAt           DateTime?
+  proType                String?
+  proStatus              String?
+  proPlan                String?
+  proPlanId              String?
+  proPlanName            String?
+  proPlanPrice           Float?
+  proPlanCurrency        String?
+  proPlanInterval        String?
   proPlanTrialPeriodDays Int?
-  proPlanIsActive   Boolean            @default(false)
-  proPlanIsTrial    Boolean            @default(false)
-  proPlanStartedAt  DateTime?
-  proPlanEndedAt    DateTime?
-  
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @default(now()) @updatedAt
-  accounts        Account[]
-  assignments     Assignment[]         @relation("TeacherAssignments")
-  teachingClasses Class[]              @relation("TeacherClasses")
-  classesTeaching ClassTeacher[]
-  submissions     HomeworkSubmission[] @relation("StudentSubmissions")
-  practiceQuizzes PracticeQuiz[]
-  sessions        Session[]
-  activities      UserActivity[]
-  school          School?              @relation(fields: [schoolId], references: [id])
-  teacher         User?                @relation("TeacherToStudent", fields: [teacherId], references: [id])
-  students        User[]               @relation("TeacherToStudent")
-  enrolledClasses Class[]              @relation("StudentClasses")
-  stripeSessions  StripeSession[]
-  quizSubmissions QuizSubmission[]
-  blogPosts       BlogPost[]           // Added for blog functionality
-  likedPosts      BlogPostLike[]       // Added for blog functionality
-  quizzes         AIQuiz[]             // Added for quiz functionality
-  quizAttempts    AIQuizAttempt[]      // Added for quiz attempts
-  createdQuizzes  Quiz[]               // Added for user-created quizzes
+  proPlanIsActive        Boolean   @default(false)
+  proPlanIsTrial         Boolean   @default(false)
+  proPlanStartedAt       DateTime?
+  proPlanEndedAt         DateTime?
+  subscriptionPlan       String    @default("free")
+  aiDailyUsage          Int       @default(0)
+  aiMonthlyUsage        Int       @default(0)
+  aiLifetimeUsage       Int       @default(0)
+  aiLastResetDate       DateTime  @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now()) @updatedAt
+  accounts              Account[]
+  assignments           Assignment[]         @relation("TeacherAssignments")
+  teachingClasses       Class[]              @relation("TeacherClasses")
+  classesTeaching       ClassTeacher[]
+  submissions           HomeworkSubmission[] @relation("StudentSubmissions")
+  practiceQuizzes       PracticeQuiz[]
+  sessions              Session[]
+  activities            UserActivity[]
+  school                School?              @relation(fields: [schoolId], references: [id])
+  teacher               User?                @relation("TeacherToStudent", fields: [teacherId], references: [id])
+  students              User[]               @relation("TeacherToStudent")
+  enrolledClasses       Class[]              @relation("StudentClasses")
+  stripeSessions        StripeSession[]
+  quizSubmissions       QuizSubmission[]
+  blogPosts             BlogPost[]           // Added for blog functionality
+  likedPosts            BlogPostLike[]       // Added for blog functionality
+  quizzes               AIQuiz[]             // Added for quiz functionality
+  quizAttempts          AIQuizAttempt[]      // Added for quiz attempts
+  createdQuizzes        Quiz[]               // Added for user-created quizzes
 
   @@index([schoolId])
   @@index([teacherId])

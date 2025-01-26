@@ -1,26 +1,97 @@
 'use client';
 
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User2, Mail, BookOpen, Crown } from "lucide-react";
 import { Role } from '@prisma/client';
+import { useToast } from "@/components/ui/use-toast";
 
 export function ProfileTab() {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
-    name: session?.user?.name || '',
-    email: session?.user?.email || '',
+    name: '',
+    email: '',
   });
+
+  // Update form data when session changes
+  useEffect(() => {
+    if (session?.user) {
+      setFormData({
+        name: session.user.name || '',
+        email: session.user.email || '',
+      });
+    }
+  }, [session]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement profile update logic
-    setIsEditing(false);
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update profile');
+      }
+
+      // If email was changed, sign out to force re-authentication
+      if (formData.email !== session?.user?.email) {
+        toast({
+          title: "Success",
+          description: "Profile updated successfully. Please sign in again with your new email.",
+        });
+        await signOut({ redirect: true, callbackUrl: '/signin' });
+        return;
+      }
+
+      // Update local session
+      await updateSession();
+
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+      
+      setIsEditing(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update profile",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    // Reset form to current session data
+    if (session?.user) {
+      setFormData({
+        name: session.user.name || '',
+        email: session.user.email || '',
+      });
+    }
+  };
+
+  if (!session?.user) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -40,7 +111,7 @@ export function ProfileTab() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                disabled={!isEditing}
+                disabled={!isEditing || isLoading}
                 className="bg-[#2a2b2e]/50 border-white/10"
               />
             </div>
@@ -50,19 +121,24 @@ export function ProfileTab() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                disabled={!isEditing}
+                disabled={!isEditing || isLoading}
                 className="bg-[#2a2b2e]/50 border-white/10"
               />
             </div>
             {isEditing ? (
               <div className="flex gap-2">
-                <Button type="submit" className="bg-purple-600 hover:bg-purple-700">
-                  Save Changes
+                <Button 
+                  type="submit" 
+                  className="bg-purple-600 hover:bg-purple-700"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Saving..." : "Save Changes"}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsEditing(false)}
+                  onClick={handleCancel}
+                  disabled={isLoading}
                   className="border-white/10 hover:bg-white/5"
                 >
                   Cancel
@@ -93,22 +169,17 @@ export function ProfileTab() {
                 <span>Subscription</span>
               </div>
               <span className="text-purple-400 font-medium">
-                {session?.user?.role === Role.PROUSER ? 'Pro' : 'Free'}
+                {session.user.role === Role.PROUSER ? 'Pro' : 'Free'}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#2a2b2e]/50">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-blue-400" />
-                <span>Questions Created</span>
+                <span>Member Since</span>
               </div>
-              <span>0</span>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-[#2a2b2e]/50">
-              <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-green-400" />
-                <span>Email Verified</span>
-              </div>
-              <span>{session?.user?.email ? 'Yes' : 'No'}</span>
+              <span className="text-blue-400 font-medium">
+                {new Date(session.user.createdAt).toLocaleDateString()}
+              </span>
             </div>
           </div>
         </Card>

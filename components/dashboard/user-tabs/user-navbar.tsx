@@ -19,7 +19,6 @@ import {
   User2,
   Home,
   BookOpen,
-  History,
   Target,
   BrainCircuit
 } from "lucide-react";
@@ -47,12 +46,6 @@ const routes = [
     href: "/dashboard/user/quizzes",
     icon: BrainCircuit,
     description: "Take AI-generated quizzes"
-  },
-  {
-    title: "Study History",
-    href: "/dashboard/user/study-history",
-    icon: History,
-    description: "View your past sessions"
   },
   {
     title: "Learning Goals",

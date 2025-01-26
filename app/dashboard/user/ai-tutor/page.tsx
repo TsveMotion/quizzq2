@@ -4,21 +4,25 @@ import { Card } from "@/components/ui/card";
 import { Send, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AIUsageDisplay } from "@/components/ai-usage-display";
-import { useAIUsage } from "@/hooks/use-ai-usage";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatMessage } from "@/components/chat-message";
-
-// Temporary user plan - replace with actual user subscription data
-const USER_PLAN: 'free' | 'pro' | 'forever' = 'free';
+import { useSession } from "next-auth/react";
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
+interface AIUsage {
+  aiDailyUsage: number;
+  aiMonthlyUsage: number;
+  aiLifetimeUsage: number;
+  subscriptionPlan: string;
+}
+
 export default function AITutorPage() {
+  const { data: session } = useSession();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -26,28 +30,29 @@ export default function AITutorPage() {
       content: "Hello! I'm your AI tutor. How can I help you today?"
     }
   ]);
-  const { dailyUsage, monthlyUsage, incrementUsage } = useAIUsage();
+  const [usage, setUsage] = useState<AIUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const canUseAI = () => {
-    if (USER_PLAN === 'free' && dailyUsage >= 10) {
-      setError('You have reached your daily limit. Upgrade to Pro for more!');
-      return false;
+  // Fetch AI usage on mount and after each message
+  const fetchUsage = async () => {
+    try {
+      const response = await fetch('/api/ai/credits');
+      if (!response.ok) throw new Error('Failed to fetch usage');
+      const data = await response.json();
+      setUsage(data);
+    } catch (err) {
+      console.error('Failed to fetch AI usage:', err);
     }
-    if (USER_PLAN === 'pro' && monthlyUsage >= 1000) {
-      setError('You have reached your monthly limit. Upgrade to Forever for unlimited access!');
-      return false;
-    }
-    setError(null);
-    return true;
   };
+
+  useEffect(() => {
+    fetchUsage();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || isLoading) return;
-
-    if (!canUseAI()) return;
+    if (!message.trim() || isLoading || !session) return;
 
     try {
       setIsLoading(true);
@@ -65,17 +70,21 @@ export default function AITutorPage() {
         body: JSON.stringify({ message: userMessage.content }),
       });
 
+      const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error('Failed to get AI response');
+        setError(data.error || 'Failed to get AI response');
+        return;
       }
 
-      const data = await response.json();
       const aiResponse: Message = {
         role: 'assistant',
         content: data.content
       };
       setMessages(prev => [...prev, aiResponse]);
-      incrementUsage();
+      
+      // Refresh usage after message
+      await fetchUsage();
     } catch (err) {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -99,59 +108,40 @@ export default function AITutorPage() {
               ))}
             </div>
 
-            <div className="border-t border-white/10 p-4">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {error && (
-                  <div className="flex items-center gap-2 text-red-500 text-sm">
-                    <AlertCircle className="h-4 w-4" />
-                    <p>{error}</p>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Input 
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Type your message here..."
-                    className="flex-1 bg-white/5 border-white/10 text-white"
-                    disabled={isLoading}
-                  />
-                  <Button 
-                    type="submit" 
-                    className={cn(
-                      "bg-blue-500 hover:bg-blue-600",
-                      (isLoading || !message.trim() || error) && "opacity-50 cursor-not-allowed"
-                    )}
-                    disabled={isLoading || !message.trim() || !!error}
-                  >
-                    <Send className={cn(
-                      "h-4 w-4",
-                      isLoading && "animate-pulse"
-                    )} />
-                  </Button>
-                </div>
-                <AIUsageDisplay plan={USER_PLAN} used={10} />
-              </form>
-            </div>
+            {error && (
+              <div className="flex items-center gap-2 p-2 text-red-500 bg-red-500/10 rounded">
+                <AlertCircle className="w-4 h-4" />
+                <p className="text-sm">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="p-4 flex gap-2">
+              <Input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-1"
+                disabled={isLoading}
+              />
+              <Button type="submit" disabled={isLoading}>
+                <Send className="w-4 h-4" />
+              </Button>
+            </form>
           </div>
         </Card>
 
         <Card className="p-4 bg-white/5 border-white/10">
-          <h3 className="font-semibold text-white mb-4">Subscription Plans</h3>
-          <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-              <h4 className="font-medium text-white">Free Plan</h4>
-              <p className="text-sm text-white/70 mt-1">10 uses per day</p>
+          <h2 className="font-semibold mb-4">AI Usage</h2>
+          {usage && (
+            <div className="space-y-2">
+              <p>Daily: {usage.aiDailyUsage}/10</p>
+              <p>Monthly: {usage.aiMonthlyUsage}/1000</p>
+              <p>Total: {usage.aiLifetimeUsage}</p>
+              <p className="text-sm text-white/70">
+                Plan: {usage.subscriptionPlan}
+              </p>
             </div>
-            <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-              <h4 className="font-medium text-white">Pro Plan</h4>
-              <p className="text-sm text-white/70 mt-1">1,000 uses per month</p>
-            </div>
-            <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-              <h4 className="font-medium text-white">Forever Plan</h4>
-              <p className="text-sm text-white/70 mt-1">10,000 lifetime prompts</p>
-              <p className="text-sm text-white/70">£69.99 one-time</p>
-            </div>
-          </div>
+          )}
         </Card>
       </div>
     </div>

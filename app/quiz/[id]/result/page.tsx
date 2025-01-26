@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { XCircle } from 'lucide-react';
 
 interface QuizResult {
-  quizId: string;
+  id: string;
   score: number;
   completedAt: string;
   totalQuestions: number;
@@ -22,8 +22,7 @@ interface QuizResult {
   }[];
 }
 
-export default function QuizResultPage() {
-  const params = useParams();
+export default function QuizResultPage({ params }: { params: { id: string } }) {
   const [result, setResult] = useState<QuizResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

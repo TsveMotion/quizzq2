@@ -47,7 +47,7 @@ export async function POST(
     // Create quiz attempt with nested answers
     const attempt = await prisma.aIQuizAttempt.create({
       data: {
-        quizId: quiz.id,
+        id: quiz.id,
         userId: session.user.id,
         score,
         answers: {

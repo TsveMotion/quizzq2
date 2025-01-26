@@ -75,7 +75,9 @@ export default function QuizzesPage() {
 
   const fetchQuizzes = async () => {
     try {
-      const response = await fetch('/api/quizzes');
+      const response = await fetch('/api/quizzes', {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch quizzes');
       }
@@ -94,7 +96,9 @@ export default function QuizzesPage() {
 
   const fetchAttempts = async () => {
     try {
-      const response = await fetch('/api/quiz-attempts');
+      const response = await fetch('/api/quiz-attempts', {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch attempts');
       }
@@ -123,6 +127,7 @@ export default function QuizzesPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           subject: selectedSubject,
           difficulty: selectedDifficulty,
@@ -255,42 +260,32 @@ export default function QuizzesPage() {
           <span>{generatingQuiz ? 'Generating Quiz...' : 'Generate New Quiz'}</span>
         </Button>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {quizzes && quizzes.map((quiz) => {
-            const quizAttempts = attempts.filter((a) => a.quizId === quiz.id);
-            const bestScore = Math.max(...quizAttempts.map((a) => a.score || 0), 0);
-            
-            return (
-              <Card key={quiz.id} className="bg-white/5 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-white">{quiz.title}</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Topic: {quiz.topic}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm text-gray-300">
-                    <span>{quiz.questions?.length || 0} Questions</span>
-                    <span>{quizAttempts.length} Attempts</span>
-                  </div>
-                  {bestScore > 0 && (
-                    <div className="mt-4 flex items-center space-x-2 text-yellow-500">
-                      <Trophy className="w-5 h-5" />
-                      <span>Best Score: {bestScore}%</span>
-                    </div>
-                  )}
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    onClick={() => window.location.href = `/quiz/${quiz.id}`}
-                  >
-                    Start Quiz
-                  </Button>
-                </CardFooter>
-              </Card>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+          {quizzes.map((quiz) => (
+            <Card key={quiz.id} className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-lg">{quiz.title}</CardTitle>
+                <CardDescription>
+                  Topic: {quiz.topic}
+                  <br />
+                  Difficulty: {quiz.difficulty}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">
+                  {quiz.questions.length} questions
+                </p>
+              </CardContent>
+              <CardFooter className="mt-auto">
+                <Button
+                  className="w-full"
+                  onClick={() => router.push(`/dashboard/user/quiz/${quiz.id}`)}
+                >
+                  Take Quiz
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
         </div>
       </div>
     </div>

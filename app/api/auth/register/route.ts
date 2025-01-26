@@ -43,8 +43,12 @@ export async function POST(req: Request) {
         email,
         name,
         password: hashedPassword,
-        role: 'USER', // Changed from "FREE" to "USER"
+        role: 'USER',
         status: 'ACTIVE',
+        aiDailyUsage: 0,
+        aiMonthlyUsage: 0,
+        aiLifetimeUsage: 0,
+        aiLastResetDate: new Date(),
       },
       select: {
         id: true,

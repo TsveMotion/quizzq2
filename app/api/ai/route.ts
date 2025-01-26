@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -7,7 +10,31 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { message } = await req.json();
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check usage limits based on subscription
+    if (user.subscriptionPlan === 'free' && user.aiDailyUsage >= 10) {
+      return NextResponse.json({ 
+        error: 'Daily limit reached. Upgrade to Pro for more!' 
+      }, { status: 403 });
+    }
+    if (user.subscriptionPlan === 'pro' && user.aiMonthlyUsage >= 1000) {
+      return NextResponse.json({ 
+        error: 'Monthly limit reached. Upgrade to Forever for unlimited access!' 
+      }, { status: 403 });
+    }
 
     // Special handling for creator inquiry
     if (message.toLowerCase().includes('who made you') || 
@@ -28,6 +55,17 @@ export async function POST(req: Request) {
       }],
       temperature: 0.7,
       max_tokens: 500
+    });
+
+    // Update usage
+    await prisma.user.update({
+      where: { email: session.user.email },
+      data: {
+        aiDailyUsage: user.aiDailyUsage + 1,
+        aiMonthlyUsage: user.aiMonthlyUsage + 1,
+        aiLifetimeUsage: user.aiLifetimeUsage + 1,
+        aiLastResetDate: new Date()
+      }
     });
 
     return NextResponse.json({

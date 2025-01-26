@@ -149,3 +149,17 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .animate-gradient {
+    background: linear-gradient(to right, theme(colors.red.500), theme(colors.orange.500), theme(colors.yellow.500), theme(colors.orange.500), theme(colors.red.500));
+    background-size: 200% auto;
+    animation: gradient 4s linear infinite;
+  }
+
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+}

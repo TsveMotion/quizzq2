@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth-config';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
@@ -19,17 +19,10 @@ export async function GET() {
         role: true,
         powerLevel: true,
         status: true,
-        emailVerified: true,
+        email_verified: true,
         image: true,
         schoolId: true,
         teacherId: true,
-        avatar: true,
-        bio: true,
-        subjects: true,
-        education: true,
-        experience: true,
-        phoneNumber: true,
-        officeHours: true,
         isPro: true,
         proSubscriptionId: true,
         proExpiresAt: true,
@@ -63,38 +56,38 @@ export async function PUT(request: Request) {
     }
 
     const data = await request.json();
-    const { name, bio, avatar, subjects, education, experience, phoneNumber, officeHours } = data;
+    const { name, email } = data;
 
+    // Verify email is not already taken if it's being changed
+    if (email && email !== session.user.email) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email }
+      });
+      if (existingUser) {
+        return NextResponse.json(
+          { error: 'Email already taken' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Update user
     const user = await prisma.user.update({
       where: { email: session.user.email },
       data: {
-        name,
-        bio,
-        avatar,
-        subjects,
-        education,
-        experience,
-        phoneNumber,
-        officeHours
+        ...(name && { name }),
+        ...(email && { email }),
+        ...(email && { email_verified: null }) // Reset email verification if email is changed
       },
       select: {
         id: true,
-        email: true,
         name: true,
+        email: true,
         role: true,
-        powerLevel: true,
         status: true,
-        emailVerified: true,
+        email_verified: true,
         image: true,
-        schoolId: true,
-        teacherId: true,
-        avatar: true,
-        bio: true,
-        subjects: true,
-        education: true,
-        experience: true,
-        phoneNumber: true,
-        officeHours: true,
+        powerLevel: true,
         isPro: true,
         proSubscriptionId: true,
         proExpiresAt: true,
@@ -106,6 +99,7 @@ export async function PUT(request: Request) {
       }
     });
 
+    // Return updated user data
     return NextResponse.json(user);
   } catch (error) {
     console.error('Error updating user profile:', error);
